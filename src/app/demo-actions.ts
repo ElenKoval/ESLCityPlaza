@@ -2,7 +2,11 @@
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { DEMO_COOKIE, demoKeyMatches } from "@/lib/demo";
+import {
+  DEMO_COOKIE,
+  DEMO_MEMBERS_COOKIE,
+  demoKeyMatches,
+} from "@/lib/demo";
 
 export type DemoState = { error?: string } | null;
 
@@ -28,6 +32,18 @@ export async function enterDemo(
 
 export async function exitDemo() {
   const jar = await cookies();
-  jar.delete(DEMO_COOKIE);
+  // Must match path used when setting, or the cookie stays
+  jar.set(DEMO_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  jar.set(DEMO_MEMBERS_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
   redirect("/");
 }
