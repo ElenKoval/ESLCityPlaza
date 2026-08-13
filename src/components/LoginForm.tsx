@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import Link from "next/link";
 import { signIn, type ActionState } from "@/app/actions";
 
-export function LoginForm({ next = "/classes" }: { next?: string }) {
+export function LoginForm({ next = "/" }: { next?: string }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(
     signIn,
     null,
@@ -14,8 +14,14 @@ export function LoginForm({ next = "/classes" }: { next?: string }) {
     <form action={action} className="panel form-grid">
       <input type="hidden" name="next" value={next} />
       <label>
-        Email
-        <input name="email" type="email" autoComplete="email" required />
+        Email or display name
+        <input
+          name="login"
+          type="text"
+          autoComplete="username"
+          required
+          placeholder="Sunny or you@email.com"
+        />
       </label>
       <label>
         Password

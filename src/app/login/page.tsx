@@ -9,7 +9,7 @@ export default async function LoginPage({
   return (
     <div className="auth-shell">
       <h1>Log in</h1>
-      <p className="sub">For ESL Citi Plaza members</p>
+      <p className="sub">Email or display name + password</p>
       <LoginForm next={params.next || "/"} />
     </div>
   );

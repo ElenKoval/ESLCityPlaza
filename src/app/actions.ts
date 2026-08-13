@@ -25,26 +25,74 @@ import type { RequestedRole, Role } from "@/lib/types";
 
 export type ActionState = { error?: string; success?: string } | null;
 
+function looksLikeEmail(value: string) {
+  return value.includes("@");
+}
+
+async function resolveLoginEmail(login: string): Promise<
+  { email: string } | { error: string }
+> {
+  const trimmed = login.trim();
+  if (!trimmed) return { error: "Enter email or display name" };
+  if (looksLikeEmail(trimmed)) {
+    return { email: trimmed.toLowerCase() };
+  }
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !serviceKey) {
+    return { error: "Display name login needs SUPABASE_SERVICE_ROLE_KEY" };
+  }
+
+  const admin = createServiceClient(url, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data: matches, error } = await admin
+    .from("profiles")
+    .select("id, display_name")
+    .ilike("display_name", trimmed);
+
+  if (error) return { error: error.message };
+  if (!matches?.length) {
+    return { error: "No account with that display name" };
+  }
+  if (matches.length > 1) {
+    return { error: "Several people share that name — use your email" };
+  }
+
+  const { data: userData, error: userError } =
+    await admin.auth.admin.getUserById(matches[0].id);
+  if (userError || !userData.user?.email) {
+    return { error: "Could not find login email for that name" };
+  }
+
+  return { email: userData.user.email };
+}
+
 export async function signIn(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const login = String(formData.get("login") || formData.get("email") || "").trim();
   const password = String(formData.get("password") || "");
   const next = String(formData.get("next") || "/");
 
-  if (!email || !password) {
-    return { error: "Enter email and password" };
+  if (!login || !password) {
+    return { error: "Enter email or display name, and password" };
   }
 
   if (useLocalDemo()) {
     const members = await getDemoMembers();
+    const key = login.toLowerCase();
     const match = members.find(
       (m) =>
-        m.email?.toLowerCase() === email && m.password === password,
+        m.password === password &&
+        (m.email?.toLowerCase() === key ||
+          m.display_name.toLowerCase() === key),
     );
     if (!match) {
-      return { error: "Invalid email or password" };
+      return { error: "Invalid login or password" };
     }
     await setDemoSession(match.id);
     if (match.status !== "approved") {
@@ -53,8 +101,14 @@ export async function signIn(
     redirect(next.startsWith("/") ? next : "/");
   }
 
+  const resolved = await resolveLoginEmail(login);
+  if ("error" in resolved) return { error: resolved.error };
+
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabase.auth.signInWithPassword({
+    email: resolved.email,
+    password,
+  });
   if (error) return { error: error.message };
 
   redirect(next.startsWith("/") ? next : "/");
