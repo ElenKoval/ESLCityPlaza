@@ -11,6 +11,11 @@ import {
   saveDemoMembers,
   useLocalDemo,
 } from "@/lib/demo";
+import {
+  buildDemoClasses,
+  getDemoEnrollmentIds,
+  saveDemoEnrollmentIds,
+} from "@/lib/demo-classes";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import type { RequestedRole, Role } from "@/lib/types";
 
@@ -279,6 +284,24 @@ export async function enrollClass(
   const classId = String(formData.get("class_id") || "");
   if (!classId) return { error: "Missing class" };
 
+  if (useLocalDemo() || (await hasDemoSession())) {
+    if (!(await hasDemoSession())) return { error: "Please log in" };
+    const classRow = buildDemoClasses().find((c) => c.id === classId);
+    if (!classRow) return { error: "Class not found" };
+    if (!canEnrollNow(classRow.starts_at)) {
+      return {
+        error: "Sign-up opens only within 2 weeks before the class",
+      };
+    }
+    const ids = await getDemoEnrollmentIds();
+    if (ids.includes(classId)) return { error: "You are already signed up" };
+    await saveDemoEnrollmentIds([...ids, classId]);
+    revalidatePath("/");
+    revalidatePath("/my");
+    revalidatePath("/classes");
+    return { success: "You are signed up" };
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -322,6 +345,7 @@ export async function enrollClass(
 
   revalidatePath("/classes");
   revalidatePath("/my");
+  revalidatePath("/");
   return { success: "You are signed up" };
 }
 
@@ -331,6 +355,16 @@ export async function unenrollClass(
 ): Promise<ActionState> {
   const classId = String(formData.get("class_id") || "");
   if (!classId) return { error: "Missing class" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    if (!(await hasDemoSession())) return { error: "Please log in" };
+    const ids = await getDemoEnrollmentIds();
+    await saveDemoEnrollmentIds(ids.filter((id) => id !== classId));
+    revalidatePath("/");
+    revalidatePath("/my");
+    revalidatePath("/classes");
+    return { success: "Sign-up canceled" };
+  }
 
   const supabase = await createClient();
   const {
@@ -347,5 +381,6 @@ export async function unenrollClass(
   if (error) return { error: error.message };
   revalidatePath("/classes");
   revalidatePath("/my");
+  revalidatePath("/");
   return { success: "Sign-up canceled" };
 }

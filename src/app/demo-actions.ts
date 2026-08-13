@@ -7,6 +7,7 @@ import {
   DEMO_MEMBERS_COOKIE,
   demoKeyMatches,
 } from "@/lib/demo";
+import { DEMO_ENROLLMENTS_COOKIE } from "@/lib/demo-classes";
 
 export type DemoState = { error?: string } | null;
 
@@ -40,6 +41,12 @@ export async function exitDemo() {
     maxAge: 0,
   });
   jar.set(DEMO_MEMBERS_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+  jar.set(DEMO_ENROLLMENTS_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
     path: "/",

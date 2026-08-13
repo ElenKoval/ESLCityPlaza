@@ -2,11 +2,8 @@ import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ClassList } from "@/components/ClassList";
 import { useLocalDemo } from "@/lib/demo";
+import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import type { ClassRow } from "@/lib/types";
-
-function demoMyLessons(): ClassRow[] {
-  return [];
-}
 
 export default async function MyLessonsPage() {
   const { userId } = await requireApproved();
@@ -14,7 +11,12 @@ export default async function MyLessonsPage() {
   let items: ClassRow[] = [];
 
   if (useLocalDemo()) {
-    items = demoMyLessons();
+    items = (await getDemoClassesWithEnrollments())
+      .filter((c) => c.enrolled)
+      .sort(
+        (a, b) =>
+          new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+      );
   } else {
     const supabase = await createClient();
     const { data: enrollments } = await supabase

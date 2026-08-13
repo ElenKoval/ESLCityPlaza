@@ -3,53 +3,15 @@ import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { getDemoProfile, useLocalDemo } from "@/lib/demo";
+import { useLocalDemo } from "@/lib/demo";
+import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import type { ClassRow } from "@/lib/types";
 
 const HERO_PHOTOS = ["/hero-1.jpeg", "/hero-2.jpeg"] as const;
 
-function nextWeekday(from: Date, weekday: number, hour = 18, minute = 0) {
-  const d = new Date(from);
-  d.setHours(hour, minute, 0, 0);
-  const delta = (weekday - d.getDay() + 7) % 7;
-  d.setDate(d.getDate() + delta);
-  if (d.getTime() < from.getTime() - 60 * 60 * 1000) {
-    d.setDate(d.getDate() + 7);
-  }
-  return d;
-}
-
-function demoClasses(): ClassRow[] {
-  const now = new Date();
-  return [
-    {
-      id: "demo-mon",
-      title: "Conversation Circle",
-      description: "Casual English practice at the plaza",
-      starts_at: nextWeekday(now, 1, 18, 0).toISOString(),
-      capacity: 15,
-      created_by: getDemoProfile().id,
-      created_at: now.toISOString(),
-      enrollment_count: 3,
-      enrolled: false,
-    },
-    {
-      id: "demo-fri",
-      title: "Friday Session",
-      description: "1:00 PM – 3:00 PM practice with the group",
-      starts_at: nextWeekday(now, 5, 13, 0).toISOString(),
-      capacity: 15,
-      created_by: getDemoProfile().id,
-      created_at: now.toISOString(),
-      enrollment_count: 2,
-      enrolled: false,
-    },
-  ];
-}
-
 async function loadClasses(userId: string | null, canEnroll: boolean) {
   if (useLocalDemo()) {
-    return demoClasses();
+    return getDemoClassesWithEnrollments();
   }
 
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
