@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { canEnrollNow, CLASS_CAPACITY } from "@/lib/enrollment";
 import {
@@ -97,10 +98,17 @@ export async function signUp(
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({
+  const headersList = await headers();
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    headersList.get("origin") ||
+    "http://localhost:3000";
+
+  const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      emailRedirectTo: `${origin}/auth/callback?next=/pending`,
       data: {
         display_name: displayName,
         requested_role: requestedRole,
@@ -109,6 +117,14 @@ export async function signUp(
   });
 
   if (error) return { error: error.message };
+
+  // Confirm-email enabled → no session until they click the link
+  if (!data.session) {
+    return {
+      success:
+        "Application received. Confirm your email (if required), then log in.",
+    };
+  }
 
   redirect("/pending");
 }

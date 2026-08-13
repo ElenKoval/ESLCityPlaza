@@ -3,14 +3,15 @@ import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { hasDemoSession, useLocalDemo } from "@/lib/demo";
+import { isDemoModeEnabled, useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import type { ClassRow } from "@/lib/types";
 
 const HERO_PHOTOS = ["/hero-1.jpeg", "/hero-2.jpeg"] as const;
 
 async function loadClasses(userId: string | null, canEnroll: boolean) {
-  if (useLocalDemo() || (await hasDemoSession())) {
+  // Pure local demo (no Supabase env)
+  if (useLocalDemo()) {
     return getDemoClassesWithEnrollments();
   }
 
@@ -62,7 +63,8 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
 
 export default async function HomePage() {
   const { profile, userId } = await getProfile();
-  const demoMode = useLocalDemo() || (await hasDemoSession());
+  const demoMode = useLocalDemo();
+  const showPrivateEnter = isDemoModeEnabled() && useLocalDemo();
 
   const access =
     !profile
@@ -87,15 +89,17 @@ export default async function HomePage() {
           </p>
           {access === "guest" && (
             <div className="hero-stage__actions">
-              <Link href="/enter" className="btn-primary" prefetch>
-                Enter (private)
-              </Link>
-              <Link href="/register" className="btn-secondary" prefetch>
+              <Link href="/register" className="btn-primary" prefetch>
                 Apply to join
               </Link>
               <Link href="/login" className="btn-secondary" prefetch>
                 Log in
               </Link>
+              {showPrivateEnter && (
+                <Link href="/enter" className="btn-secondary" prefetch>
+                  Enter (private)
+                </Link>
+              )}
             </div>
           )}
           {access === "pending" && (

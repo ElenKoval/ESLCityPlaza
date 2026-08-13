@@ -30,27 +30,32 @@ export const getProfile = cache(async (): Promise<{
   profile: Profile | null;
   userId: string | null;
 }> => {
-  if (isDemoModeEnabled()) {
+  // Local demo only (no Supabase keys)
+  if (useLocalDemo()) {
     const profile = await getDemoSessionProfile();
-    if (profile) {
-      return { profile, userId: profile.id };
-    }
-    // Demo key mode without a session falls through (guest)
-    if (useLocalDemo()) {
-      return { profile: null, userId: null };
-    }
+    return profile
+      ? { profile, userId: profile.id }
+      : { profile: null, userId: null };
   }
 
   const { supabase, user } = await getSessionUser();
-  if (!supabase || !user) return { profile: null, userId: null };
+  if (supabase && user) {
+    const { data } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .maybeSingle();
 
-  const { data } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
+    return { profile: (data as Profile | null) ?? null, userId: user.id };
+  }
 
-  return { profile: (data as Profile | null) ?? null, userId: user.id };
+  // Optional Tech key fallback when Supabase is configured but unused
+  if (isDemoModeEnabled()) {
+    const profile = await getDemoSessionProfile();
+    if (profile) return { profile, userId: profile.id };
+  }
+
+  return { profile: null, userId: null };
 });
 
 export async function requireUser() {
@@ -69,14 +74,14 @@ export async function requireApproved() {
 
 export async function requireTech() {
   const { profile, userId } = await requireApproved();
-  if (profile.role !== "tech") redirect("/classes");
+  if (profile.role !== "tech") redirect("/");
   return { profile, userId };
 }
 
 export async function requireStaff() {
   const { profile, userId } = await requireApproved();
   if (profile.role !== "teacher" && profile.role !== "tech") {
-    redirect("/classes");
+    redirect("/");
   }
   return { profile, userId };
 }

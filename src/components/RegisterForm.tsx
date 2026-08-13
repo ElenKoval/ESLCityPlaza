@@ -38,6 +38,7 @@ export function RegisterForm() {
         </select>
       </label>
       {state?.error && <p className="error">{state.error}</p>}
+      {state?.success && <p className="success">{state.success}</p>}
       <button className="btn-primary" type="submit" disabled={pending}>
         {pending ? "Submitting…" : "Submit application"}
       </button>

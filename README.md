@@ -22,15 +22,19 @@ Also works: `hero.jpeg`, `hero.png`, or `hero.webp`. Refresh the homepage after 
 
 ### 1. Supabase
 
-1. Create a project at [supabase.com](https://supabase.com)
-2. SQL Editor → run [`supabase/schema.sql`](supabase/schema.sql)
-3. Authentication → Email enabled (you can disable Confirm email for testing)
-4. Settings → API: copy Project URL and `anon` key
+1. Create a free project at [supabase.com](https://supabase.com) (wait until it finishes provisioning).
+2. **SQL Editor** → New query → paste all of [`supabase/schema.sql`](supabase/schema.sql) → Run.
+3. **Authentication → Providers → Email**: enable Email. For easy testing, turn **off** “Confirm email”.
+4. **Authentication → URL configuration**:
+   - Site URL: your Render URL, e.g. `https://esl-citi-plaza.onrender.com`
+   - Redirect URLs: `https://esl-citi-plaza.onrender.com/auth/callback` and `http://localhost:3000/auth/callback`
+5. **Project Settings → API**: copy **Project URL**, **anon public** key, and **service_role** key (keep service_role secret).
 
 ### 2. Local
 
 ```bash
 cp .env.local.example .env.local
+# fill in NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 npm install
 npm run dev
 ```
@@ -39,16 +43,25 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### 3. Make yourself Tech
 
+Register once on the site, then in Supabase SQL Editor:
+
 ```sql
 update public.profiles
 set role = 'tech',
     status = 'approved',
     reviewed_at = now()
-where id = 'YOUR-USER-UUID';
+where id = (
+  select id from auth.users where email = 'you@example.com'
+);
 ```
 
 ### 4. Deploy on Render
 
-See [`render.yaml`](render.yaml). Set env vars `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY`, then deploy.
+Set these env vars on the web service (Blueprint lists them as `sync: false` so you fill them in the dashboard):
 
-In Supabase Auth URL config use your `https://….onrender.com` Site URL.
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SITE_URL` = your `https://….onrender.com`
+
+Redeploy after saving. Registration and approvals then use real Supabase Auth + Postgres (demo cookie mode turns off automatically once URL + anon key are set).

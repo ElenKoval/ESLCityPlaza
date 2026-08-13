@@ -152,46 +152,81 @@ create policy "profiles_update_authenticated"
   using (id = auth.uid() or public.has_role(array['tech']))
   with check (id = auth.uid() or public.has_role(array['tech']));
 
--- classes
+-- classes: approved members can read; staff can write
+drop policy if exists "classes_select_approved" on public.classes;
 create policy "classes_select_approved"
   on public.classes for select to authenticated
   using (public.is_approved());
 
+drop policy if exists "classes_write_staff" on public.classes;
 create policy "classes_write_staff"
   on public.classes for all to authenticated
   using (public.has_role(array['teacher', 'tech']))
   with check (public.has_role(array['teacher', 'tech']));
 
 -- enrollments
+drop policy if exists "enrollments_select_approved" on public.enrollments;
 create policy "enrollments_select_approved"
   on public.enrollments for select to authenticated
   using (public.is_approved());
 
+drop policy if exists "enrollments_insert_own" on public.enrollments;
 create policy "enrollments_insert_own"
   on public.enrollments for insert to authenticated
   with check (user_id = auth.uid() and public.is_approved());
 
+drop policy if exists "enrollments_delete_own" on public.enrollments;
 create policy "enrollments_delete_own"
   on public.enrollments for delete to authenticated
   using (user_id = auth.uid() and public.is_approved());
 
+drop policy if exists "enrollments_delete_staff" on public.enrollments;
 create policy "enrollments_delete_staff"
   on public.enrollments for delete to authenticated
   using (public.has_role(array['teacher', 'tech']));
 
 -- messages
+drop policy if exists "messages_select_approved" on public.messages;
 create policy "messages_select_approved"
   on public.messages for select to authenticated
   using (public.is_approved());
 
+drop policy if exists "messages_insert_own" on public.messages;
 create policy "messages_insert_own"
   on public.messages for insert to authenticated
   with check (user_id = auth.uid() and public.is_approved());
 
--- Realtime
-alter publication supabase_realtime add table public.messages;
+-- Realtime (safe if already added)
+do $$
+begin
+  alter publication supabase_realtime add table public.messages;
+exception
+  when duplicate_object then null;
+end $$;
 
--- After first login as yourself, promote to tech:
+-- Seed upcoming Mon/Fri sessions (1:00–3:00 PM America/Los_Angeles) for ~6 weeks
+insert into public.classes (title, description, starts_at, capacity)
+select
+  case when extract(dow from d) = 1 then 'Monday Session' else 'Friday Session' end,
+  '1:00 PM – 3:00 PM practice with the group',
+  ((d + time '13:00') at time zone 'America/Los_Angeles'),
+  15
+from generate_series(
+  current_date,
+  (current_date + interval '42 days')::date,
+  interval '1 day'
+) as g(d)
+where extract(dow from d) in (1, 5)
+  and ((d + time '13:00') at time zone 'America/Los_Angeles') > now()
+  and not exists (
+    select 1
+    from public.classes c
+    where c.starts_at = ((d + time '13:00') at time zone 'America/Los_Angeles')
+  );
+
+-- After you register once, promote yourself to Tech (replace the email):
 -- update public.profiles
 -- set role = 'tech', status = 'approved', reviewed_at = now()
--- where id = '<your-user-uuid>';
+-- where id = (
+--   select id from auth.users where email = 'you@example.com'
+-- );
