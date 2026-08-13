@@ -288,7 +288,7 @@ export async function enrollClass(
     if (!(await hasDemoSession())) return { error: "Please log in" };
     const classRow = buildDemoClasses().find((c) => c.id === classId);
     if (!classRow) return { error: "Class not found" };
-    if (!canEnrollNow(classRow.starts_at)) {
+    if (!canEnrollNow(classRow.starts_at) && !useLocalDemo()) {
       return {
         error: "Sign-up opens only within 2 weeks before the class",
       };

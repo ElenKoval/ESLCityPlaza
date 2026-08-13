@@ -1,16 +1,18 @@
 import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ClassList } from "@/components/ClassList";
-import { useLocalDemo } from "@/lib/demo";
+import { DemoMyLessons } from "@/components/DemoMyLessons";
+import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import type { ClassRow } from "@/lib/types";
 
 export default async function MyLessonsPage() {
   const { userId } = await requireApproved();
+  const demoMode = useLocalDemo() || (await hasDemoSession());
 
   let items: ClassRow[] = [];
 
-  if (useLocalDemo()) {
+  if (demoMode) {
     items = (await getDemoClassesWithEnrollments())
       .filter((c) => c.enrolled)
       .sort(
@@ -43,13 +45,16 @@ export default async function MyLessonsPage() {
       <section className="section">
         <h2>My lessons</h2>
         <p className="lead">
-          Dates you signed up for. Sign up from the home page calendar — open
-          only within 2 weeks before each class (max 15 people).
+          Dates you signed up for. Sign up from the home page calendar.
         </p>
-        <ClassList
-          items={items}
-          emptyText="You have no lessons yet. Pick a Monday or Friday on the home calendar."
-        />
+        {demoMode ? (
+          <DemoMyLessons initial={items} />
+        ) : (
+          <ClassList
+            items={items}
+            emptyText="You have no lessons yet. Pick a Monday or Friday on the home calendar."
+          />
+        )}
       </section>
     </div>
   );

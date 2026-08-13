@@ -3,14 +3,14 @@ import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { useLocalDemo } from "@/lib/demo";
+import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import type { ClassRow } from "@/lib/types";
 
 const HERO_PHOTOS = ["/hero-1.jpeg", "/hero-2.jpeg"] as const;
 
 async function loadClasses(userId: string | null, canEnroll: boolean) {
-  if (useLocalDemo()) {
+  if (useLocalDemo() || (await hasDemoSession())) {
     return getDemoClassesWithEnrollments();
   }
 
@@ -62,6 +62,7 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
 
 export default async function HomePage() {
   const { profile, userId } = await getProfile();
+  const demoMode = useLocalDemo() || (await hasDemoSession());
 
   const access =
     !profile
@@ -113,7 +114,11 @@ export default async function HomePage() {
           )}
         </div>
 
-        <HomeCalendar classes={classes} access={access} />
+        <HomeCalendar
+          classes={classes}
+          access={access}
+          demoMode={demoMode}
+        />
         <HomeChatCard
           access={access}
           userId={userId}
