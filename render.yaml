@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: esl-citi-plaza
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DEMO_ACCESS_KEY
+        value: plaza-elena

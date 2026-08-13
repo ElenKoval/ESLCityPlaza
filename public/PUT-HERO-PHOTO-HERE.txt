@@ -1,0 +1,6 @@
+Hero photos go in this folder as:
+
+  hero-1.jpeg
+  hero-2.jpeg
+
+They show side by side under the title. On phones they stack.
