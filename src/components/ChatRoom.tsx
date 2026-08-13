@@ -248,7 +248,9 @@ export function ChatRoom({
       <header className="chat-app__header">
         <div>
           <h2 className="chat-app__title">Community chat</h2>
-          <p className="chat-app__sub">Everyone in ESL Citi Plaza</p>
+          <p className="chat-app__sub">
+            Say hello, ask a question, or share something with the group!
+          </p>
         </div>
         <div className="chat-app__online" title="People currently in chat">
           <span className="home-chat__dot" aria-hidden="true" />
