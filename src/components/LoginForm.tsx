@@ -11,16 +11,17 @@ export function LoginForm({ next = "/" }: { next?: string }) {
   );
 
   return (
-    <form action={action} className="panel form-grid">
+    <form action={action} className="panel form-grid" noValidate>
       <input type="hidden" name="next" value={next} />
       <label>
-        Email or display name
+        Email or nickname
         <input
           name="login"
           type="text"
+          inputMode="text"
           autoComplete="username"
           required
-          placeholder="Sunny or you@email.com"
+          placeholder="Sunny"
         />
       </label>
       <label>
