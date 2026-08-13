@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Figtree, Fraunces } from "next/font/google";
 import { SiteHeader } from "@/components/SiteHeader";
+import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -28,6 +29,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col antialiased">
         <SiteHeader />
         <main className="flex-1">{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

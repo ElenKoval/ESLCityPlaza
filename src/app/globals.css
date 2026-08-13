@@ -146,6 +146,49 @@ textarea {
   color: var(--ink-soft);
 }
 
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid var(--line);
+  background: rgba(255, 248, 241, 0.72);
+}
+
+.site-footer__inner {
+  width: min(1100px, calc(100% - 2rem));
+  margin: 0 auto;
+  padding: 1.1rem 0 1.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.55rem;
+  color: var(--ink-soft);
+  font-size: 0.9rem;
+}
+
+.site-footer__contact {
+  color: var(--plaza-deep);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.site-footer__contact:hover {
+  color: var(--plaza);
+}
+
+.site-footer__sep {
+  opacity: 0.5;
+}
+
+.site-footer__credit {
+  margin: 0;
+}
+
+.site-footer__credit strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
 .page {
   width: min(1100px, calc(100% - 2rem));
   margin: 0 auto;
