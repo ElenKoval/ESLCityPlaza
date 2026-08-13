@@ -34,10 +34,10 @@ function demoClasses(): ClassRow[] {
       enrolled: false,
     },
     {
-      id: "demo-wed",
-      title: "Wednesday Session",
+      id: "demo-fri",
+      title: "Friday Session",
       description: "1:00 PM – 3:00 PM practice with the group",
-      starts_at: nextWeekday(now, 3, 13, 0).toISOString(),
+      starts_at: nextWeekday(now, 5, 13, 0).toISOString(),
       capacity: 15,
       created_by: getDemoProfile().id,
       created_at: now.toISOString(),

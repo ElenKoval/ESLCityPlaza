@@ -192,8 +192,8 @@ export function HomeCalendar({
       </div>
 
       <p className="home-cal__note">
-        Classes meet on Mondays and Wednesdays (Wed 1:00–3:00 PM). Sign-up opens
-        2 weeks before · max 15 people.
+        Classes meet on Mondays and Fridays (Fri 1:00–3:00 PM). Sign-up opens 2
+        weeks before · max 15 people.
       </p>
 
       <div className="home-cal__detail">

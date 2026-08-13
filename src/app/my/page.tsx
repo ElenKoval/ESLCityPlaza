@@ -46,7 +46,7 @@ export default async function MyLessonsPage() {
         </p>
         <ClassList
           items={items}
-          emptyText="You have no lessons yet. Pick a Monday or Wednesday on the home calendar."
+          emptyText="You have no lessons yet. Pick a Monday or Friday on the home calendar."
         />
       </section>
     </div>

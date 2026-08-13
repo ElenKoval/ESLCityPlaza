@@ -232,8 +232,8 @@ export async function createClass(
 
   const when = new Date(startsAt);
   const dow = when.getDay();
-  if (dow !== 1 && dow !== 3) {
-    return { error: "Classes can only be scheduled on Monday or Wednesday" };
+  if (dow !== 1 && dow !== 5) {
+    return { error: "Classes can only be scheduled on Monday or Friday" };
   }
 
   const supabase = await createClient();
