@@ -8,9 +8,9 @@ import type { ClassRow } from "@/lib/types";
 
 const HERO_PHOTOS = ["/hero-1.jpeg", "/hero-2.jpeg"] as const;
 
-function nextWeekday(from: Date, weekday: number) {
+function nextWeekday(from: Date, weekday: number, hour = 18, minute = 0) {
   const d = new Date(from);
-  d.setHours(18, 0, 0, 0);
+  d.setHours(hour, minute, 0, 0);
   const delta = (weekday - d.getDay() + 7) % 7;
   d.setDate(d.getDate() + delta);
   if (d.getTime() < from.getTime() - 60 * 60 * 1000) {
@@ -26,7 +26,7 @@ function demoClasses(): ClassRow[] {
       id: "demo-mon",
       title: "Conversation Circle",
       description: "Casual English practice at the plaza",
-      starts_at: nextWeekday(now, 1).toISOString(),
+      starts_at: nextWeekday(now, 1, 18, 0).toISOString(),
       capacity: 15,
       created_by: getDemoProfile().id,
       created_at: now.toISOString(),
@@ -34,14 +34,14 @@ function demoClasses(): ClassRow[] {
       enrolled: false,
     },
     {
-      id: "demo-fri",
-      title: "Friday Fluency",
-      description: "Speaking games with volunteers",
-      starts_at: nextWeekday(now, 5).toISOString(),
+      id: "demo-wed",
+      title: "Wednesday Session",
+      description: "1:00 PM – 3:00 PM practice with the group",
+      starts_at: nextWeekday(now, 3, 13, 0).toISOString(),
       capacity: 15,
       created_by: getDemoProfile().id,
       created_at: now.toISOString(),
-      enrollment_count: 5,
+      enrollment_count: 2,
       enrolled: false,
     },
   ];

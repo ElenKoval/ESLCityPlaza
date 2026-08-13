@@ -4,6 +4,15 @@ export const CLASS_CAPACITY = 15;
 /** Sign-up opens this many days before the class (not earlier) */
 export const ENROLL_OPEN_DAYS = 14;
 
+/** Monday = 1, Wednesday = 3 */
+export function isClassWeekday(day: number) {
+  return day === 1 || day === 3;
+}
+
+export function isClassDate(d: Date) {
+  return isClassWeekday(d.getDay());
+}
+
 export function enrollmentOpensAt(startsAt: string | Date) {
   const start = new Date(startsAt);
   const opens = new Date(start);

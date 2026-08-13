@@ -9,18 +9,12 @@ import {
 } from "@/app/actions";
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { enrollStatus } from "@/lib/enrollment";
+import { enrollStatus, isClassDate } from "@/lib/enrollment";
 import type { ClassRow } from "@/lib/types";
 
 type Access = "guest" | "pending" | "rejected" | "approved";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-/** Classes run Monday (1) and Friday (5) only */
-function isClassDay(d: Date) {
-  const day = d.getDay();
-  return day === 1 || day === 5;
-}
 
 function nearestClassDay(from: Date) {
   const d = new Date(from);
@@ -28,7 +22,7 @@ function nearestClassDay(from: Date) {
   for (let i = 0; i < 7; i++) {
     const next = new Date(d);
     next.setDate(d.getDate() + i);
-    if (isClassDay(next)) return next;
+    if (isClassDate(next)) return next;
   }
   return d;
 }
@@ -168,7 +162,7 @@ export function HomeCalendar({
         {cells.map(({ date, key }) => {
           if (!date) return <span key={key} className="home-cal__cell is-empty" />;
           const k = dayKey(date);
-          const active = isClassDay(date);
+          const active = isClassDate(date);
           const has = active && (byDay.get(k)?.length ?? 0) > 0;
           const isSelected = active && k === selectedKey;
           const isToday = k === dayKey(today);
@@ -198,8 +192,8 @@ export function HomeCalendar({
       </div>
 
       <p className="home-cal__note">
-        Classes meet on Mondays and Fridays. Sign-up opens 2 weeks before · max
-        15 people.
+        Classes meet on Mondays and Wednesdays (Wed 1:00–3:00 PM). Sign-up opens
+        2 weeks before · max 15 people.
       </p>
 
       <div className="home-cal__detail">

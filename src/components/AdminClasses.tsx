@@ -29,7 +29,7 @@ function CreateClassForm() {
         <input name="starts_at" type="datetime-local" required />
       </label>
       <p className="sub" style={{ margin: 0, fontSize: "0.85rem" }}>
-        Classes are only on Monday or Friday.
+        Classes are only on Monday or Wednesday.
       </p>
       <label>
         Capacity
