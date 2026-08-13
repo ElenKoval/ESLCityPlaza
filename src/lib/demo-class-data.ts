@@ -6,9 +6,9 @@ export function buildDemoClasses(now = new Date()): ClassRow[] {
   return [
     {
       id: "demo-mon",
-      title: "Conversation Circle",
-      description: "Casual English practice at the plaza",
-      starts_at: nextWeekday(now, 1, 18, 0).toISOString(),
+      title: "Monday Session",
+      description: "1:00 PM – 3:00 PM practice with the group",
+      starts_at: nextWeekday(now, 1, 13, 0).toISOString(),
       capacity: 15,
       created_by: DEMO_TECH_ID,
       created_at: now.toISOString(),

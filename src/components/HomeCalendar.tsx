@@ -259,8 +259,7 @@ export function HomeCalendar({
       </div>
 
       <p className="home-cal__note">
-        Tap a Monday or Friday, then Sign up. Fri sessions are 1:00–3:00 PM ·
-        max 15 people.
+        Classes meet Mondays and Fridays, 1:00–3:00 PM · max 15 people.
       </p>
 
       <div className="home-cal__detail">
@@ -298,17 +297,12 @@ export function HomeCalendar({
           </p>
         )}
 
-        {dayClasses.length === 0 ? (
-          <p className="home-cal__empty">
-            No classes on this day. Choose a highlighted Monday or Friday.
-          </p>
-        ) : (
+        {dayClasses.length > 0 && (
           <ul className="home-cal__list">
             {dayClasses.map((c) => {
               const count = c.enrollment_count ?? 0;
               const full = count >= c.capacity;
               const rawStatus = enrollStatus(c.starts_at);
-              // In demo, allow sign-up for any upcoming class
               const status =
                 demoMode && rawStatus === "too_early" ? "open" : rawStatus;
               const time = new Intl.DateTimeFormat("en-US", {
