@@ -276,8 +276,8 @@ export function HomeCalendar({
             {access === "guest" && (
               <>
                 Class sign-up is for members only.{" "}
-                <Link href="/enter">Enter</Link> or{" "}
-                <Link href="/login">Log in</Link>.
+                <Link href="/login">Log in</Link> or{" "}
+                <Link href="/register">apply to join</Link>.
               </>
             )}
             {access === "pending" && (
@@ -297,7 +297,7 @@ export function HomeCalendar({
           </p>
         )}
 
-        {dayClasses.length > 0 && (
+        {access === "approved" && dayClasses.length > 0 && (
           <ul className="home-cal__list">
             {dayClasses.map((c) => {
               const count = c.enrollment_count ?? 0;
