@@ -5,10 +5,13 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { canEnrollNow, CLASS_CAPACITY } from "@/lib/enrollment";
 import {
+  createPendingMember,
+  DEMO_TECH_ID,
   getDemoMembers,
-  getDemoProfile,
+  getDemoSessionProfile,
   hasDemoSession,
   saveDemoMembers,
+  setDemoSession,
   useLocalDemo,
 } from "@/lib/demo";
 import {
@@ -25,26 +28,42 @@ export async function signIn(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const email = String(formData.get("email") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
-  const next = String(formData.get("next") || "/classes");
+  const next = String(formData.get("next") || "/");
 
   if (!email || !password) {
     return { error: "Enter email and password" };
+  }
+
+  if (useLocalDemo()) {
+    const members = await getDemoMembers();
+    const match = members.find(
+      (m) =>
+        m.email?.toLowerCase() === email && m.password === password,
+    );
+    if (!match) {
+      return { error: "Invalid email or password" };
+    }
+    await setDemoSession(match.id);
+    if (match.status !== "approved") {
+      redirect("/pending");
+    }
+    redirect(next.startsWith("/") ? next : "/");
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) return { error: error.message };
 
-  redirect(next.startsWith("/") ? next : "/classes");
+  redirect(next.startsWith("/") ? next : "/");
 }
 
 export async function signUp(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const email = String(formData.get("email") || "").trim();
+  const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
   const displayName = String(formData.get("display_name") || "").trim();
   const requestedRole = String(
@@ -59,6 +78,22 @@ export async function signUp(
   }
   if (requestedRole !== "student" && requestedRole !== "volunteer") {
     return { error: "Choose Student or Volunteer" };
+  }
+
+  if (useLocalDemo()) {
+    const members = await getDemoMembers();
+    if (members.some((m) => m.email?.toLowerCase() === email)) {
+      return { error: "An account with this email already exists" };
+    }
+    const member = createPendingMember({
+      displayName,
+      email,
+      password,
+      requestedRole,
+    });
+    await saveDemoMembers([...members, member]);
+    await setDemoSession(member.id);
+    redirect("/pending");
   }
 
   const supabase = await createClient();
@@ -96,7 +131,10 @@ export async function reviewApplication(
   }
 
   if (useLocalDemo()) {
-    if (!(await hasDemoSession())) return { error: "Please log in" };
+    const me = await getDemoSessionProfile();
+    if (!me || me.role !== "tech" || me.status !== "approved") {
+      return { error: "Only Tech can review applications" };
+    }
     const members = await getDemoMembers();
     const next = members.map((m) => {
       if (m.id !== userId) return m;
@@ -105,11 +143,12 @@ export async function reviewApplication(
         status: decision === "approve" ? ("approved" as const) : ("rejected" as const),
         role: decision === "approve" ? role : m.role,
         reviewed_at: new Date().toISOString(),
-        reviewed_by: getDemoProfile().id,
+        reviewed_by: me.id,
       };
     });
     await saveDemoMembers(next);
     revalidatePath("/tech");
+    revalidatePath("/pending");
     return {
       success:
         decision === "approve" ? "Application approved" : "Application rejected",
@@ -163,8 +202,11 @@ export async function deleteMember(
   if (!userId) return { error: "Missing user" };
 
   if (useLocalDemo()) {
-    if (!(await hasDemoSession())) return { error: "Please log in" };
-    if (userId === getDemoProfile().id) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.role !== "tech" || me.status !== "approved") {
+      return { error: "Only Tech can delete accounts" };
+    }
+    if (userId === DEMO_TECH_ID || userId === me.id) {
       return { error: "You cannot delete your own Tech account" };
     }
     const members = await getDemoMembers();
@@ -285,7 +327,11 @@ export async function enrollClass(
   if (!classId) return { error: "Missing class" };
 
   if (useLocalDemo() || (await hasDemoSession())) {
-    if (!(await hasDemoSession())) return { error: "Please log in" };
+    const me = await getDemoSessionProfile();
+    if (!me) return { error: "Please log in" };
+    if (me.status !== "approved") {
+      return { error: "Your application must be approved first" };
+    }
     const classRow = buildDemoClasses().find((c) => c.id === classId);
     if (!classRow) return { error: "Class not found" };
     if (!canEnrollNow(classRow.starts_at) && !useLocalDemo()) {

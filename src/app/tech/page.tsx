@@ -2,8 +2,8 @@ import { requireTech } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TechPanel } from "@/components/TechPanel";
 import {
+  DEMO_TECH_ID,
   getDemoMembers,
-  getDemoProfile,
   resetDemoMembers,
   useLocalDemo,
 } from "@/lib/demo";
@@ -18,7 +18,7 @@ async function resetDemoAction() {
 
 export default async function TechPage() {
   const { userId } = await requireTech();
-  const isDemo = useLocalDemo() || userId === getDemoProfile().id;
+  const isDemo = useLocalDemo() || userId === DEMO_TECH_ID;
 
   let applications: Profile[] = [];
   let members: Profile[] = [];

@@ -38,6 +38,13 @@ export default async function PendingPage() {
             </strong>
           </p>
         )}
+        {!rejected && (
+          <p className="sub" style={{ marginTop: "1rem" }}>
+            Demo tip: log out, open{" "}
+            <Link href="/enter">Enter</Link> with the Tech key, approve your
+            application, then log in again with the same email.
+          </p>
+        )}
       </section>
     </div>
   );

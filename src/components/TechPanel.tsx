@@ -121,6 +121,11 @@ export function TechPanel({
                     </span>
                     <RoleBadge role={app.requested_role || app.role} />
                   </div>
+                  {app.email && (
+                    <div className="class-meta">
+                      <span>{app.email}</span>
+                    </div>
+                  )}
                 </div>
                 <div className="class-meta">
                   <span>

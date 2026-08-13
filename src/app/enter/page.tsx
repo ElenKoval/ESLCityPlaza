@@ -11,8 +11,9 @@ export default function EnterPage() {
     <div className="auth-shell">
       <h1>Private enter</h1>
       <p className="sub">
-        Temporary access for you only — skips registration while we set up
-        Supabase.
+        Tech access with your private key. Use this after someone applies on
+        Join — approve them on Approvals. Tip: stay in the same browser so demo
+        applications are shared.
       </p>
       <EnterForm />
     </div>

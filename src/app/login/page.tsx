@@ -10,7 +10,7 @@ export default async function LoginPage({
     <div className="auth-shell">
       <h1>Log in</h1>
       <p className="sub">For ESL Citi Plaza members</p>
-      <LoginForm next={params.next || "/classes"} />
+      <LoginForm next={params.next || "/"} />
     </div>
   );
 }

@@ -1,30 +1,86 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
-import { DEMO_COOKIE } from "@/lib/demo";
+import { DEMO_COOKIE, DEMO_MEMBERS_COOKIE, DEMO_TECH_ID } from "@/lib/demo";
 
 const PUBLIC = new Set(["/", "/login", "/register", "/enter"]);
+
+function demoSessionUserId(request: NextRequest): string | null {
+  const raw = request.cookies.get(DEMO_COOKIE)?.value;
+  if (!raw) return null;
+  if (raw === "1") return DEMO_TECH_ID;
+  return raw;
+}
+
+function demoMemberStatus(
+  request: NextRequest,
+  userId: string,
+): "pending" | "approved" | "rejected" | null {
+  if (userId === DEMO_TECH_ID) return "approved";
+  const raw = request.cookies.get(DEMO_MEMBERS_COOKIE)?.value;
+  if (!raw) {
+    // Seed defaults: sample pending/approved ids
+    if (userId.startsWith("demo-pending")) return "pending";
+    if (userId.startsWith("demo-member")) return "approved";
+    return "pending";
+  }
+  try {
+    const parsed = JSON.parse(decodeURIComponent(raw)) as Array<{
+      id: string;
+      status?: string;
+    }>;
+    const match = parsed.find((m) => m.id === userId);
+    if (!match?.status) return null;
+    if (
+      match.status === "pending" ||
+      match.status === "approved" ||
+      match.status === "rejected"
+    ) {
+      return match.status;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export async function middleware(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const path = request.nextUrl.pathname;
-  const hasDemo = request.cookies.get(DEMO_COOKIE)?.value === "1";
+  const demoUserId = demoSessionUserId(request);
+  const hasDemo = Boolean(demoUserId);
 
   // Local demo (no Supabase yet)
   if (!url || !key) {
-    if (path.startsWith("/enter")) {
+    if (PUBLIC.has(path) || path.startsWith("/auth")) {
+      if (hasDemo && (path === "/login" || path === "/register" || path === "/enter")) {
+        const status = demoMemberStatus(request, demoUserId!);
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname =
+          status === "approved" ? "/" : "/pending";
+        return NextResponse.redirect(redirectUrl);
+      }
       return NextResponse.next();
     }
-    if (!hasDemo && !PUBLIC.has(path) && !path.startsWith("/auth")) {
+
+    if (!hasDemo) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/enter";
+      redirectUrl.pathname = "/login";
+      redirectUrl.searchParams.set("next", path);
       return NextResponse.redirect(redirectUrl);
     }
-    if (hasDemo && (path === "/login" || path === "/register" || path === "/enter")) {
+
+    const status = demoMemberStatus(request, demoUserId!);
+    if (status !== "approved" && path !== "/pending") {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/chat";
+      redirectUrl.pathname = "/pending";
       return NextResponse.redirect(redirectUrl);
     }
+
+    if (status === "approved" && path.startsWith("/tech")) {
+      // Role check happens on the page; allow through
+    }
+
     return NextResponse.next();
   }
 
@@ -43,7 +99,7 @@ export async function middleware(request: NextRequest) {
 
   if ((user || hasDemo) && (path === "/login" || path === "/register")) {
     const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/classes";
+    redirectUrl.pathname = "/";
     return NextResponse.redirect(redirectUrl);
   }
 
@@ -66,7 +122,7 @@ export async function middleware(request: NextRequest) {
 
     if (path.startsWith("/tech") && profile.role !== "tech") {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/classes";
+      redirectUrl.pathname = "/";
       return NextResponse.redirect(redirectUrl);
     }
 
@@ -76,7 +132,7 @@ export async function middleware(request: NextRequest) {
       profile.role !== "tech"
     ) {
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/classes";
+      redirectUrl.pathname = "/";
       return NextResponse.redirect(redirectUrl);
     }
   }

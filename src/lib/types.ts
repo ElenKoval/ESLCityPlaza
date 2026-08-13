@@ -11,6 +11,8 @@ export type Profile = {
   created_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  /** Present in local demo mode only */
+  email?: string;
 };
 
 export type ClassRow = {

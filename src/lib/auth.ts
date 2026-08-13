@@ -2,8 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "./supabase/server";
 import {
-  getDemoProfile,
-  hasDemoSession,
+  getDemoSessionProfile,
   isDemoModeEnabled,
   useLocalDemo,
 } from "./demo";
@@ -31,9 +30,15 @@ export const getProfile = cache(async (): Promise<{
   profile: Profile | null;
   userId: string | null;
 }> => {
-  if (isDemoModeEnabled() && (await hasDemoSession())) {
-    const profile = getDemoProfile();
-    return { profile, userId: profile.id };
+  if (isDemoModeEnabled()) {
+    const profile = await getDemoSessionProfile();
+    if (profile) {
+      return { profile, userId: profile.id };
+    }
+    // Demo key mode without a session falls through (guest)
+    if (useLocalDemo()) {
+      return { profile: null, userId: null };
+    }
   }
 
   const { supabase, user } = await getSessionUser();
@@ -50,7 +55,7 @@ export const getProfile = cache(async (): Promise<{
 
 export async function requireUser() {
   const { profile, userId } = await getProfile();
-  if (!userId) redirect(useLocalDemo() ? "/enter" : "/login");
+  if (!userId) redirect("/login");
   return { profile, userId };
 }
 
