@@ -7,30 +7,13 @@ import { createClient } from "@/lib/supabase/server";
 import { useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { ensureUpcomingClasses } from "@/lib/ensure-classes";
+import { WelcomeLessons } from "@/components/WelcomeLessons";
 import type { ClassRow } from "@/lib/types";
 
 function welcomeFirstName(displayName: string | null | undefined) {
   if (!displayName) return "there";
   const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, "").trim();
   return cleaned.split(/\s+/)[0] || "there";
-}
-
-function nextEnrolledClassLabel(classes: ClassRow[]) {
-  const now = Date.now();
-  const pick = classes
-    .filter(
-      (c) => c.enrolled && new Date(c.starts_at).getTime() > now,
-    )
-    .sort(
-      (a, b) =>
-        new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
-    )[0];
-  if (!pick) return null;
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(pick.starts_at));
 }
 
 async function loadClasses(userId: string | null, canEnroll: boolean) {
@@ -102,7 +85,6 @@ export default async function HomePage() {
   const canEnroll = access === "approved";
   const classes = await loadClasses(userId, canEnroll);
   const firstName = welcomeFirstName(profile?.display_name);
-  const nextClassWhen = nextEnrolledClassLabel(classes);
 
   return (
     <div className="home">
@@ -117,16 +99,7 @@ export default async function HomePage() {
           {access === "approved" ? (
             <>
               <h1 className="hero-stage__brand">Welcome, {firstName}!</h1>
-              {nextClassWhen && (
-                <p className="hero-stage__lead">
-                  Your next class is {nextClassWhen}.
-                </p>
-              )}
-              <div className="hero-stage__actions">
-                <Link href="/my" className="btn-primary" prefetch>
-                  My lessons
-                </Link>
-              </div>
+              <WelcomeLessons classes={classes} />
             </>
           ) : (
             <>
