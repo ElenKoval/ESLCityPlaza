@@ -6,6 +6,7 @@ import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
+import { ensureUpcomingClasses } from "@/lib/ensure-classes";
 import type { ClassRow } from "@/lib/types";
 
 function welcomeFirstName(displayName: string | null | undefined) {
@@ -43,6 +44,7 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
   }
 
   try {
+    await ensureUpcomingClasses();
     const supabase = await createClient();
     const { data: classes } = await supabase
       .from("classes")

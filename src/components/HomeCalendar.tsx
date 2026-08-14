@@ -31,6 +31,12 @@ function dayKey(d: Date) {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
+function ymd(d: Date) {
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
 export function HomeCalendar({
   classes: initialClasses,
   access,
@@ -117,10 +123,10 @@ export function HomeCalendar({
     year: "numeric",
   }).format(cursor);
 
-  function signUp(classId: string) {
+  function signUp(classId: string, sessionDate?: string) {
     setError(null);
     setMessage(null);
-    setPendingId(classId);
+    setPendingId(classId || sessionDate || "new");
     startTransition(async () => {
       if (demoMode) {
         addLocalEnrollment(classId);
@@ -136,9 +142,9 @@ export function HomeCalendar({
           ),
         );
         setMessage("You are signed up! Open My lessons to see it.");
-        // Best-effort sync to cookie for /my SSR
         const fd = new FormData();
         fd.set("class_id", classId);
+        if (sessionDate) fd.set("session_date", sessionDate);
         void enrollClass(null, fd);
         setPendingId(null);
         router.refresh();
@@ -146,7 +152,8 @@ export function HomeCalendar({
       }
 
       const fd = new FormData();
-      fd.set("class_id", classId);
+      if (classId) fd.set("class_id", classId);
+      if (sessionDate) fd.set("session_date", sessionDate);
       const result = await enrollClass(null, fd);
       setPendingId(null);
       if (result?.error) {
@@ -308,7 +315,17 @@ export function HomeCalendar({
         {access === "approved" && isClassDate(selected) && (
           <div className="home-cal__signup">
             {dayClasses.length === 0 ? (
-              <p className="home-cal__lock">No session listed for this day yet.</p>
+              <div className="home-cal__signup-row">
+                <p className="home-cal__spots">15 spots available</p>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={pendingId === ymd(selected)}
+                  onClick={() => signUp("", ymd(selected))}
+                >
+                  {pendingId === ymd(selected) ? "Signing up…" : "Sign up"}
+                </button>
+              </div>
             ) : (
               dayClasses.map((c) => {
                 const count = c.enrollment_count ?? 0;
@@ -348,7 +365,7 @@ export function HomeCalendar({
                         type="button"
                         className="btn-primary"
                         disabled={busy}
-                        onClick={() => signUp(c.id)}
+                        onClick={() => signUp(c.id, ymd(selected))}
                       >
                         {busy ? "Signing up…" : "Sign up"}
                       </button>

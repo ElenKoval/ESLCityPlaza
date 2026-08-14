@@ -20,6 +20,7 @@ import {
   getDemoEnrollmentIds,
   saveDemoEnrollmentIds,
 } from "@/lib/demo-classes";
+import { findOrCreateClassId } from "@/lib/ensure-classes";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import type { RequestedRole, Role } from "@/lib/types";
 
@@ -393,7 +394,11 @@ export async function enrollClass(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const classId = String(formData.get("class_id") || "");
+  let classId = String(formData.get("class_id") || "");
+  const sessionDate = String(formData.get("session_date") || "");
+  if (!classId && sessionDate) {
+    classId = (await findOrCreateClassId(sessionDate)) ?? "";
+  }
   if (!classId) return { error: "Missing class" };
 
   if (useLocalDemo() || (await hasDemoSession())) {
