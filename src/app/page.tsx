@@ -1,13 +1,36 @@
 import Link from "next/link";
 import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
+import { MeetSpot } from "@/components/MeetSpot";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { isDemoModeEnabled, useLocalDemo } from "@/lib/demo";
+import { useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import type { ClassRow } from "@/lib/types";
 
-const HERO_PHOTOS = ["/hero-1.jpeg", "/hero-2.jpeg"] as const;
+function welcomeFirstName(displayName: string | null | undefined) {
+  if (!displayName) return "there";
+  const cleaned = displayName.replace(/\s*\([^)]*\)\s*/g, "").trim();
+  return cleaned.split(/\s+/)[0] || "there";
+}
+
+function nextEnrolledClassLabel(classes: ClassRow[]) {
+  const now = Date.now();
+  const pick = classes
+    .filter(
+      (c) => c.enrolled && new Date(c.starts_at).getTime() > now,
+    )
+    .sort(
+      (a, b) =>
+        new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+    )[0];
+  if (!pick) return null;
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(new Date(pick.starts_at));
+}
 
 async function loadClasses(userId: string | null, canEnroll: boolean) {
   // Pure local demo (no Supabase env)
@@ -64,7 +87,6 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
 export default async function HomePage() {
   const { profile, userId } = await getProfile();
   const demoMode = useLocalDemo();
-  const showPrivateEnter = isDemoModeEnabled() && useLocalDemo();
 
   const access =
     !profile
@@ -77,44 +99,57 @@ export default async function HomePage() {
 
   const canEnroll = access === "approved";
   const classes = await loadClasses(userId, canEnroll);
+  const firstName = welcomeFirstName(profile?.display_name);
+  const nextClassWhen = nextEnrolledClassLabel(classes);
 
   return (
     <div className="home">
       <section className="hero-stage">
-        <div className="hero-stage__copy">
-          <h1 className="hero-stage__brand">ESL Citi Plaza</h1>
-          <p className="hero-stage__lead">
-            Practice English together — join a class, meet volunteers, and stay
-            connected in our shared chat.
-          </p>
-          {access === "guest" && (
-            <div className="hero-stage__actions">
-              <Link href="/register" className="btn-primary" prefetch>
-                Apply to join
-              </Link>
-              <Link href="/login" className="btn-secondary" prefetch>
-                Log in
-              </Link>
-              {showPrivateEnter && (
-                <Link href="/enter" className="btn-secondary" prefetch>
-                  Enter (private)
-                </Link>
+        <div
+          className={
+            access === "approved"
+              ? "hero-stage__copy hero-stage__copy--member"
+              : "hero-stage__copy"
+          }
+        >
+          {access === "approved" ? (
+            <>
+              <h1 className="hero-stage__brand">Welcome, {firstName}!</h1>
+              {nextClassWhen && (
+                <p className="hero-stage__lead">
+                  Your next class is {nextClassWhen}.
+                </p>
               )}
-            </div>
-          )}
-          {access === "pending" && (
-            <div className="hero-stage__actions">
-              <Link href="/pending" className="btn-secondary" prefetch>
-                Application status
-              </Link>
-            </div>
-          )}
-          {access === "approved" && (
-            <div className="hero-stage__actions">
-              <Link href="/my" className="btn-secondary" prefetch>
-                My lessons
-              </Link>
-            </div>
+              <div className="hero-stage__actions">
+                <Link href="/my" className="btn-primary" prefetch>
+                  My lessons
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <h1 className="hero-stage__brand">ESL on Plaza</h1>
+              <p className="hero-stage__lead">
+                Practice English, meet new people, and enjoy the conversation.
+              </p>
+              {access === "guest" && (
+                <div className="hero-stage__actions">
+                  <Link href="/register" className="btn-primary" prefetch>
+                    Apply to join
+                  </Link>
+                  <Link href="/login" className="btn-secondary" prefetch>
+                    Log in
+                  </Link>
+                </div>
+              )}
+              {access === "pending" && (
+                <div className="hero-stage__actions">
+                  <Link href="/pending" className="btn-secondary" prefetch>
+                    Application status
+                  </Link>
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -129,21 +164,7 @@ export default async function HomePage() {
           displayName={profile?.display_name ?? null}
         />
       </section>
-
-      <section className="hero-photos" aria-label="Plaza photos">
-        {HERO_PHOTOS.map((src) => (
-          <div key={src} className="hero-photos__cell">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={src}
-              alt="ESL Citi Plaza"
-              className="hero-photos__img hero-photos__img--static"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-        ))}
-      </section>
+      <MeetSpot />
     </div>
   );
 }

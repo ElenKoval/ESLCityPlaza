@@ -6,7 +6,7 @@ export function SiteFooter() {
           className="site-footer__contact"
           href="mailto:sunnychimeraworld@gmail.com"
         >
-          Contact
+          Website Help
         </a>
         <span className="site-footer__sep" aria-hidden="true">
           ·

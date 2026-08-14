@@ -77,7 +77,7 @@ export function ChatRoom({
       const welcome: ChatMessage = {
         id: "welcome",
         user_id: "system",
-        body: "Welcome to ESL Citi Plaza chat! Practice English, ask questions, and say hi.",
+        body: "Welcome to ESL on Plaza chat! Practice English, ask questions, and say hi.",
         created_at: new Date().toISOString(),
         display_name: "Plaza Bot",
         role: "volunteer",
@@ -249,7 +249,7 @@ export function ChatRoom({
         <div>
           <h2 className="chat-app__title">Community chat</h2>
           <p className="chat-app__sub">
-            Say hello, ask a question, or share something with the group!
+            Talk with the group, ask questions, and share news.
           </p>
         </div>
         <div className="chat-app__online" title="People currently in chat">

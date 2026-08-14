@@ -1,4 +1,4 @@
-# ESL Citi Plaza
+# ESL on Plaza
 
 English practice community site: applications with roles, class sign-ups, and a shared chat.
 

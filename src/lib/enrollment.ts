@@ -34,3 +34,10 @@ export function enrollStatus(startsAt: string | Date, now = new Date()) {
   }
   return "open" as const;
 }
+
+export function spotsAvailableLabel(taken: number, capacity: number) {
+  const left = Math.max(0, capacity - taken);
+  if (left === 0) return "No spots available";
+  if (left === 1) return "1 spot available";
+  return `${left} spots available`;
+}

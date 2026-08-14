@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
@@ -10,71 +10,18 @@ type Access = "guest" | "pending" | "rejected" | "approved";
 
 export function HomeChatCard({
   access,
-  userId,
-  displayName,
 }: {
   access: Access;
   userId: string | null;
   displayName: string | null;
 }) {
-  const [online, setOnline] = useState(0);
   const canOpenChat = access === "approved";
 
-  useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
-
-    const supabase = createClient();
-    const key = userId ?? `guest-${Math.random().toString(36).slice(2, 9)}`;
-    const channel = supabase.channel(PRESENCE_CHANNEL, {
-      config: { presence: { key } },
-    });
-
-    const sync = () => {
-      const state = channel.presenceState() as Record<
-        string,
-        Array<{ member?: boolean }>
-      >;
-      // Count only tracked members (approved users)
-      let count = 0;
-      for (const metas of Object.values(state)) {
-        if (metas.some((m) => m.member)) count += 1;
-      }
-      setOnline(count);
-    };
-
-    channel.on("presence", { event: "sync" }, sync);
-    channel.on("presence", { event: "join" }, sync);
-    channel.on("presence", { event: "leave" }, sync);
-
-    void channel.subscribe(async (status) => {
-      if (status !== "SUBSCRIBED") return;
-      if (canOpenChat && userId) {
-        await channel.track({
-          member: true,
-          user_id: userId,
-          name: displayName ?? "Member",
-          at: Date.now(),
-        });
-      }
-      sync();
-    });
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [access, canOpenChat, displayName, userId]);
-
   return (
-    <aside className="home-chat panel">
-      <div className="home-chat__live">
-        <span className="home-chat__dot" aria-hidden="true" />
-        <span>
-          <strong>{online}</strong> online
-        </span>
-      </div>
+    <div className="home-chat panel">
       <h2 className="home-chat__title">Community chat</h2>
       <p className="home-chat__text">
-        Say hello, practice English, and catch up with the plaza.
+        Talk with the group, ask questions, and share news.
       </p>
 
       {canOpenChat ? (
@@ -93,7 +40,7 @@ export function HomeChatCard({
           <Link href="/register">apply to join</Link>.
         </p>
       )}
-    </aside>
+    </div>
   );
 }
 

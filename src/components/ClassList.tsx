@@ -7,15 +7,12 @@ import {
   unenrollClass,
   type ActionState,
 } from "@/app/actions";
-import { enrollStatus } from "@/lib/enrollment";
+import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
 import type { ClassRow } from "@/lib/types";
 
-function formatWhen(iso: string) {
+function formatTime(iso: string) {
   return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
   }).format(new Date(iso));
 }
@@ -86,13 +83,16 @@ export function ClassList({
         const status = enrollStatus(item.starts_at);
         return (
           <article key={item.id} className="class-item">
-            <h3>{item.title}</h3>
-            {item.description && <p>{item.description}</p>}
+            <h3>
+              {new Intl.DateTimeFormat("en-US", {
+                weekday: "long",
+                month: "long",
+                day: "numeric",
+              }).format(new Date(item.starts_at))}
+            </h3>
+            <p>{formatTime(item.starts_at)}</p>
             <div className="class-meta">
-              <span>{formatWhen(item.starts_at)}</span>
-              <span>
-                Spots: {count}/{item.capacity}
-              </span>
+              <span>{spotsAvailableLabel(count, item.capacity)}</span>
             </div>
             <div className="class-actions">
               {item.enrolled ? (

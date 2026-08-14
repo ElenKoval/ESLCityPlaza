@@ -2,8 +2,9 @@
 
 import { useMemo, useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { enrollClass, unenrollClass } from "@/app/actions";
-import { enrollStatus, isClassDate } from "@/lib/enrollment";
+import { enrollStatus, isClassDate, spotsAvailableLabel } from "@/lib/enrollment";
 import {
   addLocalEnrollment,
   readLocalEnrollments,
@@ -54,6 +55,7 @@ export function HomeCalendar({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
   useEffect(() => {
     setClasses(initialClasses);
@@ -139,6 +141,7 @@ export function HomeCalendar({
         fd.set("class_id", classId);
         void enrollClass(null, fd);
         setPendingId(null);
+        router.refresh();
         return;
       }
 
@@ -156,6 +159,7 @@ export function HomeCalendar({
           c.id === classId ? { ...c, enrolled: true } : c,
         ),
       );
+      router.refresh();
     });
   }
 
@@ -175,6 +179,7 @@ export function HomeCalendar({
         fd.set("class_id", classId);
         void unenrollClass(null, fd);
         setPendingId(null);
+        router.refresh();
         return;
       }
       const fd = new FormData();
@@ -190,6 +195,7 @@ export function HomeCalendar({
           c.id === classId ? { ...c, enrolled: false } : c,
         ),
       );
+      router.refresh();
     });
   }
 
@@ -266,66 +272,57 @@ export function HomeCalendar({
         <p className="home-cal__detail-label">
           {new Intl.DateTimeFormat("en-US", {
             weekday: "long",
-            month: "short",
+            month: "long",
             day: "numeric",
           }).format(selected)}
         </p>
 
-        {access !== "approved" && (
+        {isClassDate(selected) && (
+          <p className="home-cal__when">1:00–3:00 PM</p>
+        )}
+
+        {access === "guest" && (
+          <div className="home-cal__cta">
+            <p className="home-cal__lock">
+              <Link href="/login">Log in to sign up</Link>
+            </p>
+            <p className="home-cal__hint">
+              Not a member? <Link href="/register">Apply to join</Link>.
+            </p>
+          </div>
+        )}
+        {access === "pending" && (
           <p className="home-cal__lock">
-            {access === "guest" && (
-              <>
-                Class sign-up is for members only.{" "}
-                <Link href="/login">Log in</Link> or{" "}
-                <Link href="/register">apply to join</Link>.
-              </>
-            )}
-            {access === "pending" && (
-              <>Your application is under review — sign-up unlocks after approval.</>
-            )}
-            {access === "rejected" && (
-              <>Your application was declined. Contact the organizers for help.</>
-            )}
+            Your application is under review — sign-up unlocks after approval.
+          </p>
+        )}
+        {access === "rejected" && (
+          <p className="home-cal__lock">
+            Your application was declined. Contact the organizers for help.
           </p>
         )}
 
         {message && <p className="success">{message}</p>}
         {error && <p className="error">{error}</p>}
-        {access === "approved" && (
-          <p className="home-cal__lock">
-            <Link href="/my">My lessons →</Link>
-          </p>
-        )}
 
-        {access === "approved" && dayClasses.length > 0 && (
-          <ul className="home-cal__list">
-            {dayClasses.map((c) => {
-              const count = c.enrollment_count ?? 0;
-              const full = count >= c.capacity;
-              const rawStatus = enrollStatus(c.starts_at);
-              const status =
-                demoMode && rawStatus === "too_early" ? "open" : rawStatus;
-              const time = new Intl.DateTimeFormat("en-US", {
-                hour: "numeric",
-                minute: "2-digit",
-              }).format(new Date(c.starts_at));
-              const busy = pendingId === c.id;
-              return (
-                <li key={c.id} className="home-cal__item">
-                  <div>
-                    <strong>{c.title}</strong>
-                    <div className="class-meta">
-                      <span>{time}</span>
-                      {access === "approved" && (
-                        <span>
-                          {count}/{c.capacity} spots
-                        </span>
-                      )}
-                    </div>
-                    {c.description && <p>{c.description}</p>}
-                  </div>
-                  {access === "approved" &&
-                    (c.enrolled ? (
+        {access === "approved" && isClassDate(selected) && (
+          <div className="home-cal__signup">
+            {dayClasses.length === 0 ? (
+              <p className="home-cal__lock">No session listed for this day yet.</p>
+            ) : (
+              dayClasses.map((c) => {
+                const count = c.enrollment_count ?? 0;
+                const full = count >= c.capacity;
+                const rawStatus = enrollStatus(c.starts_at);
+                const status =
+                  demoMode && rawStatus === "too_early" ? "open" : rawStatus;
+                const busy = pendingId === c.id;
+                return (
+                  <div key={c.id} className="home-cal__signup-row">
+                    <p className="home-cal__spots">
+                      {spotsAvailableLabel(count, c.capacity)}
+                    </p>
+                    {c.enrolled ? (
                       <button
                         type="button"
                         className="btn-ghost"
@@ -355,11 +352,12 @@ export function HomeCalendar({
                       >
                         {busy ? "Signing up…" : "Sign up"}
                       </button>
-                    ))}
-                </li>
-              );
-            })}
-          </ul>
+                    )}
+                  </div>
+                );
+              })
+            )}
+          </div>
         )}
       </div>
     </div>

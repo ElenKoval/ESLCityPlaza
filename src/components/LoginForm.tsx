@@ -19,9 +19,11 @@ export function LoginForm({ next = "/" }: { next?: string }) {
           name="login"
           type="text"
           inputMode="text"
-          autoComplete="username"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="none"
+          spellCheck={false}
           required
-          placeholder="Sunny"
         />
       </label>
       <label>
