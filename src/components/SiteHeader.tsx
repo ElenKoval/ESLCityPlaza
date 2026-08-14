@@ -15,6 +15,11 @@ export async function SiteHeader() {
           <Link href="/" prefetch>
             Home
           </Link>
+          {profile?.role === "tech" && profile.status === "approved" && (
+            <Link href="/tech" prefetch>
+              Approvals
+            </Link>
+          )}
         </nav>
         {profile && (
           <div className="site-header__user">
