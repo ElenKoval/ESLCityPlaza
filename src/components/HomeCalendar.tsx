@@ -141,7 +141,7 @@ export function HomeCalendar({
               : c,
           ),
         );
-        setMessage("You are signed up! Open My lessons to see it.");
+        setMessage(null);
         const fd = new FormData();
         fd.set("class_id", classId);
         if (sessionDate) fd.set("session_date", sessionDate);
@@ -160,7 +160,7 @@ export function HomeCalendar({
         setError(result.error);
         return;
       }
-      setMessage(result?.success ?? "You are signed up!");
+      setMessage(null);
       setClasses((prev) =>
         prev.map((c) =>
           c.id === classId ? { ...c, enrolled: true } : c,
