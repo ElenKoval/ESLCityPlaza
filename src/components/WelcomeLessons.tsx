@@ -1,8 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { unenrollClass, type ActionState } from "@/app/actions";
+import { CancelClassControl } from "@/components/CancelClassControl";
 import type { ClassRow } from "@/lib/types";
 
 function formatClassDay(iso: string) {
@@ -11,28 +9,6 @@ function formatClassDay(iso: string) {
     month: "long",
     day: "numeric",
   }).format(new Date(iso));
-}
-
-function CancelLessonButton({ classId }: { classId: string }) {
-  const router = useRouter();
-  const [state, action, pending] = useActionState<ActionState, FormData>(
-    unenrollClass,
-    null,
-  );
-
-  useEffect(() => {
-    if (state?.success) router.refresh();
-  }, [state, router]);
-
-  return (
-    <form action={action}>
-      <input type="hidden" name="class_id" value={classId} />
-      <button className="btn-ghost welcome-lessons__cancel" type="submit" disabled={pending}>
-        {pending ? "…" : "Cancel"}
-      </button>
-      {state?.error && <p className="error">{state.error}</p>}
-    </form>
-  );
 }
 
 export function WelcomeLessons({ classes }: { classes: ClassRow[] }) {
@@ -47,13 +23,19 @@ export function WelcomeLessons({ classes }: { classes: ClassRow[] }) {
   if (mine.length === 0) return null;
 
   return (
-    <ul className="welcome-lessons">
-      {mine.map((c) => (
-        <li key={c.id} className="welcome-lessons__row">
-          <p className="welcome-lessons__when">{formatClassDay(c.starts_at)}</p>
-          <CancelLessonButton classId={c.id} />
-        </li>
-      ))}
-    </ul>
+    <div className="welcome-lessons">
+      <h2 className="welcome-lessons__title">My classes</h2>
+      <ul className="welcome-lessons__list">
+        {mine.map((c) => (
+          <li key={c.id} className="welcome-lessons__item">
+            <p className="welcome-lessons__day">{formatClassDay(c.starts_at)}</p>
+            <div className="welcome-lessons__row">
+              <p className="welcome-lessons__time">1:00–3:00 PM</p>
+              <CancelClassControl classId={c.id} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

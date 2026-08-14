@@ -3,12 +3,12 @@
 import { useMemo, useState, useEffect, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { enrollClass, unenrollClass } from "@/app/actions";
+import { enrollClass } from "@/app/actions";
+import { CancelClassControl } from "@/components/CancelClassControl";
 import { enrollStatus, isClassDate, spotsAvailableLabel } from "@/lib/enrollment";
 import {
   addLocalEnrollment,
   readLocalEnrollments,
-  removeLocalEnrollment,
 } from "@/lib/demo-enroll-client";
 import type { ClassRow } from "@/lib/types";
 
@@ -170,42 +170,6 @@ export function HomeCalendar({
     });
   }
 
-  function cancel(classId: string) {
-    setError(null);
-    setMessage(null);
-    setPendingId(classId);
-    startTransition(async () => {
-      if (demoMode) {
-        removeLocalEnrollment(classId);
-        setClasses((prev) =>
-          prev.map((c) =>
-            c.id === classId ? { ...c, enrolled: false } : c,
-          ),
-        );
-        const fd = new FormData();
-        fd.set("class_id", classId);
-        void unenrollClass(null, fd);
-        setPendingId(null);
-        router.refresh();
-        return;
-      }
-      const fd = new FormData();
-      fd.set("class_id", classId);
-      const result = await unenrollClass(null, fd);
-      setPendingId(null);
-      if (result?.error) {
-        setError(result.error);
-        return;
-      }
-      setClasses((prev) =>
-        prev.map((c) =>
-          c.id === classId ? { ...c, enrolled: false } : c,
-        ),
-      );
-      router.refresh();
-    });
-  }
-
   return (
     <div className="home-cal panel">
       <div className="home-cal__head">
@@ -336,39 +300,39 @@ export function HomeCalendar({
                 const busy = pendingId === c.id;
                 return (
                   <div key={c.id} className="home-cal__signup-row">
-                    <p className="home-cal__spots">
-                      {spotsAvailableLabel(count, c.capacity)}
-                    </p>
                     {c.enrolled ? (
-                      <button
-                        type="button"
-                        className="btn-ghost"
-                        disabled={busy}
-                        onClick={() => cancel(c.id)}
-                      >
-                        {busy ? "…" : "Cancel"}
-                      </button>
-                    ) : status === "past" ? (
-                      <button type="button" className="btn-primary" disabled>
-                        Past
-                      </button>
-                    ) : status === "too_early" ? (
-                      <button type="button" className="btn-primary" disabled>
-                        Not open yet
-                      </button>
-                    ) : full ? (
-                      <button type="button" className="btn-primary" disabled>
-                        Full
-                      </button>
+                      <div className="home-cal__signed">
+                        <p className="home-cal__signed-ok">✓ You&apos;re signed up</p>
+                        <CancelClassControl classId={c.id} />
+                      </div>
                     ) : (
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        disabled={busy}
-                        onClick={() => signUp(c.id, ymd(selected))}
-                      >
-                        {busy ? "Signing up…" : "Sign up"}
-                      </button>
+                      <>
+                        <p className="home-cal__spots">
+                          {spotsAvailableLabel(count, c.capacity)}
+                        </p>
+                        {status === "past" ? (
+                          <button type="button" className="btn-primary" disabled>
+                            Past
+                          </button>
+                        ) : status === "too_early" ? (
+                          <button type="button" className="btn-primary" disabled>
+                            Not open yet
+                          </button>
+                        ) : full ? (
+                          <button type="button" className="btn-primary" disabled>
+                            Full
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn-primary"
+                            disabled={busy}
+                            onClick={() => signUp(c.id, ymd(selected))}
+                          >
+                            {busy ? "Signing up…" : "Sign up"}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 );
