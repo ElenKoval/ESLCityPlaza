@@ -133,11 +133,7 @@ export default async function HomePage() {
           access={access}
           demoMode={demoMode}
         />
-        <HomeChatCard
-          access={access}
-          userId={userId}
-          displayName={profile?.display_name ?? null}
-        />
+        <HomeChatCard access={access} />
       </section>
       <MeetSpot />
     </div>

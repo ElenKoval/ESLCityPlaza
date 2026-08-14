@@ -18,6 +18,6 @@ export function canManageClasses(role: Role) {
   return role === "teacher" || role === "tech";
 }
 
-export function canReviewApplications(role: Role) {
-  return role === "tech";
+export function canAnnounce(role: Role) {
+  return role === "volunteer" || role === "teacher" || role === "tech";
 }

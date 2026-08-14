@@ -32,5 +32,6 @@ export type MessageRow = {
   user_id: string;
   body: string;
   created_at: string;
+  is_announcement?: boolean;
   profiles?: Pick<Profile, "display_name" | "role"> | null;
 };

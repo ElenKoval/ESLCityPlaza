@@ -14,6 +14,17 @@ export function HomeNavLink() {
   );
 }
 
+export function ChatNavLink() {
+  const pathname = usePathname();
+  if (pathname === "/chat") return null;
+
+  return (
+    <Link href="/chat" prefetch>
+      Chat
+    </Link>
+  );
+}
+
 export function ApprovalsNavLink() {
   const pathname = usePathname();
   if (pathname === "/tech") return null;

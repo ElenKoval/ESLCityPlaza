@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ChatRoom } from "@/components/ChatRoom";
 import { toChatMessages } from "@/lib/chat";
 import { useLocalDemo } from "@/lib/demo";
 import type { MessageRow, Role } from "@/lib/types";
+
+export const metadata: Metadata = {
+  title: "Community chat — ESL on Plaza",
+};
 
 export default async function ChatPage() {
   const { userId, profile } = await requireApproved();
@@ -16,7 +21,7 @@ export default async function ChatPage() {
     const supabase = await createClient();
     const { data } = await supabase
       .from("messages")
-      .select("id, user_id, body, created_at, profiles(display_name, role)")
+      .select("id, user_id, body, created_at, is_announcement, profiles(display_name, role)")
       .order("created_at", { ascending: true })
       .limit(200);
 
@@ -31,13 +36,16 @@ export default async function ChatPage() {
         user_id: row.user_id,
         body: row.body,
         created_at: row.created_at,
+        is_announcement: Boolean(
+          (row as { is_announcement?: boolean }).is_announcement,
+        ),
         profiles: profileRow,
       };
     });
   }
 
   return (
-    <div className="page chat-page">
+    <div className="chat-page">
       <ChatRoom
         initialMessages={toChatMessages(rows)}
         userId={userId}

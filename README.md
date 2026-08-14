@@ -24,6 +24,7 @@ Also works: `hero.jpeg`, `hero.png`, or `hero.webp`. Refresh the homepage after 
 
 1. Create a free project at [supabase.com](https://supabase.com) (wait until it finishes provisioning).
 2. **SQL Editor** → New query → paste all of [`supabase/schema.sql`](supabase/schema.sql) → Run.
+   If chat already exists, also run [`supabase/chat-upgrade.sql`](supabase/chat-upgrade.sql) once (announcements + delete-own).
 3. **Authentication → Providers → Email**: enable Email. For easy testing, turn **off** “Confirm email”.
 4. **Authentication → URL configuration**:
    - Site URL: your Render URL, e.g. `https://esl-citi-plaza.onrender.com`

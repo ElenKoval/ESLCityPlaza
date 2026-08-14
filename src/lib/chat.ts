@@ -7,6 +7,7 @@ export type ChatMessage = {
   created_at: string;
   display_name: string;
   role: Role;
+  is_announcement?: boolean;
 };
 
 export function toChatMessages(
@@ -21,5 +22,6 @@ export function toChatMessages(
     created_at: row.created_at,
     display_name: row.profiles?.display_name ?? "Member",
     role: row.profiles?.role ?? "student",
+    is_announcement: Boolean(row.is_announcement),
   }));
 }

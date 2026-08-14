@@ -37,6 +37,7 @@ create table public.messages (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
   body text not null check (char_length(body) > 0 and char_length(body) <= 2000),
+  is_announcement boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -194,7 +195,24 @@ create policy "messages_select_approved"
 drop policy if exists "messages_insert_own" on public.messages;
 create policy "messages_insert_own"
   on public.messages for insert to authenticated
-  with check (user_id = auth.uid() and public.is_approved());
+  with check (
+    user_id = auth.uid()
+    and public.is_approved()
+    and (
+      is_announcement = false
+      or public.has_role(array['volunteer', 'teacher', 'tech'])
+    )
+  );
+
+drop policy if exists "messages_delete_own" on public.messages;
+create policy "messages_delete_own"
+  on public.messages for delete to authenticated
+  using (user_id = auth.uid() and public.is_approved());
+
+alter table public.messages
+  add column if not exists is_announcement boolean not null default false;
+
+alter table public.messages replica identity full;
 
 -- Realtime (safe if already added)
 do $$
