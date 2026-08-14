@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
+import { ApprovalsNavLink, HomeNavLink } from "./HomeNavLink";
 import { RoleBadge } from "./RoleBadge";
 import { SignOutButton } from "./SignOutButton";
 
@@ -12,13 +12,9 @@ export async function SiteHeader() {
     <header className="site-header">
       <div className="site-header__inner">
         <nav className="site-nav" aria-label="Main">
-          <Link href="/" prefetch>
-            Home
-          </Link>
+          <HomeNavLink />
           {profile?.role === "tech" && profile.status === "approved" && (
-            <Link href="/tech" prefetch>
-              Approvals
-            </Link>
+            <ApprovalsNavLink />
           )}
         </nav>
         {profile && (
