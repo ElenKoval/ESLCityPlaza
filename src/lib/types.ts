@@ -1,6 +1,6 @@
-export type Role = "student" | "volunteer" | "teacher" | "tech";
+export type Role = "student" | "teacher" | "tech";
 export type ProfileStatus = "pending" | "approved" | "rejected";
-export type RequestedRole = "student" | "volunteer";
+export type RequestedRole = "student" | "teacher";
 
 export type Profile = {
   id: string;
@@ -8,10 +8,15 @@ export type Profile = {
   role: Role;
   status: ProfileStatus;
   requested_role: RequestedRole | null;
+  hometown?: string;
+  languages?: string[];
+  interests?: string[];
+  bio?: string;
+  onboarding_completed_at?: string | null;
   created_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
-  /** Present in local demo mode only */
+  /** Filled for Tech on Approvals, and in local demo mode */
   email?: string;
 };
 
@@ -25,6 +30,20 @@ export type ClassRow = {
   created_at: string;
   enrollment_count?: number;
   enrolled?: boolean;
+};
+
+export type AnnouncementRow = {
+  id: string;
+  title: string;
+  body: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string | null;
+  expires_at: string | null;
+  is_important: boolean;
+  is_active: boolean;
+  author_name?: string;
+  author_role?: Role;
 };
 
 export type MessageRow = {

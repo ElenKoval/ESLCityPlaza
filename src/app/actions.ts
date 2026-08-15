@@ -7,7 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 import { canEnrollNow, CLASS_CAPACITY } from "@/lib/enrollment";
 import {
   createPendingMember,
-  DEMO_TECH_ID,
   getDemoMembers,
   getDemoSessionProfile,
   hasDemoSession,
@@ -22,7 +21,21 @@ import {
 } from "@/lib/demo-classes";
 import { findOrCreateClassId } from "@/lib/ensure-classes";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import type { RequestedRole, Role } from "@/lib/types";
+import { emailForUserId } from "@/lib/auth-admin";
+import { sendApprovedWelcomeEmail } from "@/lib/mail";
+import { MAX_INTERESTS, INTEREST_CHIPS, needsProfileSetup } from "@/lib/profile";
+import {
+  assignableRoles,
+  canDeleteMember,
+  canManageAnnouncements,
+  canManageClasses,
+  canReviewApplications,
+} from "@/lib/roles";
+import type { AnnouncementRow, RequestedRole, Role } from "@/lib/types";
+import {
+  getDemoAnnouncements,
+  saveDemoAnnouncements,
+} from "@/lib/demo-announcements";
 
 export type ActionState = { error?: string; success?: string } | null;
 
@@ -99,6 +112,9 @@ export async function signIn(
     if (match.status !== "approved") {
       redirect("/pending");
     }
+    if (needsProfileSetup(match)) {
+      redirect("/profile");
+    }
     redirect(next.startsWith("/") ? next : "/");
   }
 
@@ -110,7 +126,26 @@ export async function signIn(
     email: resolved.email,
     password,
   });
-  if (error) return { error: error.message };
+  if (error) {
+    const raw = error.message.toLowerCase();
+    if (raw.includes("email not confirmed") || raw.includes("not confirmed")) {
+      return {
+        error:
+          "Please confirm your email first. Open the link we sent you, then log in.",
+      };
+    }
+    return { error: error.message };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
+    .maybeSingle();
+
+  if (profile && needsProfileSetup(profile)) {
+    redirect("/profile");
+  }
 
   redirect(next.startsWith("/") ? next : "/");
 }
@@ -121,6 +156,7 @@ export async function signUp(
 ): Promise<ActionState> {
   const email = String(formData.get("email") || "").trim().toLowerCase();
   const password = String(formData.get("password") || "");
+  const confirm = String(formData.get("confirm_password") || "");
   const displayName = String(formData.get("display_name") || "").trim();
   const requestedRole = String(
     formData.get("requested_role") || "student",
@@ -129,11 +165,14 @@ export async function signUp(
   if (!email || !password || !displayName) {
     return { error: "Please fill in all fields" };
   }
+  if (requestedRole !== "student" && requestedRole !== "teacher") {
+    return { error: "Choose Student or Teacher" };
+  }
   if (password.length < 6) {
     return { error: "Password must be at least 6 characters" };
   }
-  if (requestedRole !== "student" && requestedRole !== "volunteer") {
-    return { error: "Choose Student or Volunteer" };
+  if (password !== confirm) {
+    return { error: "Passwords do not match" };
   }
 
   if (useLocalDemo()) {
@@ -173,12 +212,8 @@ export async function signUp(
 
   if (error) return { error: error.message };
 
-  // Confirm-email enabled → no session until they click the link
   if (!data.session) {
-    return {
-      success:
-        "Application received. Confirm your email (if required), then log in.",
-    };
+    redirect(`/register/check-email?email=${encodeURIComponent(email)}`);
   }
 
   redirect("/pending");
@@ -196,17 +231,31 @@ export async function reviewApplication(
     return { error: "Invalid application" };
   }
 
-  const allowed: Role[] = ["student", "volunteer", "teacher"];
+  const allowed = assignableRoles();
   if (decision === "approve" && !allowed.includes(role)) {
     return { error: "That role cannot be assigned here" };
+  }
+  if (role === "tech") {
+    return { error: "Tech cannot be assigned here" };
   }
 
   if (useLocalDemo()) {
     const me = await getDemoSessionProfile();
-    if (!me || me.role !== "tech" || me.status !== "approved") {
-      return { error: "Only Tech can review applications" };
+    if (!me || !canReviewApplications(me.role) || me.status !== "approved") {
+      return { error: "Only Teacher or Tech can review applications" };
     }
     const members = await getDemoMembers();
+    const target = members.find((m) => m.id === userId);
+    if (target?.role === "tech") {
+      return { error: "Cannot change a Tech account" };
+    }
+    if (
+      me.role === "teacher" &&
+      target?.role === "teacher" &&
+      target.status === "approved"
+    ) {
+      return { error: "Teachers cannot change other teachers" };
+    }
     const next = members.map((m) => {
       if (m.id !== userId) return m;
       return {
@@ -222,7 +271,9 @@ export async function reviewApplication(
     revalidatePath("/pending");
     return {
       success:
-        decision === "approve" ? "Application approved" : "Application rejected",
+        decision === "approve"
+          ? "Approved (demo — no email sent)"
+          : "Application declined",
     };
   }
 
@@ -238,8 +289,25 @@ export async function reviewApplication(
     .eq("id", user.id)
     .single();
 
-  if (!me || me.role !== "tech" || me.status !== "approved") {
-    return { error: "Only Tech can review applications" };
+  if (!me || !canReviewApplications(me.role) || me.status !== "approved") {
+    return { error: "Only Teacher or Tech can review applications" };
+  }
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("id, role, status")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!target) return { error: "Application not found" };
+  if (target.role === "tech") {
+    return { error: "Cannot change a Tech account" };
+  }
+  if (
+    me.role === "teacher" &&
+    target.role === "teacher" &&
+    target.status === "approved"
+  ) {
+    return { error: "Teachers cannot change other teachers" };
   }
 
   const payload =
@@ -259,10 +327,35 @@ export async function reviewApplication(
   const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
   if (error) return { error: error.message };
 
+  if (decision === "approve") {
+    const email = await emailForUserId(userId);
+    const { data: person } = await supabase
+      .from("profiles")
+      .select("display_name")
+      .eq("id", userId)
+      .maybeSingle();
+    if (email) {
+      const mail = await sendApprovedWelcomeEmail(
+        email,
+        person?.display_name || "there",
+      );
+      revalidatePath("/tech");
+      if (!mail.sent) {
+        return {
+          success:
+            "Approved. Welcome email was not sent — add RESEND_API_KEY on Render.",
+        };
+      }
+      return { success: "Approved. We emailed them a welcome note." };
+    }
+    revalidatePath("/tech");
+    return {
+      success: "Approved. Could not look up their email (needs service role key).",
+    };
+  }
+
   revalidatePath("/tech");
-  return {
-    success: decision === "approve" ? "Application approved" : "Application rejected",
-  };
+  return { success: "Application declined" };
 }
 
 export async function deleteMember(
@@ -274,13 +367,15 @@ export async function deleteMember(
 
   if (useLocalDemo()) {
     const me = await getDemoSessionProfile();
-    if (!me || me.role !== "tech" || me.status !== "approved") {
-      return { error: "Only Tech can delete accounts" };
-    }
-    if (userId === DEMO_TECH_ID || userId === me.id) {
-      return { error: "You cannot delete your own Tech account" };
+    if (!me || me.status !== "approved") {
+      return { error: "Please log in" };
     }
     const members = await getDemoMembers();
+    const target = members.find((m) => m.id === userId);
+    if (!target) return { error: "Account not found" };
+    if (!canDeleteMember(me, target)) {
+      return { error: "You cannot delete this account" };
+    }
     await saveDemoMembers(members.filter((m) => m.id !== userId));
     revalidatePath("/tech");
     return { success: "Account deleted" };
@@ -298,11 +393,18 @@ export async function deleteMember(
     .eq("id", user.id)
     .single();
 
-  if (!me || me.role !== "tech" || me.status !== "approved") {
-    return { error: "Only Tech can delete accounts" };
+  if (!me || me.status !== "approved") {
+    return { error: "Please log in" };
   }
-  if (userId === user.id) {
-    return { error: "You cannot delete your own account" };
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("id, role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!target) return { error: "Account not found" };
+  if (!canDeleteMember({ id: user.id, role: me.role }, target)) {
+    return { error: "You cannot delete this account" };
   }
 
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -360,6 +462,15 @@ export async function createClass(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Please log in" };
 
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageClasses(me.role)) {
+    return { error: "Only Teacher or Tech can manage classes" };
+  }
+
   const { error } = await supabase.from("classes").insert({
     title,
     description,
@@ -382,6 +493,19 @@ export async function deleteClass(
   if (!id) return { error: "Missing class id" };
 
   const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageClasses(me.role)) {
+    return { error: "Only Teacher or Tech can manage classes" };
+  }
+
   const { error } = await supabase.from("classes").delete().eq("id", id);
   if (error) return { error: error.message };
   revalidatePath("/admin");
@@ -504,4 +628,266 @@ export async function unenrollClass(
   revalidatePath("/my");
   revalidatePath("/");
   return { success: "Sign-up canceled" };
+}
+
+const ALLOWED_INTERESTS = new Set<string>(INTEREST_CHIPS);
+
+export async function saveProfile(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const displayName = String(formData.get("display_name") || "").trim();
+  const hometown = String(formData.get("hometown") || "").trim();
+  const bio = String(formData.get("bio") || "").trim();
+  const languages = formData
+    .getAll("languages")
+    .map((v) => String(v).trim())
+    .filter(Boolean)
+    .slice(0, 8);
+  const interests = formData
+    .getAll("interests")
+    .map((v) => String(v))
+    .filter((v) => ALLOWED_INTERESTS.has(v))
+    .slice(0, MAX_INTERESTS);
+
+  if (!displayName) return { error: "Please enter your name" };
+  if (bio.length > 600) return { error: "Please keep the intro a little shorter" };
+
+  const now = new Date().toISOString();
+  const payload = {
+    display_name: displayName,
+    hometown,
+    languages,
+    interests,
+    bio,
+    onboarding_completed_at: now,
+  };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved") return { error: "Please log in" };
+    const members = await getDemoMembers();
+    await saveDemoMembers(
+      members.map((m) => (m.id === me.id ? { ...m, ...payload } : m)),
+    );
+    redirect("/");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { error } = await supabase.from("profiles").update(payload).eq("id", user.id);
+  if (error) return { error: error.message };
+  redirect("/");
+}
+
+export async function skipProfile(
+  _prev: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  const now = new Date().toISOString();
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved") return { error: "Please log in" };
+    const members = await getDemoMembers();
+    await saveDemoMembers(
+      members.map((m) =>
+        m.id === me.id ? { ...m, onboarding_completed_at: now } : m,
+      ),
+    );
+    redirect("/");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ onboarding_completed_at: now })
+    .eq("id", user.id);
+  if (error) return { error: error.message };
+  redirect("/");
+}
+
+function parseExpiresAt(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    return new Date(`${trimmed}T23:59:59`).toISOString();
+  }
+  const when = new Date(trimmed);
+  if (Number.isNaN(when.getTime())) return null;
+  return when.toISOString();
+}
+
+function announcementFields(formData: FormData) {
+  const title = String(formData.get("title") || "").trim();
+  const body = String(formData.get("body") || "").trim();
+  const expiresAt = parseExpiresAt(String(formData.get("expires_at") || ""));
+  const isImportant = String(formData.get("is_important") || "") === "on";
+  const isActive = String(formData.get("is_active") || "") === "on";
+  return { title, body, expiresAt, isImportant, isActive };
+}
+
+export async function createAnnouncement(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { title, body, expiresAt, isImportant } = announcementFields(formData);
+  if (!title || !body) return { error: "Add a title and message" };
+  if (title.length > 120) return { error: "Title is too long" };
+  if (body.length > 2000) return { error: "Message is too long" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved" || !canManageAnnouncements(me.role)) {
+      return { error: "Only Teacher or Tech can post announcements" };
+    }
+    const rows = await getDemoAnnouncements();
+    const row: AnnouncementRow = {
+      id: crypto.randomUUID(),
+      title,
+      body,
+      created_by: me.id,
+      created_at: new Date().toISOString(),
+      updated_at: null,
+      expires_at: expiresAt,
+      is_important: isImportant,
+      is_active: true,
+      author_name: me.display_name,
+      author_role: me.role,
+    };
+    await saveDemoAnnouncements([row, ...rows]);
+    revalidatePath("/");
+    revalidatePath("/announcements");
+    return { success: "Announcement posted" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageAnnouncements(me.role)) {
+    return { error: "Only Teacher or Tech can post announcements" };
+  }
+
+  const { error } = await supabase.from("announcements").insert({
+    title,
+    body,
+    created_by: user.id,
+    expires_at: expiresAt,
+    is_important: isImportant,
+    is_active: true,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/");
+  revalidatePath("/announcements");
+  return { success: "Announcement posted" };
+}
+
+export async function updateAnnouncement(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = String(formData.get("id") || "");
+  if (!id) return { error: "Missing announcement" };
+  const { title, body, expiresAt, isImportant, isActive } =
+    announcementFields(formData);
+  if (!title || !body) return { error: "Add a title and message" };
+
+  const payload = {
+    title,
+    body,
+    expires_at: expiresAt,
+    is_important: isImportant,
+    is_active: isActive,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved" || !canManageAnnouncements(me.role)) {
+      return { error: "Only Teacher or Tech can edit announcements" };
+    }
+    const rows = await getDemoAnnouncements();
+    await saveDemoAnnouncements(
+      rows.map((row) => (row.id === id ? { ...row, ...payload } : row)),
+    );
+    revalidatePath("/");
+    revalidatePath("/announcements");
+    return { success: "Announcement updated" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageAnnouncements(me.role)) {
+    return { error: "Only Teacher or Tech can edit announcements" };
+  }
+
+  const { error } = await supabase.from("announcements").update(payload).eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/");
+  revalidatePath("/announcements");
+  return { success: "Announcement updated" };
+}
+
+export async function deleteAnnouncement(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = String(formData.get("id") || "");
+  if (!id) return { error: "Missing announcement" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved" || !canManageAnnouncements(me.role)) {
+      return { error: "Only Teacher or Tech can delete announcements" };
+    }
+    const rows = await getDemoAnnouncements();
+    await saveDemoAnnouncements(rows.filter((row) => row.id !== id));
+    revalidatePath("/");
+    revalidatePath("/announcements");
+    return { success: "Announcement deleted" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageAnnouncements(me.role)) {
+    return { error: "Only Teacher or Tech can delete announcements" };
+  }
+
+  const { error } = await supabase.from("announcements").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidatePath("/");
+  revalidatePath("/announcements");
+  return { success: "Announcement deleted" };
 }

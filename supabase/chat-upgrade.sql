@@ -13,7 +13,7 @@ create policy "messages_insert_own"
     and public.is_approved()
     and (
       is_announcement = false
-      or public.has_role(array['volunteer', 'teacher', 'tech'])
+      or public.has_role(array['teacher', 'tech'])
     )
   );
 

@@ -2,7 +2,18 @@ import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { DEMO_COOKIE, DEMO_MEMBERS_COOKIE, DEMO_TECH_ID } from "@/lib/demo";
 
-const PUBLIC = new Set(["/", "/login", "/register", "/enter"]);
+const PUBLIC = new Set([
+  "/",
+  "/login",
+  "/register",
+  "/enter",
+  "/privacy",
+  "/terms",
+]);
+
+function isPublicPath(path: string) {
+  return PUBLIC.has(path) || path.startsWith("/register/");
+}
 
 function demoSessionUserId(request: NextRequest): string | null {
   const raw = request.cookies.get(DEMO_COOKIE)?.value;
@@ -52,7 +63,7 @@ export async function middleware(request: NextRequest) {
 
   // Local demo (no Supabase yet)
   if (!url || !key) {
-    if (PUBLIC.has(path) || path.startsWith("/auth")) {
+    if (isPublicPath(path) || path.startsWith("/auth")) {
       if (hasDemo && (path === "/login" || path === "/register" || path === "/enter")) {
         const status = demoMemberStatus(request, demoUserId!);
         const redirectUrl = request.nextUrl.clone();
@@ -71,7 +82,7 @@ export async function middleware(request: NextRequest) {
     }
 
     const status = demoMemberStatus(request, demoUserId!);
-    if (status !== "approved" && path !== "/pending") {
+    if (status !== "approved" && path !== "/pending" && !isPublicPath(path)) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/pending";
       return NextResponse.redirect(redirectUrl);
@@ -90,7 +101,7 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  if (!user && !hasDemo && !PUBLIC.has(path)) {
+  if (!user && !hasDemo && !isPublicPath(path)) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("next", path);
@@ -107,7 +118,7 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  if (user && !PUBLIC.has(path) && path !== "/pending") {
+  if (user && !isPublicPath(path) && path !== "/pending") {
     const { data: profile } = await supabase
       .from("profiles")
       .select("status, role")
@@ -120,14 +131,18 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    if (path.startsWith("/tech") && profile.role !== "tech") {
+    if (
+      path.startsWith("/tech") &&
+      profile.role !== "tech" &&
+      profile.role !== "teacher"
+    ) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/";
       return NextResponse.redirect(redirectUrl);
     }
 
     if (
-      path.startsWith("/admin") &&
+      (path.startsWith("/admin") || path.startsWith("/announcements")) &&
       profile.role !== "teacher" &&
       profile.role !== "tech"
     ) {

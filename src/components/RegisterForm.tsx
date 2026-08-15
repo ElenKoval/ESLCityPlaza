@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signUp, type ActionState } from "@/app/actions";
 
@@ -9,12 +9,27 @@ export function RegisterForm() {
     signUp,
     null,
   );
+  const [mismatch, setMismatch] = useState(false);
 
   return (
-    <form action={action} className="panel form-grid">
+    <form
+      action={action}
+      className="panel form-grid"
+      onSubmit={(e) => {
+        const form = e.currentTarget;
+        const password = String(new FormData(form).get("password") || "");
+        const confirm = String(new FormData(form).get("confirm_password") || "");
+        if (password !== confirm) {
+          e.preventDefault();
+          setMismatch(true);
+        } else {
+          setMismatch(false);
+        }
+      }}
+    >
       <label>
-        Display name
-        <input name="display_name" required maxLength={60} />
+        Name
+        <input name="display_name" required maxLength={60} autoComplete="name" />
       </label>
       <label>
         Email
@@ -31,16 +46,31 @@ export function RegisterForm() {
         />
       </label>
       <label>
+        Confirm password
+        <input
+          name="confirm_password"
+          type="password"
+          autoComplete="new-password"
+          required
+          minLength={6}
+        />
+      </label>
+      <label>
         I want to join as
         <select name="requested_role" defaultValue="student">
           <option value="student">Student</option>
-          <option value="volunteer">Volunteer</option>
+          <option value="teacher">Teacher</option>
         </select>
       </label>
+      {mismatch && <p className="error">Passwords do not match</p>}
       {state?.error && <p className="error">{state.error}</p>}
-      {state?.success && <p className="success">{state.success}</p>}
+      <p className="legal-note">
+        By creating an account, you acknowledge our{" "}
+        <Link href="/privacy">Privacy Policy</Link> and agree to our{" "}
+        <Link href="/terms">Terms</Link>.
+      </p>
       <button className="btn-primary" type="submit" disabled={pending}>
-        {pending ? "Submitting…" : "Submit application"}
+        {pending ? "Creating account…" : "Create account"}
       </button>
       <p className="sub" style={{ margin: 0 }}>
         Already have an account? <Link href="/login">Log in</Link>

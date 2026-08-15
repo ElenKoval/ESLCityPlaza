@@ -25,6 +25,28 @@ export function ChatNavLink() {
   );
 }
 
+export function AnnouncementsNavLink() {
+  const pathname = usePathname();
+  if (pathname === "/announcements") return null;
+
+  return (
+    <Link href="/announcements" prefetch>
+      Announcements
+    </Link>
+  );
+}
+
+export function ScheduleNavLink() {
+  const pathname = usePathname();
+  if (pathname === "/admin") return null;
+
+  return (
+    <Link href="/admin" prefetch>
+      Schedule
+    </Link>
+  );
+}
+
 export function ApprovalsNavLink() {
   const pathname = usePathname();
   if (pathname === "/tech") return null;

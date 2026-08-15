@@ -24,12 +24,16 @@ Also works: `hero.jpeg`, `hero.png`, or `hero.webp`. Refresh the homepage after 
 
 1. Create a free project at [supabase.com](https://supabase.com) (wait until it finishes provisioning).
 2. **SQL Editor** → New query → paste all of [`supabase/schema.sql`](supabase/schema.sql) → Run.
-   If chat already exists, also run [`supabase/chat-upgrade.sql`](supabase/chat-upgrade.sql) once (announcements + delete-own).
-3. **Authentication → Providers → Email**: enable Email. For easy testing, turn **off** “Confirm email”.
+   If the site already exists, also run these once:
+   - [`supabase/chat-upgrade.sql`](supabase/chat-upgrade.sql) (announcements in chat + delete-own)
+   - [`supabase/profile-upgrade.sql`](supabase/profile-upgrade.sql) (optional profile fields)
+   - [`supabase/roles-announcements-upgrade.sql`](supabase/roles-announcements-upgrade.sql) (student/teacher/tech + homepage announcements)
+3. **Authentication → Providers → Email**: enable Email. Turn **Confirm email ON** (the join flow needs the confirmation link).
 4. **Authentication → URL configuration**:
    - Site URL: your Render URL, e.g. `https://esl-citi-plaza.onrender.com`
    - Redirect URLs: `https://esl-citi-plaza.onrender.com/auth/callback` and `http://localhost:3000/auth/callback`
 5. **Project Settings → API**: copy **Project URL**, **anon public** key, and **service_role** key (keep service_role secret).
+6. Optional welcome email after Approve: create a free [Resend](https://resend.com) API key and set `RESEND_API_KEY` (and optionally `EMAIL_FROM`) on Render.
 
 ### 2. Local
 
@@ -64,5 +68,7 @@ Set these env vars on the web service (Blueprint lists them as `sync: false` so 
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SITE_URL` = your `https://….onrender.com`
+- `RESEND_API_KEY` (optional — needed to email people when you Approve)
+- `EMAIL_FROM` (optional — verified sender, e.g. `ESL on Plaza <hello@yourdomain.com>`)
 
 Redeploy after saving. Registration and approvals then use real Supabase Auth + Postgres (demo cookie mode turns off automatically once URL + anon key are set).

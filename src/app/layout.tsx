@@ -16,7 +16,7 @@ const figtree = Figtree({
 
 export const metadata: Metadata = {
   title: "ESL on Plaza",
-  description: "English practice at the plaza — classes, community chat, and volunteers",
+  description: "English practice at the plaza — classes, community chat, and teachers",
 };
 
 export default function RootLayout({

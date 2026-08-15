@@ -8,8 +8,8 @@ import {
   type ActionState,
 } from "@/app/actions";
 import { RoleBadge } from "@/components/RoleBadge";
+import { canDeleteMember } from "@/lib/roles";
 import type { Profile } from "@/lib/types";
-import { ROLE_LABELS } from "@/lib/roles";
 
 function useRefreshOnSuccess(state: ActionState) {
   const router = useRouter();
@@ -32,7 +32,6 @@ function ReviewForm({ profile }: { profile: Profile }) {
         Final role
         <select name="role" defaultValue={profile.requested_role || "student"}>
           <option value="student">Student</option>
-          <option value="volunteer">Volunteer</option>
           <option value="teacher">Teacher</option>
         </select>
       </label>
@@ -53,7 +52,7 @@ function ReviewForm({ profile }: { profile: Profile }) {
           value="reject"
           disabled={pending}
         >
-          Reject
+          Decline
         </button>
       </div>
       {state?.error && <p className="error">{state.error}</p>}
@@ -91,11 +90,11 @@ function DeleteForm({ userId, label }: { userId: string; label: string }) {
 export function TechPanel({
   applications,
   members,
-  techId,
+  viewer,
 }: {
   applications: Profile[];
   members: Profile[];
-  techId: string;
+  viewer: Profile;
 }) {
   return (
     <div className="stack">
@@ -104,7 +103,7 @@ export function TechPanel({
           Pending applications
         </h3>
         <p className="lead" style={{ margin: 0 }}>
-          New people apply on the Join page. They stay locked out of chat and
+          New people apply on the site. They stay locked out of chat and
           lessons until you approve them here.
         </p>
         {applications.length === 0 ? (
@@ -115,15 +114,14 @@ export function TechPanel({
               <div key={app.id} className="app-row">
                 <div>
                   <strong>{app.display_name}</strong>
-                  <div className="class-meta">
-                    <span>
-                      Requested: {ROLE_LABELS[app.requested_role || app.role]}
-                    </span>
-                    <RoleBadge role={app.requested_role || app.role} />
-                  </div>
                   {app.email && (
                     <div className="class-meta">
                       <span>{app.email}</span>
+                    </div>
+                  )}
+                  {app.requested_role && (
+                    <div className="class-meta">
+                      Applied as <RoleBadge role={app.requested_role} />
                     </div>
                   )}
                 </div>
@@ -137,7 +135,9 @@ export function TechPanel({
                 </div>
                 <div className="stack">
                   <ReviewForm profile={app} />
-                  <DeleteForm userId={app.id} label={app.display_name} />
+                  {canDeleteMember(viewer, app) && (
+                    <DeleteForm userId={app.id} label={app.display_name} />
+                  )}
                 </div>
               </div>
             ))}
@@ -171,10 +171,14 @@ export function TechPanel({
                   }).format(new Date(m.created_at))}
                 </span>
               </div>
-              {m.id === techId ? (
-                <span className="class-meta">You (Tech)</span>
-              ) : (
+              {canDeleteMember(viewer, m) ? (
                 <DeleteForm userId={m.id} label={m.display_name} />
+              ) : m.role === "tech" ? (
+                <span className="class-meta">TECH</span>
+              ) : m.id === viewer.id ? (
+                <span className="class-meta">You</span>
+              ) : (
+                <span className="class-meta">{m.status}</span>
               )}
             </div>
           ))}

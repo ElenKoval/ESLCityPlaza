@@ -1,4 +1,4 @@
-import { requireTech } from "@/lib/auth";
+import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TechPanel } from "@/components/TechPanel";
 import {
@@ -7,6 +7,7 @@ import {
   resetDemoMembers,
   useLocalDemo,
 } from "@/lib/demo";
+import { emailsForUserIds } from "@/lib/auth-admin";
 import type { Profile } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
@@ -17,7 +18,7 @@ async function resetDemoAction() {
 }
 
 export default async function TechPage() {
-  const { userId } = await requireTech();
+  const { userId, profile } = await requireStaff();
   const isDemo = useLocalDemo() || userId === DEMO_TECH_ID;
 
   let applications: Profile[] = [];
@@ -43,6 +44,18 @@ export default async function TechPage() {
 
     applications = (pending as Profile[]) ?? [];
     members = (rest as Profile[]) ?? [];
+    const emailMap = await emailsForUserIds([
+      ...applications.map((p) => p.id),
+      ...members.map((p) => p.id),
+    ]);
+    applications = applications.map((p) => ({
+      ...p,
+      email: emailMap.get(p.id) ?? p.email,
+    }));
+    members = members.map((p) => ({
+      ...p,
+      email: emailMap.get(p.id) ?? p.email,
+    }));
   }
 
   return (
@@ -50,9 +63,9 @@ export default async function TechPage() {
       <section className="section">
         <h2>Approvals</h2>
         <p className="lead">
-          How it works: anyone can submit a Join application → they wait on
-          “pending” → only you (Tech) approve or reject → approved members get
-          chat + lesson sign-up. You can also delete leftover accounts.
+          How it works: someone applies → confirms email → you see their name,
+          email, and date here → Approve or Decline. Approved members get a
+          welcome email, then they can use chat and class sign-up.
         </p>
         {isDemo && (
           <form action={resetDemoAction} style={{ marginBottom: "1rem" }}>
@@ -64,7 +77,7 @@ export default async function TechPage() {
         <TechPanel
           applications={applications}
           members={members}
-          techId={userId}
+          viewer={profile}
         />
       </section>
     </div>

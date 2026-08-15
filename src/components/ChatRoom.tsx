@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { canAnnounce, ROLE_LABELS } from "@/lib/roles";
+import { canAnnounce } from "@/lib/roles";
+import { RoleBadge } from "@/components/RoleBadge";
 import type { ChatMessage } from "@/lib/chat";
 import type { MessageRow, Role } from "@/lib/types";
 
@@ -72,11 +73,6 @@ function letterColor(name: string) {
   return LETTER_COLORS[n];
 }
 
-function staffLabel(role: Role) {
-  if (role === "student") return null;
-  return ROLE_LABELS[role].toUpperCase();
-}
-
 function MessageBody({ text }: { text: string }) {
   const parts = text.split(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi);
   return (
@@ -110,7 +106,6 @@ function MessageRowView({
   onDelete: (id: string) => void;
 }) {
   const name = chatName(msg.display_name);
-  const badge = staffLabel(msg.role);
   return (
     <article
       className={`chat-msg ${msg.is_announcement ? "is-announce" : ""} ${mine ? "is-mine" : ""}`}
@@ -125,7 +120,7 @@ function MessageRowView({
       <div className="chat-msg__main">
         <p className="chat-msg__meta">
           <span className="chat-msg__name">{name}</span>
-          {badge && <span className="chat-msg__role">{badge}</span>}
+          <RoleBadge role={msg.role} />
           <span className="chat-msg__dot">·</span>
           <span className="chat-msg__time">{timeLabel(msg.created_at)}</span>
         </p>
@@ -177,7 +172,7 @@ export function ChatRoom({
         body: "Welcome to ESL on Plaza chat! Practice English, ask questions, and say hi.",
         created_at: new Date().toISOString(),
         display_name: "Plaza Bot",
-        role: "volunteer",
+        role: "teacher",
       };
       writeDemoMessages([welcome]);
       setMessages([welcome]);

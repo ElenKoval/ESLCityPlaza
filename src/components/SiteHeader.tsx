@@ -1,6 +1,6 @@
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
-import { ApprovalsNavLink, ChatNavLink, HomeNavLink } from "./HomeNavLink";
+import { ApprovalsNavLink, AnnouncementsNavLink, ChatNavLink, HomeNavLink, ScheduleNavLink } from "./HomeNavLink";
 import { RoleBadge } from "./RoleBadge";
 import { SignOutButton } from "./SignOutButton";
 
@@ -14,9 +14,14 @@ export async function SiteHeader() {
         <nav className="site-nav" aria-label="Main">
           <HomeNavLink />
           {profile?.status === "approved" && <ChatNavLink />}
-          {profile?.role === "tech" && profile.status === "approved" && (
-            <ApprovalsNavLink />
-          )}
+          {profile?.status === "approved" &&
+            (profile.role === "teacher" || profile.role === "tech") && (
+              <>
+                <ApprovalsNavLink />
+                <AnnouncementsNavLink />
+                <ScheduleNavLink />
+              </>
+            )}
         </nav>
         {profile && (
           <div className="site-header__user">

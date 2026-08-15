@@ -6,11 +6,16 @@ create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text not null,
   role text not null default 'student'
-    check (role in ('student', 'volunteer', 'teacher', 'tech')),
+    check (role in ('student', 'teacher', 'tech')),
   status text not null default 'pending'
     check (status in ('pending', 'approved', 'rejected')),
   requested_role text
-    check (requested_role in ('student', 'volunteer')),
+    check (requested_role in ('student', 'teacher')),
+  hometown text not null default '',
+  languages text[] not null default '{}',
+  interests text[] not null default '{}',
+  bio text not null default '',
+  onboarding_completed_at timestamptz,
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
   reviewed_by uuid references public.profiles (id)
@@ -84,7 +89,7 @@ declare
   name text;
 begin
   req := coalesce(new.raw_user_meta_data->>'requested_role', 'student');
-  if req not in ('student', 'volunteer') then
+  if req not in ('student', 'teacher') then
     req := 'student';
   end if;
   name := coalesce(nullif(trim(new.raw_user_meta_data->>'display_name'), ''), split_part(new.email, '@', 1));
@@ -120,9 +125,21 @@ security definer
 set search_path = public
 as $$
 begin
-  -- Allow Supabase SQL editor / service role (no JWT)
   if auth.uid() is null then
     return new;
+  end if;
+
+  if new.role = 'tech' and old.role is distinct from 'tech' then
+    raise exception 'Tech role cannot be assigned this way';
+  end if;
+
+  if old.role = 'tech' and (
+    old.role is distinct from new.role
+    or old.status is distinct from new.status
+    or old.reviewed_at is distinct from new.reviewed_at
+    or old.reviewed_by is distinct from new.reviewed_by
+  ) then
+    raise exception 'Cannot change a tech account';
   end if;
 
   if (old.role is distinct from new.role)
@@ -130,15 +147,28 @@ begin
      or (old.reviewed_at is distinct from new.reviewed_at)
      or (old.reviewed_by is distinct from new.reviewed_by)
   then
-    if not public.has_role(array['tech']) then
-      raise exception 'Only tech can change role or status';
+    if not public.has_role(array['teacher', 'tech']) then
+      raise exception 'Only teacher or tech can change role or status';
+    end if;
+
+    if new.role not in ('student', 'teacher', 'tech') then
+      raise exception 'Invalid role';
+    end if;
+
+    if public.has_role(array['teacher']) and not public.has_role(array['tech']) then
+      if old.role = 'teacher' and old.status = 'approved' then
+        raise exception 'Teachers cannot change other teachers';
+      end if;
+      if new.role not in ('student', 'teacher') then
+        raise exception 'Invalid role';
+      end if;
     end if;
   end if;
-  if old.requested_role is distinct from new.requested_role
-     and auth.uid() is not null
-  then
+
+  if old.requested_role is distinct from new.requested_role then
     raise exception 'requested_role is immutable';
   end if;
+
   return new;
 end;
 $$;
@@ -150,8 +180,8 @@ create trigger profiles_guard_updates
 
 create policy "profiles_update_authenticated"
   on public.profiles for update to authenticated
-  using (id = auth.uid() or public.has_role(array['tech']))
-  with check (id = auth.uid() or public.has_role(array['tech']));
+  using (id = auth.uid() or public.has_role(array['teacher', 'tech']))
+  with check (id = auth.uid() or public.has_role(array['teacher', 'tech']));
 
 -- classes: approved members can read; staff can write
 drop policy if exists "classes_select_approved" on public.classes;
@@ -200,7 +230,7 @@ create policy "messages_insert_own"
     and public.is_approved()
     and (
       is_announcement = false
-      or public.has_role(array['volunteer', 'teacher', 'tech'])
+      or public.has_role(array['teacher', 'tech'])
     )
   );
 
@@ -208,6 +238,57 @@ drop policy if exists "messages_delete_own" on public.messages;
 create policy "messages_delete_own"
   on public.messages for delete to authenticated
   using (user_id = auth.uid() and public.is_approved());
+
+-- announcements (homepage)
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  title text not null check (char_length(title) > 0 and char_length(title) <= 120),
+  body text not null check (char_length(body) > 0 and char_length(body) <= 2000),
+  created_by uuid not null references public.profiles (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz,
+  expires_at timestamptz,
+  is_important boolean not null default false,
+  is_active boolean not null default true
+);
+
+create index if not exists announcements_created_at_idx
+  on public.announcements (created_at desc);
+
+alter table public.announcements enable row level security;
+
+drop policy if exists "announcements_select_approved" on public.announcements;
+create policy "announcements_select_approved"
+  on public.announcements for select to authenticated
+  using (
+    public.is_approved()
+    and (
+      public.has_role(array['teacher', 'tech'])
+      or (
+        is_active = true
+        and (expires_at is null or expires_at > now())
+      )
+    )
+  );
+
+drop policy if exists "announcements_insert_staff" on public.announcements;
+create policy "announcements_insert_staff"
+  on public.announcements for insert to authenticated
+  with check (
+    created_by = auth.uid()
+    and public.has_role(array['teacher', 'tech'])
+  );
+
+drop policy if exists "announcements_update_staff" on public.announcements;
+create policy "announcements_update_staff"
+  on public.announcements for update to authenticated
+  using (public.has_role(array['teacher', 'tech']))
+  with check (public.has_role(array['teacher', 'tech']));
+
+drop policy if exists "announcements_delete_staff" on public.announcements;
+create policy "announcements_delete_staff"
+  on public.announcements for delete to authenticated
+  using (public.has_role(array['teacher', 'tech']));
 
 alter table public.messages
   add column if not exists is_announcement boolean not null default false;

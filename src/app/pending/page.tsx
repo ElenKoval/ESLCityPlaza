@@ -1,6 +1,5 @@
 import { requireUser } from "@/lib/auth";
 import { useLocalDemo } from "@/lib/demo";
-import { ROLE_LABELS } from "@/lib/roles";
 import Link from "next/link";
 
 export default async function PendingPage() {
@@ -25,25 +24,29 @@ export default async function PendingPage() {
   return (
     <div className="page">
       <section className="section panel stack">
-        <h2>{rejected ? "Application declined" : "Application under review"}</h2>
-        <p className="lead">
-          {rejected
-            ? "Classes and chat stay closed for now. Contact the organizers if this looks wrong."
-            : "We review every application by hand. Classes and chat will unlock after approval."}
-        </p>
-        {profile && (
-          <p>
-            You applied as:{" "}
-            <strong>
-              {ROLE_LABELS[profile.requested_role || profile.role]}
-            </strong>
-          </p>
+        {rejected ? (
+          <>
+            <h2>Application declined</h2>
+            <p className="lead">
+              Classes and chat stay closed for now. Contact the organizers if
+              this looks wrong.
+            </p>
+          </>
+        ) : (
+          <>
+            <h2>Thank you!</h2>
+            <p className="lead">
+              Your request to join ESL on Plaza has been sent.
+            </p>
+            <p>
+              We’ll let you know when your membership is approved.
+            </p>
+          </>
         )}
         {!rejected && useLocalDemo() && (
           <p className="sub" style={{ marginTop: "1rem" }}>
             Demo tip: log out, open <Link href="/enter">Enter</Link> with the
-            Tech key, approve your application, then log in again with the same
-            email.
+            Tech key, approve your application, then log in again.
           </p>
         )}
       </section>
