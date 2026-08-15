@@ -144,6 +144,13 @@ textarea {
 .site-header__name {
   font-size: 0.9rem;
   color: var(--ink-soft);
+  text-decoration: none;
+}
+
+a.site-header__name:hover {
+  color: var(--plaza-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .site-footer {
@@ -826,9 +833,31 @@ textarea {
   margin: 0 0 1.25rem;
 }
 
-.form-grid {
-  display: grid;
-  gap: 0.85rem;
+.password-field {
+  position: relative;
+  display: block;
+}
+
+.password-field input {
+  padding-right: 4.25rem;
+}
+
+.password-field__toggle {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.3rem 0.45rem;
+}
+
+.password-field__toggle:hover {
+  color: var(--plaza-deep);
 }
 
 label {
@@ -1246,6 +1275,26 @@ body:has(.chat-page) main {
     grid-template-columns: 1.4fr 1fr auto;
     align-items: center;
   }
+}
+
+.temp-password {
+  margin: 0;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.75rem;
+  background: #fff6e8;
+  border: 1px solid rgba(196, 81, 12, 0.22);
+}
+
+.temp-password span {
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
+.temp-password strong {
+  font-size: 1.15rem;
+  letter-spacing: 0.04em;
 }
 
 .legal-note {

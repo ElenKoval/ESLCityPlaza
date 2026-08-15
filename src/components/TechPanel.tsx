@@ -3,6 +3,7 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
+  addMemberManually,
   deleteMember,
   reviewApplication,
   type ActionState,
@@ -16,6 +17,51 @@ function useRefreshOnSuccess(state: ActionState) {
   useEffect(() => {
     if (state?.success) router.refresh();
   }, [state, router]);
+}
+
+function AddMemberForm() {
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    addMemberManually,
+    null,
+  );
+  useRefreshOnSuccess(state);
+
+  return (
+    <form action={action} className="panel form-grid">
+      <h3 className="announce-form__heading">Add member manually</h3>
+      <p className="field-hint" style={{ marginTop: 0 }}>
+        Creates an approved account right away — no Apply form and no email
+        confirmation. You will get a password to give them. They can keep using
+        it; they do not have to change it.
+      </p>
+      <label>
+        Name
+        <input name="display_name" required maxLength={60} autoComplete="name" />
+      </label>
+      <label>
+        Email
+        <input name="email" type="email" autoComplete="email" required />
+      </label>
+      <label>
+        Role
+        <select name="role" defaultValue="student">
+          <option value="student">Student</option>
+          <option value="teacher">Teacher</option>
+        </select>
+      </label>
+      {state?.error && <p className="error">{state.error}</p>}
+      {state?.success && <p className="success">{state.success}</p>}
+      {state?.tempPassword && (
+        <p className="temp-password">
+          <span>Password</span>
+          <strong>{state.tempPassword}</strong>
+        </p>
+      )}
+      <button className="btn-primary" type="submit" disabled={pending}>
+        {pending ? "Adding…" : "Add member"}
+      </button>
+    </form>
+  );
 }
 
 function ReviewForm({ profile }: { profile: Profile }) {
@@ -98,6 +144,7 @@ export function TechPanel({
 }) {
   return (
     <div className="stack">
+      <AddMemberForm />
       <section className="panel stack">
         <h3 style={{ margin: 0, fontFamily: "var(--font-display)" }}>
           Pending applications

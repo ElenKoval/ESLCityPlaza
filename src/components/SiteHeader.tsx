@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { ApprovalsNavLink, AnnouncementsNavLink, ChatNavLink, HomeNavLink, ScheduleNavLink } from "./HomeNavLink";
@@ -13,8 +14,8 @@ export async function SiteHeader() {
       <div className="site-header__inner">
         <nav className="site-nav" aria-label="Main">
           <HomeNavLink />
-          <AnnouncementsNavLink />
           {profile?.status === "approved" && <ChatNavLink />}
+          {profile?.status === "approved" && <AnnouncementsNavLink />}
           {profile?.status === "approved" &&
             (profile.role === "teacher" || profile.role === "tech") && (
               <>
@@ -25,7 +26,13 @@ export async function SiteHeader() {
         </nav>
         {profile && (
           <div className="site-header__user">
-            <span className="site-header__name">{profile.display_name}</span>
+            {profile.status === "approved" ? (
+              <Link href="/account" className="site-header__name" prefetch>
+                {profile.display_name}
+              </Link>
+            ) : (
+              <span className="site-header__name">{profile.display_name}</span>
+            )}
             <RoleBadge role={profile.role} />
             <SignOutButton demo={demo} />
           </div>

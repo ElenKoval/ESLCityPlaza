@@ -21,7 +21,7 @@ import {
 } from "@/lib/demo-classes";
 import { findOrCreateClassId } from "@/lib/ensure-classes";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
-import { emailForUserId } from "@/lib/auth-admin";
+import { emailForUserId, authEmailExists, createAdminClient } from "@/lib/auth-admin";
 import { sendApprovedWelcomeEmail } from "@/lib/mail";
 import { MAX_INTERESTS, INTEREST_CHIPS, needsProfileSetup } from "@/lib/profile";
 import {
@@ -36,8 +36,19 @@ import {
   getDemoAnnouncements,
   saveDemoAnnouncements,
 } from "@/lib/demo-announcements";
+import {
+  EXISTING_ACCOUNT_MESSAGE,
+  isExistingAccountError,
+  MIN_PASSWORD_LENGTH,
+  normalizeEmail,
+  registrationEmailError,
+} from "@/lib/email";
 
-export type ActionState = { error?: string; success?: string } | null;
+export type ActionState = {
+  error?: string;
+  success?: string;
+  tempPassword?: string;
+} | null;
 
 function looksLikeEmail(value: string) {
   return value.includes("@");
@@ -154,7 +165,7 @@ export async function signUp(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const email = String(formData.get("email") || "").trim().toLowerCase();
+  const email = normalizeEmail(String(formData.get("email") || ""));
   const password = String(formData.get("password") || "");
   const confirm = String(formData.get("confirm_password") || "");
   const displayName = String(formData.get("display_name") || "").trim();
@@ -165,11 +176,13 @@ export async function signUp(
   if (!email || !password || !displayName) {
     return { error: "Please fill in all fields" };
   }
+  const emailError = registrationEmailError(email);
+  if (emailError) return { error: emailError };
   if (requestedRole !== "student" && requestedRole !== "teacher") {
     return { error: "Choose Student or Teacher" };
   }
-  if (password.length < 6) {
-    return { error: "Password must be at least 6 characters" };
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
   }
   if (password !== confirm) {
     return { error: "Passwords do not match" };
@@ -178,7 +191,7 @@ export async function signUp(
   if (useLocalDemo()) {
     const members = await getDemoMembers();
     if (members.some((m) => m.email?.toLowerCase() === email)) {
-      return { error: "An account with this email already exists" };
+      return { error: EXISTING_ACCOUNT_MESSAGE };
     }
     const member = createPendingMember({
       displayName,
@@ -190,6 +203,9 @@ export async function signUp(
     await setDemoSession(member.id);
     redirect("/pending");
   }
+
+  const exists = await authEmailExists(email);
+  if (exists) return { error: EXISTING_ACCOUNT_MESSAGE };
 
   const supabase = await createClient();
   const headersList = await headers();
@@ -210,13 +226,148 @@ export async function signUp(
     },
   });
 
-  if (error) return { error: error.message };
+  if (error) {
+    if (isExistingAccountError(error.message)) {
+      return { error: EXISTING_ACCOUNT_MESSAGE };
+    }
+    return { error: error.message };
+  }
+
+  if (data.user?.identities && data.user.identities.length === 0) {
+    return { error: EXISTING_ACCOUNT_MESSAGE };
+  }
 
   if (!data.session) {
     redirect(`/register/check-email?email=${encodeURIComponent(email)}`);
   }
 
   redirect("/pending");
+}
+
+function generateTempPassword() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join("");
+}
+
+export async function addMemberManually(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const displayName = String(formData.get("display_name") || "").trim();
+  const email = normalizeEmail(String(formData.get("email") || ""));
+  const role = String(formData.get("role") || "student") as Role;
+
+  if (!displayName) return { error: "Please enter a name" };
+  if (displayName.length > 60) return { error: "Please use a shorter name" };
+  const emailError = registrationEmailError(email);
+  if (emailError) return { error: emailError };
+  if (role !== "student" && role !== "teacher") {
+    return { error: "Choose Student or Teacher" };
+  }
+
+  const tempPassword = generateTempPassword();
+  const now = new Date().toISOString();
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || !canReviewApplications(me.role) || me.status !== "approved") {
+      return { error: "Only Teacher or Tech can add members" };
+    }
+    const members = await getDemoMembers();
+    if (members.some((m) => m.email?.toLowerCase() === email)) {
+      return { error: EXISTING_ACCOUNT_MESSAGE };
+    }
+    const member = createPendingMember({
+      displayName,
+      email,
+      password: tempPassword,
+      requestedRole: role,
+    });
+    member.status = "approved";
+    member.role = role;
+    member.reviewed_at = now;
+    member.reviewed_by = me.id;
+    await saveDemoMembers([member, ...members]);
+    revalidatePath("/tech");
+    return {
+      success: `${displayName} was added as a ${role}. Give them this password so they can log in.`,
+      tempPassword,
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("id, role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || !canReviewApplications(me.role) || me.status !== "approved") {
+    return { error: "Only Teacher or Tech can add members" };
+  }
+
+  const exists = await authEmailExists(email);
+  if (exists) return { error: EXISTING_ACCOUNT_MESSAGE };
+
+  const admin = createAdminClient();
+  if (!admin) {
+    return { error: "Adding members needs SUPABASE_SERVICE_ROLE_KEY on Render" };
+  }
+
+  const { data: created, error: createError } = await admin.auth.admin.createUser({
+    email,
+    password: tempPassword,
+    email_confirm: true,
+    user_metadata: {
+      display_name: displayName,
+      requested_role: role,
+    },
+  });
+  if (createError) {
+    if (isExistingAccountError(createError.message)) {
+      return { error: EXISTING_ACCOUNT_MESSAGE };
+    }
+    return { error: createError.message };
+  }
+  const newId = created.user?.id;
+  if (!newId) return { error: "Could not create the account" };
+
+  const payload = {
+    display_name: displayName,
+    role,
+    status: "approved" as const,
+    reviewed_at: now,
+    reviewed_by: user.id,
+  };
+
+  const { data: profile } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("id", newId)
+    .maybeSingle();
+
+  const { error: profileError } = profile
+    ? await admin.from("profiles").update(payload).eq("id", newId)
+    : await admin.from("profiles").insert({
+        id: newId,
+        requested_role: role,
+        ...payload,
+      });
+
+  if (profileError) return { error: profileError.message };
+
+  revalidatePath("/tech");
+  revalidatePath("/");
+  return {
+      success: `${displayName} was added as a ${role}. Give them this password so they can log in.`,
+    tempPassword,
+  };
 }
 
 export async function reviewApplication(
@@ -672,6 +823,7 @@ export async function saveProfile(
     );
     revalidatePath("/", "layout");
     revalidatePath("/profile");
+    revalidatePath("/account");
     return { success: "saved" };
   }
 
@@ -692,6 +844,7 @@ export async function saveProfile(
 
   revalidatePath("/", "layout");
   revalidatePath("/profile");
+  revalidatePath("/account");
   return { success: "saved" };
 }
 
@@ -712,6 +865,7 @@ export async function skipProfile(
     );
     revalidatePath("/", "layout");
     revalidatePath("/profile");
+    revalidatePath("/account");
     return { success: "saved" };
   }
 
@@ -732,7 +886,58 @@ export async function skipProfile(
 
   revalidatePath("/", "layout");
   revalidatePath("/profile");
+  revalidatePath("/account");
   return { success: "saved" };
+}
+
+export async function changePassword(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const current = String(formData.get("current_password") || "");
+  const next = String(formData.get("new_password") || "");
+  const confirm = String(formData.get("confirm_password") || "");
+
+  if (!current || !next || !confirm) {
+    return { error: "Please fill in all password fields" };
+  }
+  if (next.length < MIN_PASSWORD_LENGTH) {
+    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+  }
+  if (next !== confirm) return { error: "New passwords do not match" };
+  if (current === next) {
+    return { error: "Please choose a different new password" };
+  }
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me) return { error: "Please log in" };
+    const members = await getDemoMembers();
+    const match = members.find((m) => m.id === me.id);
+    if (!match || match.password !== current) {
+      return { error: "Current password is incorrect" };
+    }
+    await saveDemoMembers(
+      members.map((m) => (m.id === me.id ? { ...m, password: next } : m)),
+    );
+    return { success: "Password updated" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { error: "Please log in" };
+
+  const { error: checkError } = await supabase.auth.signInWithPassword({
+    email: user.email,
+    password: current,
+  });
+  if (checkError) return { error: "Current password is incorrect" };
+
+  const { error } = await supabase.auth.updateUser({ password: next });
+  if (error) return { error: error.message };
+  return { success: "Password updated" };
 }
 
 function parseExpiresAt(value: string) {

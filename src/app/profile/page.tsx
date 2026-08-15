@@ -7,7 +7,7 @@ import { needsProfileSetup } from "@/lib/profile";
 export default async function ProfileSetupPage() {
   const { profile } = await requireApproved();
   if (!needsProfileSetup(profile)) {
-    redirect("/");
+    redirect("/account");
   }
 
   return (

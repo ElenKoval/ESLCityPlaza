@@ -32,3 +32,39 @@ export async function emailsForUserIds(
   );
   return map;
 }
+
+export async function authEmailExists(email: string): Promise<boolean | null> {
+  const admin = createAdminClient();
+  if (!admin) return null;
+
+  const normalized = email.trim().toLowerCase();
+  const adminApi = admin.auth.admin as typeof admin.auth.admin & {
+    getUserByEmail?: (value: string) => Promise<{
+      data: { user: { id: string } | null };
+      error: { message: string } | null;
+    }>;
+  };
+
+  if (typeof adminApi.getUserByEmail === "function") {
+    const { data, error } = await adminApi.getUserByEmail(normalized);
+    if (data?.user) return true;
+    if (!error) return false;
+    const msg = error.message.toLowerCase();
+    if (msg.includes("not found") || msg.includes("user not found")) {
+      return false;
+    }
+  }
+
+  let page = 1;
+  const perPage = 200;
+  for (;;) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage });
+    if (error || !data?.users) return null;
+    if (data.users.some((user) => user.email?.toLowerCase() === normalized)) {
+      return true;
+    }
+    if (data.users.length < perPage) return false;
+    page += 1;
+    if (page > 20) return null;
+  }
+}

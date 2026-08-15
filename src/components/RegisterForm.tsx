@@ -3,6 +3,8 @@
 import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signUp, type ActionState } from "@/app/actions";
+import { PasswordField } from "@/components/PasswordField";
+import { MIN_PASSWORD_LENGTH, normalizeEmail, registrationEmailError } from "@/lib/email";
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState<ActionState, FormData>(
@@ -10,6 +12,7 @@ export function RegisterForm() {
     null,
   );
   const [mismatch, setMismatch] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
 
   return (
     <form
@@ -17,8 +20,27 @@ export function RegisterForm() {
       className="panel form-grid"
       onSubmit={(e) => {
         const form = e.currentTarget;
+        const emailInput = form.elements.namedItem("email");
+        if (emailInput instanceof HTMLInputElement) {
+          emailInput.value = normalizeEmail(emailInput.value);
+          const problem = registrationEmailError(emailInput.value);
+          if (problem) {
+            e.preventDefault();
+            setEmailError(problem);
+            setMismatch(false);
+            return;
+          }
+        }
+        setEmailError(null);
+
         const password = String(new FormData(form).get("password") || "");
         const confirm = String(new FormData(form).get("confirm_password") || "");
+        if (password.length < MIN_PASSWORD_LENGTH) {
+          e.preventDefault();
+          setMismatch(false);
+          setEmailError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+          return;
+        }
         if (password !== confirm) {
           e.preventDefault();
           setMismatch(true);
@@ -33,26 +55,35 @@ export function RegisterForm() {
       </label>
       <label>
         Email
-        <input name="email" type="email" autoComplete="email" required />
+        <input
+          name="email"
+          type="email"
+          autoComplete="email"
+          required
+          onInput={(e) => {
+            e.currentTarget.value = e.currentTarget.value.replace(/\s/g, "");
+          }}
+          onBlur={(e) => {
+            e.currentTarget.value = normalizeEmail(e.currentTarget.value);
+          }}
+        />
       </label>
       <label>
         Password
-        <input
+        <PasswordField
           name="password"
-          type="password"
           autoComplete="new-password"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
         />
       </label>
       <label>
         Confirm password
-        <input
+        <PasswordField
           name="confirm_password"
-          type="password"
           autoComplete="new-password"
           required
-          minLength={6}
+          minLength={MIN_PASSWORD_LENGTH}
         />
       </label>
       <label>
@@ -63,7 +94,8 @@ export function RegisterForm() {
         </select>
       </label>
       {mismatch && <p className="error">Passwords do not match</p>}
-      {state?.error && <p className="error">{state.error}</p>}
+      {emailError && <p className="error">{emailError}</p>}
+      {!emailError && state?.error && <p className="error">{state.error}</p>}
       <p className="legal-note">
         By creating an account, you acknowledge our{" "}
         <Link href="/privacy">Privacy Policy</Link> and agree to our{" "}

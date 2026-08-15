@@ -13,7 +13,13 @@ import {
 } from "@/lib/profile";
 import type { Profile } from "@/lib/types";
 
-export function ProfileSetupForm({ profile }: { profile: Profile }) {
+export function ProfileSetupForm({
+  profile,
+  mode = "setup",
+}: {
+  profile: Profile;
+  mode?: "setup" | "edit";
+}) {
   const [saveState, saveAction, saving] = useActionState<ActionState, FormData>(
     saveProfile,
     null,
@@ -24,10 +30,10 @@ export function ProfileSetupForm({ profile }: { profile: Profile }) {
   >(skipProfile, null);
 
   useEffect(() => {
-    if (saveState?.success || skipState?.success) {
+    if (mode === "setup" && (saveState?.success || skipState?.success)) {
       window.location.assign("/");
     }
-  }, [saveState, skipState]);
+  }, [mode, saveState, skipState]);
   const existingLangs = (profile.languages ?? []).filter(Boolean);
   const [languages, setLanguages] = useState(
     existingLangs.length ? existingLangs : [""],
@@ -150,8 +156,11 @@ export function ProfileSetupForm({ profile }: { profile: Profile }) {
         <p className="field-hint">Optional</p>
 
         {saveState?.error && <p className="error">{saveState.error}</p>}
+        {mode === "edit" && saveState?.success && (
+          <p className="success">Profile saved</p>
+        )}
         <button className="btn-primary" type="submit" disabled={busy}>
-          {leaving && saveState?.success
+          {mode === "setup" && leaving && saveState?.success
             ? "Opening…"
             : saving
               ? "Saving…"
@@ -159,16 +168,18 @@ export function ProfileSetupForm({ profile }: { profile: Profile }) {
         </button>
       </form>
 
-      <form action={skipAction}>
-        {skipState?.error && <p className="error">{skipState.error}</p>}
-        <button className="btn-ghost" type="submit" disabled={busy}>
-          {leaving && skipState?.success
-            ? "Opening…"
-            : skipping
-              ? "…"
-              : "Skip for now"}
-        </button>
-      </form>
+      {mode === "setup" && (
+        <form action={skipAction}>
+          {skipState?.error && <p className="error">{skipState.error}</p>}
+          <button className="btn-ghost" type="submit" disabled={busy}>
+            {leaving && skipState?.success
+              ? "Opening…"
+              : skipping
+                ? "…"
+                : "Skip for now"}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

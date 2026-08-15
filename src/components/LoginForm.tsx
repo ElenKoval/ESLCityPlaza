@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import Link from "next/link";
 import { signIn, type ActionState } from "@/app/actions";
+import { PasswordField } from "@/components/PasswordField";
 
 export function LoginForm({ next = "/" }: { next?: string }) {
   const [state, action, pending] = useActionState<ActionState, FormData>(
@@ -28,9 +29,8 @@ export function LoginForm({ next = "/" }: { next?: string }) {
       </label>
       <label>
         Password
-        <input
+        <PasswordField
           name="password"
-          type="password"
           autoComplete="current-password"
           required
         />
