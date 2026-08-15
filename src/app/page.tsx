@@ -11,9 +11,8 @@ import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { ensureUpcomingClasses } from "@/lib/ensure-classes";
 import { WelcomeLessons } from "@/components/WelcomeLessons";
 import { HomeAnnouncements } from "@/components/HomeAnnouncements";
-import { isAnnouncementCurrent, sortAnnouncements, toPublicAnnouncement } from "@/lib/announcements";
-import { getDemoCurrentAnnouncements } from "@/lib/demo-announcements";
-import type { AnnouncementRow, ClassRow, Role } from "@/lib/types";
+import { loadCurrentAnnouncements } from "@/lib/load-announcements";
+import type { ClassRow } from "@/lib/types";
 
 function welcomeFirstName(displayName: string | null | undefined) {
   if (!displayName) return "there";
@@ -74,39 +73,6 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
   }
 }
 
-async function loadAnnouncements(approved: boolean): Promise<AnnouncementRow[]> {
-  if (!approved) return [];
-  if (useLocalDemo()) {
-    return getDemoCurrentAnnouncements(3);
-  }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return [];
-
-  try {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("announcements")
-      .select(
-        "id, title, body, created_by, created_at, updated_at, expires_at, is_important, is_active, profiles!created_by(display_name, role)",
-      )
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .limit(12);
-
-    const mapped = (data ?? []).map((row) => {
-      const profiles = row.profiles as unknown as
-        | { display_name: string; role: Role }
-        | { display_name: string; role: Role }[]
-        | null;
-      const author = Array.isArray(profiles) ? profiles[0] : profiles;
-      return toPublicAnnouncement(row as AnnouncementRow, author);
-    });
-
-    return sortAnnouncements(mapped.filter(isAnnouncementCurrent)).slice(0, 3);
-  } catch {
-    return [];
-  }
-}
-
 export default async function HomePage() {
   const { profile, userId } = await getProfile();
   const demoMode = useLocalDemo();
@@ -126,7 +92,7 @@ export default async function HomePage() {
 
   const canEnroll = access === "approved";
   const classes = await loadClasses(userId, canEnroll);
-  const announcements = await loadAnnouncements(canEnroll);
+  const announcements = await loadCurrentAnnouncements(3);
   const firstName = welcomeFirstName(profile?.display_name);
 
   return (
@@ -143,7 +109,6 @@ export default async function HomePage() {
             <>
               <h1 className="hero-stage__brand">Welcome, {firstName}!</h1>
               <WelcomeLessons classes={classes} />
-              <HomeAnnouncements items={announcements} />
             </>
           ) : (
             <>
@@ -170,6 +135,7 @@ export default async function HomePage() {
               )}
             </>
           )}
+          <HomeAnnouncements items={announcements} />
         </div>
 
         <HomeCalendar

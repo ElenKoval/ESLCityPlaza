@@ -258,18 +258,17 @@ create index if not exists announcements_created_at_idx
 alter table public.announcements enable row level security;
 
 drop policy if exists "announcements_select_approved" on public.announcements;
-create policy "announcements_select_approved"
-  on public.announcements for select to authenticated
+drop policy if exists "announcements_select_public" on public.announcements;
+drop policy if exists "announcements_select_staff_all" on public.announcements;
+create policy "announcements_select_public"
+  on public.announcements for select to anon, authenticated
   using (
-    public.is_approved()
-    and (
-      public.has_role(array['teacher', 'tech'])
-      or (
-        is_active = true
-        and (expires_at is null or expires_at > now())
-      )
-    )
+    is_active = true
+    and (expires_at is null or expires_at > now())
   );
+create policy "announcements_select_staff_all"
+  on public.announcements for select to authenticated
+  using (public.has_role(array['teacher', 'tech']));
 
 drop policy if exists "announcements_insert_staff" on public.announcements;
 create policy "announcements_insert_staff"

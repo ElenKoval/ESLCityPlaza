@@ -9,6 +9,7 @@ const PUBLIC = new Set([
   "/enter",
   "/privacy",
   "/terms",
+  "/announcements",
 ]);
 
 function isPublicPath(path: string) {

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { RoleBadge } from "@/components/RoleBadge";
-import type { AnnouncementRow } from "@/lib/types";
+import type { AnnouncementRow, Role } from "@/lib/types";
 
 function firstName(name: string) {
   const cleaned = name.replace(/\s*\([^)]*\)\s*/g, "").trim();
@@ -12,6 +12,30 @@ function postedOn(iso: string) {
     month: "short",
     day: "numeric",
   }).format(new Date(iso));
+}
+
+function AnnouncementMeta({
+  name,
+  role,
+  createdAt,
+}: {
+  name: string;
+  role?: Role;
+  createdAt: string;
+}) {
+  return (
+    <p className="home-announcement__meta">
+      <span>{firstName(name)}</span>
+      {role && (
+        <>
+          <span aria-hidden="true">·</span>
+          <RoleBadge role={role} />
+        </>
+      )}
+      <span aria-hidden="true">·</span>
+      <span>{postedOn(createdAt)}</span>
+    </p>
+  );
 }
 
 export function AnnouncementBoard({
@@ -34,11 +58,11 @@ export function AnnouncementBoard({
         >
           <h3 className="home-announcement__title">{item.title}</h3>
           <p className="home-announcement__body">{item.body}</p>
-          <p className="home-announcement__meta">
-            <span>{firstName(item.author_name || "Member")}</span>
-            {item.author_role && <RoleBadge role={item.author_role} />}
-            <span>{postedOn(item.created_at)}</span>
-          </p>
+          <AnnouncementMeta
+            name={item.author_name || "Member"}
+            role={item.author_role}
+            createdAt={item.created_at}
+          />
         </li>
       ))}
     </ul>
@@ -46,21 +70,32 @@ export function AnnouncementBoard({
 }
 
 export function HomeAnnouncements({ items }: { items: AnnouncementRow[] }) {
+  if (items.length === 0) return null;
+
   return (
-    <section className="home-announcements" aria-label="Announcements">
+    <section className="home-announcements panel" aria-label="Announcements">
       <div className="home-announcements__head">
         <h2 className="home-announcements__title">Announcements</h2>
         <Link href="/announcements" className="home-announcements__all" prefetch>
           Read all
         </Link>
       </div>
-      {items.length === 0 ? (
-        <p className="home-announcements__empty">
-          Notes from teachers appear here.
-        </p>
-      ) : (
-        <AnnouncementBoard items={items} />
-      )}
+      <ul className="home-announcements__digest">
+        {items.map((item) => (
+          <li
+            key={item.id}
+            className={item.is_important ? "is-important" : undefined}
+          >
+            <h3 className="home-announcement__title">{item.title}</h3>
+            <p className="home-announcement__body">{item.body}</p>
+            <AnnouncementMeta
+              name={item.author_name || "Member"}
+              role={item.author_role}
+              createdAt={item.created_at}
+            />
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

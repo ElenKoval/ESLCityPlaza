@@ -13,8 +13,8 @@ export async function SiteHeader() {
       <div className="site-header__inner">
         <nav className="site-nav" aria-label="Main">
           <HomeNavLink />
+          <AnnouncementsNavLink />
           {profile?.status === "approved" && <ChatNavLink />}
-          {profile?.status === "approved" && <AnnouncementsNavLink />}
           {profile?.status === "approved" &&
             (profile.role === "teacher" || profile.role === "tech") && (
               <>
