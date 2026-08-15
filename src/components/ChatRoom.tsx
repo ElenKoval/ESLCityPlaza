@@ -2,8 +2,10 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { getPublicProfile } from "@/app/actions";
 import { canAnnounce } from "@/lib/roles";
 import { RoleBadge } from "@/components/RoleBadge";
+import { ProfileDialog } from "@/components/MemberProfileDialog";
 import type { ChatMessage } from "@/lib/chat";
 import type { MessageRow, Role } from "@/lib/types";
 
@@ -100,12 +102,15 @@ function MessageRowView({
   msg,
   mine,
   onDelete,
+  onOpenProfile,
 }: {
   msg: ChatMessage;
   mine: boolean;
   onDelete: (id: string) => void;
+  onOpenProfile: (userId: string) => void;
 }) {
   const name = chatName(msg.display_name);
+  const canOpen = msg.user_id !== "system";
   return (
     <article
       className={`chat-msg ${msg.is_announcement ? "is-announce" : ""} ${mine ? "is-mine" : ""}`}
@@ -119,7 +124,17 @@ function MessageRowView({
       </span>
       <div className="chat-msg__main">
         <p className="chat-msg__meta">
-          <span className="chat-msg__name">{name}</span>
+          {canOpen ? (
+            <button
+              type="button"
+              className="chat-msg__name profile-link"
+              onClick={() => onOpenProfile(msg.user_id)}
+            >
+              {name}
+            </button>
+          ) : (
+            <span className="chat-msg__name">{name}</span>
+          )}
           <RoleBadge role={msg.role} />
           <span className="chat-msg__dot">·</span>
           <span className="chat-msg__time">{timeLabel(msg.created_at)}</span>
@@ -158,6 +173,10 @@ export function ChatRoom({
   const [announce, setAnnounce] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [, startProfile] = useTransition();
+  const [viewing, setViewing] = useState<Awaited<
+    ReturnType<typeof getPublicProfile>
+  >>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const canPin = canAnnounce(role);
@@ -322,6 +341,18 @@ export function ChatRoom({
     });
   }
 
+  function openProfile(id: string) {
+    if (id === "system") return;
+    startProfile(async () => {
+      const profile = await getPublicProfile(id);
+      if (!profile) {
+        setError("Could not open this profile.");
+        return;
+      }
+      setViewing(profile);
+    });
+  }
+
   const pin = [...messages]
     .reverse()
     .find((m) => m.is_announcement);
@@ -329,6 +360,9 @@ export function ChatRoom({
 
   return (
     <div className="chat-app">
+      {viewing && (
+        <ProfileDialog profile={viewing} onClose={() => setViewing(null)} />
+      )}
       <header className="chat-app__header">
         <h1 className="chat-app__title">Community chat</h1>
         <p className="chat-app__sub">
@@ -362,6 +396,7 @@ export function ChatRoom({
                 msg={msg}
                 mine={msg.user_id === userId}
                 onDelete={remove}
+                onOpenProfile={openProfile}
               />
             </div>
           );

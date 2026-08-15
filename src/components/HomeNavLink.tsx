@@ -3,57 +3,53 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function HomeNavLink() {
+function NavLink({
+  href,
+  children,
+  className,
+}: {
+  href: string;
+  children: React.ReactNode;
+  className?: string;
+}) {
   const pathname = usePathname();
-  if (pathname === "/") return null;
+  const active =
+    href === "/"
+      ? pathname === "/"
+      : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <Link href="/" prefetch>
-      Home
+    <Link
+      href={href}
+      prefetch
+      className={className}
+      aria-current={active ? "page" : undefined}
+    >
+      {children}
     </Link>
+  );
+}
+
+export function HomeNavLink() {
+  return (
+    <NavLink href="/" className="site-nav__brand">
+      ESL on Plaza
+    </NavLink>
   );
 }
 
 export function ChatNavLink() {
-  const pathname = usePathname();
-  if (pathname === "/chat") return null;
-
-  return (
-    <Link href="/chat" prefetch>
-      Chat
-    </Link>
-  );
+  return <NavLink href="/chat">Chat</NavLink>;
 }
 
 export function AnnouncementsNavLink() {
-  const pathname = usePathname();
-  if (pathname === "/announcements") return null;
-
-  return (
-    <Link href="/announcements" prefetch>
-      Announcements
-    </Link>
-  );
+  return <NavLink href="/announcements">Announcements</NavLink>;
 }
 
 export function ScheduleNavLink() {
-  const pathname = usePathname();
-  if (pathname === "/admin") return null;
-
-  return (
-    <Link href="/admin" prefetch>
-      Schedule
-    </Link>
-  );
+  return <NavLink href="/admin">Schedule</NavLink>;
 }
 
 export function ApprovalsNavLink() {
-  const pathname = usePathname();
-  if (pathname === "/tech") return null;
-
-  return (
-    <Link href="/tech" prefetch>
-      Approvals
-    </Link>
-  );
+  return <NavLink href="/tech">Approvals</NavLink>;
 }

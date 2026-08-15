@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { canEnrollNow, CLASS_CAPACITY } from "@/lib/enrollment";
+import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE } from "@/lib/enrollment";
 import {
   createPendingMember,
   getDemoMembers,
@@ -27,11 +27,13 @@ import { MAX_INTERESTS, INTEREST_CHIPS, needsProfileSetup } from "@/lib/profile"
 import {
   assignableRoles,
   canDeleteMember,
+  canEditClassSchedule,
   canManageAnnouncements,
   canManageClasses,
   canReviewApplications,
 } from "@/lib/roles";
-import type { AnnouncementRow, RequestedRole, Role } from "@/lib/types";
+import { DEFAULT_CLASS_LOCATION } from "@/lib/class-schedule";
+import type { AnnouncementRow, Profile, RequestedRole, Role } from "@/lib/types";
 import {
   getDemoAnnouncements,
   saveDemoAnnouncements,
@@ -49,6 +51,13 @@ export type ActionState = {
   success?: string;
   tempPassword?: string;
 } | null;
+
+function classDbError(message: string) {
+  if (/column .*location.* does not exist/i.test(message)) {
+    return "Run supabase/class-location-upgrade.sql in the Supabase SQL Editor, then try again.";
+  }
+  return message;
+}
 
 function looksLikeEmail(value: string) {
   return value.includes("@");
@@ -593,6 +602,8 @@ export async function createClass(
 ): Promise<ActionState> {
   const title = String(formData.get("title") || "").trim();
   const description = String(formData.get("description") || "").trim();
+  const location =
+    String(formData.get("location") || "").trim() || DEFAULT_CLASS_LOCATION;
   const startsAt = String(formData.get("starts_at") || "");
   const capacity = Number(formData.get("capacity") || CLASS_CAPACITY);
 
@@ -625,14 +636,17 @@ export async function createClass(
   const { error } = await supabase.from("classes").insert({
     title,
     description,
+    location,
     starts_at: new Date(startsAt).toISOString(),
     capacity,
     created_by: user.id,
   });
 
-  if (error) return { error: error.message };
+  if (error) return { error: classDbError(error.message) };
+  revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/classes");
+  revalidatePath("/my");
   return { success: "Class added" };
 }
 
@@ -659,10 +673,70 @@ export async function deleteClass(
 
   const { error } = await supabase.from("classes").delete().eq("id", id);
   if (error) return { error: error.message };
+  revalidatePath("/");
   revalidatePath("/admin");
   revalidatePath("/classes");
   revalidatePath("/my");
   return { success: "Class deleted" };
+}
+
+export async function updateClass(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = String(formData.get("class_id") || "");
+  if (!id) return { error: "Missing class id" };
+
+  const location =
+    String(formData.get("location") || "").trim() || DEFAULT_CLASS_LOCATION;
+  if (location.length > 120) return { error: "Location is too long" };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageClasses(me.role)) {
+    return { error: "Only Teacher or Tech can manage classes" };
+  }
+
+  const patch: Record<string, unknown> = { location };
+
+  if (canEditClassSchedule(me.role)) {
+    const title = String(formData.get("title") || "").trim();
+    const description = String(formData.get("description") || "").trim();
+    const startsAt = String(formData.get("starts_at") || "");
+    const capacity = Number(formData.get("capacity") || CLASS_CAPACITY);
+
+    if (!title || !startsAt) return { error: "Add a title and date" };
+    if (!Number.isFinite(capacity) || capacity < 1 || capacity > CLASS_CAPACITY) {
+      return { error: `Capacity must be between 1 and ${CLASS_CAPACITY}` };
+    }
+
+    const when = new Date(startsAt);
+    const dow = when.getDay();
+    if (dow !== 1 && dow !== 5) {
+      return { error: "Classes can only be scheduled on Monday or Friday" };
+    }
+
+    patch.title = title;
+    patch.description = description;
+    patch.starts_at = when.toISOString();
+    patch.capacity = capacity;
+  }
+
+  const { error } = await supabase.from("classes").update(patch).eq("id", id);
+  if (error) return { error: classDbError(error.message) };
+  revalidatePath("/");
+  revalidatePath("/admin");
+  revalidatePath("/classes");
+  revalidatePath("/my");
+  return { success: "Class updated" };
 }
 
 export async function enrollClass(
@@ -726,7 +800,7 @@ export async function enrollClass(
     .eq("class_id", classId);
 
   if ((count ?? 0) >= cap) {
-    return { error: "This class is full (15 max)" };
+    return { error: CLASS_FULL_MESSAGE };
   }
 
   const { error } = await supabase.from("enrollments").insert({
@@ -938,6 +1012,62 @@ export async function changePassword(
   const { error } = await supabase.auth.updateUser({ password: next });
   if (error) return { error: error.message };
   return { success: "Password updated" };
+}
+
+export async function getPublicProfile(
+  userId: string,
+): Promise<Pick<
+  Profile,
+  "id" | "display_name" | "role" | "hometown" | "languages" | "interests" | "bio"
+> | null> {
+  if (!userId || userId === "system") return null;
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved") return null;
+    const members = await getDemoMembers();
+    const match = members.find((m) => m.id === userId && m.status === "approved");
+    if (!match) return null;
+    return {
+      id: match.id,
+      display_name: match.display_name,
+      role: match.role,
+      hometown: match.hometown ?? "",
+      languages: match.languages ?? [],
+      interests: match.interests ?? [],
+      bio: match.bio ?? "",
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me || me.status !== "approved") return null;
+
+  const { data } = await supabase
+    .from("profiles")
+    .select("id, display_name, role, status, hometown, languages, interests, bio")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (!data || data.status !== "approved") return null;
+  return {
+    id: data.id,
+    display_name: data.display_name,
+    role: data.role as Role,
+    hometown: data.hometown ?? "",
+    languages: data.languages ?? [],
+    interests: data.interests ?? [],
+    bio: data.bio ?? "",
+  };
 }
 
 function parseExpiresAt(value: string) {

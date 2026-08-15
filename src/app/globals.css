@@ -122,8 +122,23 @@ textarea {
   font-size: 0.95rem;
 }
 
+.site-nav a {
+  padding-bottom: 0.12rem;
+  border-bottom: 1.5px solid transparent;
+}
+
 .site-nav a:hover {
   color: var(--plaza);
+}
+
+.site-nav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom-color: var(--plaza);
+}
+
+.site-nav__brand {
+  font-weight: 600;
+  color: var(--ink);
 }
 
 .nav-cta {
@@ -136,21 +151,54 @@ textarea {
 .site-header__user {
   margin-left: auto;
   display: flex;
-  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem 0.65rem;
+  gap: 0;
+}
+
+.site-header__identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
 }
 
 .site-header__name {
   font-size: 0.9rem;
-  color: var(--ink-soft);
+  font-weight: 600;
+  color: var(--ink);
   text-decoration: none;
+  line-height: 1.2;
+}
+
+.site-header__dot {
+  color: var(--ink-soft);
+  font-weight: 500;
+  line-height: 1;
 }
 
 a.site-header__name:hover {
   color: var(--plaza-deep);
-  text-decoration: underline;
-  text-underline-offset: 2px;
+}
+
+.site-header__logout {
+  margin-left: 2.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+  opacity: 0.48;
+  cursor: pointer;
+  line-height: 1.2;
+}
+
+.site-header__logout:hover:not(:disabled) {
+  opacity: 0.8;
+}
+
+.site-header__logout:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
 }
 
 .site-footer {
@@ -435,6 +483,12 @@ a.site-header__name:hover {
   color: var(--ink-soft);
 }
 
+.welcome-lessons__place {
+  margin: 0.1rem 0 0;
+  font-size: 0.82rem;
+  color: var(--ink-soft);
+}
+
 .cancel-link {
   flex-shrink: 0;
   padding: 0;
@@ -664,9 +718,15 @@ a.site-header__name:hover {
 }
 
 .home-cal__when {
-  margin: 0 0 0.55rem;
+  margin: 0 0 0.2rem;
   font-size: 0.95rem;
   font-weight: 600;
+}
+
+.home-cal__where {
+  margin: 0 0 0.55rem;
+  font-size: 0.9rem;
+  color: var(--ink-soft);
 }
 
 .home-cal__cta {
@@ -1013,6 +1073,28 @@ textarea {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  align-items: flex-start;
+}
+
+.class-place {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.class-edit {
+  min-width: 12rem;
+}
+
+.class-edit summary {
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--plaza-deep);
+}
+
+.class-edit__form {
+  margin-top: 0.75rem;
 }
 
 html:has(.chat-page),
@@ -1159,6 +1241,96 @@ body:has(.chat-page) main {
 
 .chat-msg__name {
   font-weight: 700;
+}
+
+button.chat-msg__name {
+  font: inherit;
+  font-weight: 700;
+}
+
+.profile-link {
+  display: inline;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+
+.profile-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.profile-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(42, 28, 18, 0.35);
+}
+
+.profile-dialog__panel {
+  width: min(28rem, 100%);
+  max-height: min(80vh, 36rem);
+  overflow: auto;
+}
+
+.profile-dialog__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.profile-dialog__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+}
+
+.member-card__name {
+  margin: 0 0 0.35rem;
+  font-size: 1.35rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.member-card__email {
+  margin: 0 0 0.85rem;
+  color: var(--ink-soft);
+  font-size: 0.92rem;
+}
+
+.member-card__facts {
+  margin: 0;
+  display: grid;
+  gap: 0.2rem 0.75rem;
+}
+
+.member-card__facts dt {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.member-card__facts dd {
+  margin: 0.15rem 0 0;
+}
+
+.member-card__bio {
+  white-space: pre-wrap;
 }
 
 .chat-msg__role {

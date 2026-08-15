@@ -2,6 +2,7 @@
 
 import { CancelClassControl } from "@/components/CancelClassControl";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
+import { classLocation, formatClassHours } from "@/lib/class-schedule";
 import type { ClassRow } from "@/lib/types";
 
 function formatClassDay(iso: string) {
@@ -35,7 +36,12 @@ export function WelcomeLessons({ classes }: { classes: ClassRow[] }) {
           <li key={c.id} className="welcome-lessons__item">
             <p className="welcome-lessons__day">{formatClassDay(c.starts_at)}</p>
             <div className="welcome-lessons__row">
-              <p className="welcome-lessons__time">1:00–3:00 PM</p>
+              <div>
+                <p className="welcome-lessons__time">
+                  {formatClassHours(c.starts_at)}
+                </p>
+                <p className="welcome-lessons__place">{classLocation(c.location)}</p>
+              </div>
               <CancelClassControl classId={c.id} />
             </div>
           </li>

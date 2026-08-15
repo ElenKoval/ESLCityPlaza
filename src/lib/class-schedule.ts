@@ -1,5 +1,23 @@
-import { CLASS_CAPACITY } from "@/lib/enrollment";
+import { CLASS_CAPACITY, CLASS_DURATION_MS } from "@/lib/enrollment";
 import type { ClassRow } from "@/lib/types";
+
+export const DEFAULT_CLASS_LOCATION = "on the Plaza";
+export const DEFAULT_CLASS_HOURS = "1:00–3:00 PM";
+
+export function classLocation(location?: string | null) {
+  const trimmed = location?.trim();
+  return trimmed || DEFAULT_CLASS_LOCATION;
+}
+
+export function formatClassHours(startsAt: string) {
+  const start = new Date(startsAt);
+  const end = new Date(start.getTime() + CLASS_DURATION_MS);
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  return `${fmt.format(start)}–${fmt.format(end)}`;
+}
 
 const HORIZON_DAYS = 56;
 
@@ -93,6 +111,7 @@ export function asScheduleRow(
     id,
     title: payload.title,
     description: payload.description,
+    location: extra?.location ?? DEFAULT_CLASS_LOCATION,
     starts_at: startsAt,
     capacity: payload.capacity,
     created_by: null,

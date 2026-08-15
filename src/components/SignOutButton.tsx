@@ -31,7 +31,7 @@ export function SignOutButton({ demo = false }: { demo?: boolean }) {
   return (
     <button
       type="button"
-      className="btn-ghost"
+      className="site-header__logout"
       onClick={signOut}
       disabled={pending}
     >

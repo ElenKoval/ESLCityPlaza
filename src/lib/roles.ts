@@ -20,6 +20,16 @@ export function canManageClasses(role: Role) {
   return isStaff(role);
 }
 
+/** Teacher and Tech can change the meeting place. */
+export function canEditClassLocation(role: Role) {
+  return isStaff(role);
+}
+
+/** Only Tech can change time, title, capacity, and other class fields. */
+export function canEditClassSchedule(role: Role) {
+  return role === "tech";
+}
+
 export function canReviewApplications(role: Role) {
   return isStaff(role);
 }

@@ -24,6 +24,7 @@ export type ClassRow = {
   id: string;
   title: string;
   description: string;
+  location?: string;
   starts_at: string;
   capacity: number;
   created_by: string | null;

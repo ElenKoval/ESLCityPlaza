@@ -1,12 +1,25 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import {
   createClass,
   deleteClass,
+  updateClass,
   type ActionState,
 } from "@/app/actions";
+import {
+  classLocation,
+  DEFAULT_CLASS_LOCATION,
+} from "@/lib/class-schedule";
+import { canEditClassSchedule, type Role } from "@/lib/roles";
 import type { ClassRow } from "@/lib/types";
+
+function toDatetimeLocalValue(iso: string) {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 function CreateClassForm() {
   const [state, action, pending] = useActionState<ActionState, FormData>(
@@ -23,6 +36,14 @@ function CreateClassForm() {
       <label>
         Description
         <textarea name="description" maxLength={1000} />
+      </label>
+      <label>
+        Location
+        <input
+          name="location"
+          maxLength={120}
+          defaultValue={DEFAULT_CLASS_LOCATION}
+        />
       </label>
       <label>
         Date and time
@@ -69,7 +90,88 @@ function DeleteButton({ id }: { id: string }) {
   );
 }
 
-export function AdminClasses({ classes }: { classes: ClassRow[] }) {
+function EditClassForm({ item, role }: { item: ClassRow; role: Role }) {
+  const router = useRouter();
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    updateClass,
+    null,
+  );
+  const tech = canEditClassSchedule(role);
+
+  useEffect(() => {
+    if (state?.success) router.refresh();
+  }, [state, router]);
+
+  return (
+    <details className="class-edit">
+      <summary>Edit</summary>
+      <form action={action} className="form-grid class-edit__form">
+        <input type="hidden" name="class_id" value={item.id} />
+        {tech && (
+          <>
+            <label>
+              Title
+              <input
+                name="title"
+                required
+                maxLength={120}
+                defaultValue={item.title}
+              />
+            </label>
+            <label>
+              Description
+              <textarea name="description" maxLength={1000} defaultValue={item.description} />
+            </label>
+          </>
+        )}
+        <label>
+          Location
+          <input
+            name="location"
+            maxLength={120}
+            defaultValue={classLocation(item.location)}
+          />
+        </label>
+        {tech && (
+          <>
+            <label>
+              Date and time
+              <input
+                name="starts_at"
+                type="datetime-local"
+                required
+                defaultValue={toDatetimeLocalValue(item.starts_at)}
+              />
+            </label>
+            <label>
+              Capacity
+              <input
+                name="capacity"
+                type="number"
+                min={1}
+                max={15}
+                defaultValue={item.capacity}
+              />
+            </label>
+          </>
+        )}
+        {state?.error && <p className="error">{state.error}</p>}
+        {state?.success && <p className="success">{state.success}</p>}
+        <button className="btn-primary" type="submit" disabled={pending}>
+          {pending ? "Saving…" : "Save"}
+        </button>
+      </form>
+    </details>
+  );
+}
+
+export function AdminClasses({
+  classes,
+  role,
+}: {
+  classes: ClassRow[];
+  role: Role;
+}) {
   return (
     <div className="stack">
       <CreateClassForm />
@@ -85,10 +187,14 @@ export function AdminClasses({ classes }: { classes: ClassRow[] }) {
                   timeStyle: "short",
                 }).format(new Date(item.starts_at))}
               </span>
+              <span>{classLocation(item.location)}</span>
               <span>Capacity: {item.capacity}</span>
               <span>Signed up: {item.enrollment_count ?? 0}</span>
             </div>
-            <DeleteButton id={item.id} />
+            <div className="class-actions">
+              <EditClassForm item={item} role={role} />
+              <DeleteButton id={item.id} />
+            </div>
           </article>
         ))}
       </div>

@@ -26,14 +26,19 @@ export async function SiteHeader() {
         </nav>
         {profile && (
           <div className="site-header__user">
-            {profile.status === "approved" ? (
-              <Link href="/account" className="site-header__name" prefetch>
-                {profile.display_name}
-              </Link>
-            ) : (
-              <span className="site-header__name">{profile.display_name}</span>
-            )}
-            <RoleBadge role={profile.role} />
+            <div className="site-header__identity">
+              {profile.status === "approved" ? (
+                <Link href="/account" className="site-header__name" prefetch>
+                  {profile.display_name}
+                </Link>
+              ) : (
+                <span className="site-header__name">{profile.display_name}</span>
+              )}
+              <span className="site-header__dot" aria-hidden="true">
+                ·
+              </span>
+              <RoleBadge role={profile.role} />
+            </div>
             <SignOutButton demo={demo} />
           </div>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   addMemberManually,
@@ -9,6 +9,7 @@ import {
   type ActionState,
 } from "@/app/actions";
 import { RoleBadge } from "@/components/RoleBadge";
+import { ProfileDialog } from "@/components/MemberProfileDialog";
 import { canDeleteMember } from "@/lib/roles";
 import type { Profile } from "@/lib/types";
 
@@ -142,8 +143,17 @@ export function TechPanel({
   members: Profile[];
   viewer: Profile;
 }) {
+  const [viewing, setViewing] = useState<Profile | null>(null);
+
   return (
     <div className="stack">
+      {viewing && (
+        <ProfileDialog
+          profile={viewing}
+          showEmail
+          onClose={() => setViewing(null)}
+        />
+      )}
       <AddMemberForm />
       <section className="panel stack">
         <h3 style={{ margin: 0, fontFamily: "var(--font-display)" }}>
@@ -204,7 +214,15 @@ export function TechPanel({
           {members.map((m) => (
             <div key={m.id} className="app-row">
               <div>
-                <strong>{m.display_name}</strong>
+                <strong>
+                  <button
+                    type="button"
+                    className="profile-link"
+                    onClick={() => setViewing(m)}
+                  >
+                    {m.display_name}
+                  </button>
+                </strong>
                 <div className="class-meta">
                   <RoleBadge role={m.role} />
                   <span>{m.status}</span>

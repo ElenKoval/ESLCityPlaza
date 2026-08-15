@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 import { enrollClass } from "@/app/actions";
 import { CancelClassControl } from "@/components/CancelClassControl";
 import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
-import { isUpcomingClassDate } from "@/lib/class-schedule";
+import {
+  classLocation,
+  DEFAULT_CLASS_HOURS,
+  DEFAULT_CLASS_LOCATION,
+  formatClassHours,
+  isUpcomingClassDate,
+} from "@/lib/class-schedule";
 import {
   addLocalEnrollment,
   readLocalEnrollments,
@@ -118,6 +124,10 @@ export function HomeCalendar({
 
   const selectedKey = dayKey(selected);
   const dayClasses = byDay.get(selectedKey) ?? [];
+  const selectedHours = dayClasses[0]
+    ? formatClassHours(dayClasses[0].starts_at)
+    : DEFAULT_CLASS_HOURS;
+  const selectedPlace = classLocation(dayClasses[0]?.location);
 
   const monthLabel = new Intl.DateTimeFormat("en-US", {
     month: "long",
@@ -237,7 +247,8 @@ export function HomeCalendar({
       </div>
 
       <p className="home-cal__note">
-        Classes meet Mondays and Fridays, 1:00–3:00 PM · max 15 people.
+        Classes meet Mondays and Fridays, {DEFAULT_CLASS_HOURS} ·{" "}
+        {DEFAULT_CLASS_LOCATION} · max 15 people.
       </p>
 
       <div className="home-cal__detail">
@@ -250,7 +261,10 @@ export function HomeCalendar({
         </p>
 
         {isUpcomingClassDate(selected) && (
-          <p className="home-cal__when">1:00–3:00 PM</p>
+          <>
+            <p className="home-cal__when">{selectedHours}</p>
+            <p className="home-cal__where">{selectedPlace}</p>
+          </>
         )}
 
         {access === "guest" && (
@@ -321,7 +335,7 @@ export function HomeCalendar({
                           </button>
                         ) : full ? (
                           <button type="button" className="btn-primary" disabled>
-                            Full
+                            Class full
                           </button>
                         ) : (
                           <button

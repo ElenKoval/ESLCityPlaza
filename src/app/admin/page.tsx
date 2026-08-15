@@ -4,7 +4,7 @@ import { AdminClasses } from "@/components/AdminClasses";
 import type { ClassRow } from "@/lib/types";
 
 export default async function AdminPage() {
-  await requireStaff();
+  const { profile } = await requireStaff();
   const supabase = await createClient();
 
   const { data: classes } = await supabase
@@ -34,8 +34,11 @@ export default async function AdminPage() {
     <div className="page">
       <section className="section">
         <h2>Schedule</h2>
-        <p className="lead">Create and remove classes for the community.</p>
-        <AdminClasses classes={items} />
+        <p className="lead">
+          Teachers can change the meeting place. Tech can also change time,
+          title, and capacity.
+        </p>
+        <AdminClasses classes={items} role={profile.role} />
       </section>
     </div>
   );

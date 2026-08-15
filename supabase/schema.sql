@@ -25,6 +25,7 @@ create table public.classes (
   id uuid primary key default gen_random_uuid(),
   title text not null,
   description text not null default '',
+  location text not null default 'on the Plaza',
   starts_at timestamptz not null,
   capacity int not null default 15 check (capacity > 0 and capacity <= 15),
   created_by uuid references public.profiles (id),

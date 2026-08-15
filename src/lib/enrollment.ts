@@ -1,6 +1,9 @@
 /** Max students per class */
 export const CLASS_CAPACITY = 15;
 
+export const CLASS_FULL_MESSAGE =
+  "Class full, please check again later for an available spot.";
+
 /** Sign-up opens this many days before the class (not earlier) */
 export const ENROLL_OPEN_DAYS = 14;
 
@@ -40,7 +43,7 @@ export function enrollStatus(startsAt: string | Date, now = new Date()) {
 
 export function spotsAvailableLabel(taken: number, capacity: number) {
   const left = Math.max(0, capacity - taken);
-  if (left === 0) return "No spots available";
+  if (left === 0) return CLASS_FULL_MESSAGE;
   if (left === 1) return "1 spot available";
   return `${left} spots available`;
 }

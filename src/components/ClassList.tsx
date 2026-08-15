@@ -8,14 +8,8 @@ import {
   type ActionState,
 } from "@/app/actions";
 import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
+import { classLocation, formatClassHours } from "@/lib/class-schedule";
 import type { ClassRow } from "@/lib/types";
-
-function formatTime(iso: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
-}
 
 function useRefreshOnSuccess(state: ActionState) {
   const router = useRouter();
@@ -90,7 +84,8 @@ export function ClassList({
                 day: "numeric",
               }).format(new Date(item.starts_at))}
             </h3>
-            <p>{formatTime(item.starts_at)}</p>
+            <p>{formatClassHours(item.starts_at)}</p>
+            <p className="class-place">{classLocation(item.location)}</p>
             <div className="class-meta">
               <span>{spotsAvailableLabel(count, item.capacity)}</span>
             </div>
@@ -107,7 +102,7 @@ export function ClassList({
                 </button>
               ) : full ? (
                 <button className="btn-primary" type="button" disabled>
-                  Full
+                  Class full
                 </button>
               ) : (
                 <EnrollButton classId={item.id} />
