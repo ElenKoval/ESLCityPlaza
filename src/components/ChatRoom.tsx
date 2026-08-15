@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { getPublicProfile } from "@/app/actions";
-import { canAnnounce } from "@/lib/roles";
+import { canAnnounce, canModerateChat } from "@/lib/roles";
 import { RoleBadge } from "@/components/RoleBadge";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
 import type { ChatMessage } from "@/lib/chat";
@@ -100,12 +100,12 @@ function MessageBody({ text }: { text: string }) {
 
 function MessageRowView({
   msg,
-  mine,
+  canDelete,
   onDelete,
   onOpenProfile,
 }: {
   msg: ChatMessage;
-  mine: boolean;
+  canDelete: boolean;
   onDelete: (id: string) => void;
   onOpenProfile: (userId: string) => void;
 }) {
@@ -113,15 +113,27 @@ function MessageRowView({
   const canOpen = msg.user_id !== "system";
   return (
     <article
-      className={`chat-msg ${msg.is_announcement ? "is-announce" : ""} ${mine ? "is-mine" : ""}`}
+      className={`chat-msg ${msg.is_announcement ? "is-announce" : ""}`}
     >
-      <span
-        className="chat-avatar"
-        style={{ background: letterColor(name) }}
-        aria-hidden="true"
-      >
-        {firstLetter(name)}
-      </span>
+      {canOpen ? (
+        <button
+          type="button"
+          className="chat-avatar"
+          style={{ background: letterColor(name) }}
+          onClick={() => onOpenProfile(msg.user_id)}
+          aria-label={`View ${name}'s profile`}
+        >
+          {firstLetter(name)}
+        </button>
+      ) : (
+        <span
+          className="chat-avatar"
+          style={{ background: letterColor(name) }}
+          aria-hidden="true"
+        >
+          {firstLetter(name)}
+        </span>
+      )}
       <div className="chat-msg__main">
         <p className="chat-msg__meta">
           {canOpen ? (
@@ -143,7 +155,7 @@ function MessageRowView({
           <p className="chat-msg__pin-label">Announcement</p>
         )}
         <MessageBody text={msg.body} />
-        {mine && (
+        {canDelete && (
           <button
             type="button"
             className="chat-msg__delete"
@@ -180,6 +192,7 @@ export function ChatRoom({
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const canPin = canAnnounce(role);
+  const canModerate = canModerateChat(role);
 
   useEffect(() => {
     if (!isLocalDemo) return;
@@ -394,7 +407,7 @@ export function ChatRoom({
               {showDay && <div className="chat-day">{day}</div>}
               <MessageRowView
                 msg={msg}
-                mine={msg.user_id === userId}
+                canDelete={msg.user_id === userId || canModerate}
                 onDelete={remove}
                 onOpenProfile={openProfile}
               />

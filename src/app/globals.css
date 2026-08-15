@@ -139,6 +139,7 @@ textarea {
 .site-nav__brand {
   font-weight: 600;
   color: var(--ink);
+  white-space: nowrap;
 }
 
 .nav-cta {
@@ -1227,6 +1228,16 @@ body:has(.chat-page) main {
   color: white;
   font-weight: 700;
   font-size: 0.9rem;
+}
+
+button.chat-avatar {
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+button.chat-avatar:hover {
+  opacity: 0.88;
 }
 
 .chat-msg__main {

@@ -33,7 +33,7 @@ function NavLink({
 export function HomeNavLink() {
   return (
     <NavLink href="/" className="site-nav__brand">
-      ESL on Plaza
+      ESL on the Plaza
     </NavLink>
   );
 }

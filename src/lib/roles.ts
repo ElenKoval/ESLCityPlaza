@@ -42,6 +42,11 @@ export function canAnnounce(role: Role) {
   return isStaff(role);
 }
 
+/** Teacher and Tech can delete any chat message. */
+export function canModerateChat(role: Role) {
+  return isStaff(role);
+}
+
 export function assignableRoles(): Role[] {
   return ["student", "teacher"];
 }

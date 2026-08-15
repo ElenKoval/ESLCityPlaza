@@ -240,6 +240,11 @@ create policy "messages_delete_own"
   on public.messages for delete to authenticated
   using (user_id = auth.uid() and public.is_approved());
 
+drop policy if exists "messages_delete_staff" on public.messages;
+create policy "messages_delete_staff"
+  on public.messages for delete to authenticated
+  using (public.is_approved() and public.has_role(array['teacher', 'tech']));
+
 -- announcements (homepage)
 create table if not exists public.announcements (
   id uuid primary key default gen_random_uuid(),
