@@ -33,7 +33,7 @@ Also works: `hero.jpeg`, `hero.png`, or `hero.webp`. Refresh the homepage after 
    - Site URL: your Render URL, e.g. `https://esl-citi-plaza.onrender.com`
    - Redirect URLs: `https://esl-citi-plaza.onrender.com/auth/callback` and `http://localhost:3000/auth/callback`
 5. **Project Settings → API**: copy **Project URL**, **anon public** key, and **service_role** key (keep service_role secret).
-6. Optional welcome email after Approve: create a free [Resend](https://resend.com) API key and set `RESEND_API_KEY` (and optionally `EMAIL_FROM`) on Render.
+6. Optional email: create a free [Resend](https://resend.com) API key and set `RESEND_API_KEY` (and optionally `EMAIL_FROM`) on Render. This sends a welcome note after Approve, and notifies Tech when someone applies. Set `APPROVAL_NOTIFY_EMAIL` if you want a specific inbox.
 
 ### 2. Local
 
@@ -68,7 +68,8 @@ Set these env vars on the web service (Blueprint lists them as `sync: false` so 
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SITE_URL` = your `https://….onrender.com`
-- `RESEND_API_KEY` (optional — needed to email people when you Approve)
+- `RESEND_API_KEY` (optional — needed to email people when you Approve, and to notify you of new applications)
 - `EMAIL_FROM` (optional — verified sender, e.g. `ESL on the Plaza <hello@yourdomain.com>`)
+- `APPROVAL_NOTIFY_EMAIL` (optional — extra inbox for new-application notices; otherwise they go to Tech account emails)
 
 Redeploy after saving. Registration and approvals then use real Supabase Auth + Postgres (demo cookie mode turns off automatically once URL + anon key are set).

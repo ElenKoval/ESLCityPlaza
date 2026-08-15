@@ -22,7 +22,7 @@ import {
 import { findOrCreateClassId } from "@/lib/ensure-classes";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { emailForUserId, authEmailExists, createAdminClient } from "@/lib/auth-admin";
-import { sendApprovedWelcomeEmail } from "@/lib/mail";
+import { sendApprovedWelcomeEmail, sendNewApplicationNotice } from "@/lib/mail";
 import { MAX_INTERESTS, INTEREST_CHIPS, needsProfileSetup } from "@/lib/profile";
 import {
   assignableRoles,
@@ -245,6 +245,12 @@ export async function signUp(
   if (data.user?.identities && data.user.identities.length === 0) {
     return { error: EXISTING_ACCOUNT_MESSAGE };
   }
+
+  await sendNewApplicationNotice({
+    name: displayName,
+    email,
+    requestedRole,
+  });
 
   if (!data.session) {
     redirect(`/register/check-email?email=${encodeURIComponent(email)}`);
