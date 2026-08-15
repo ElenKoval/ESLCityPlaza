@@ -670,7 +670,9 @@ export async function saveProfile(
     await saveDemoMembers(
       members.map((m) => (m.id === me.id ? { ...m, ...payload } : m)),
     );
-    redirect("/");
+    revalidatePath("/", "layout");
+    revalidatePath("/profile");
+    return { success: "saved" };
   }
 
   const supabase = await createClient();
@@ -679,9 +681,18 @@ export async function saveProfile(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Please log in" };
 
-  const { error } = await supabase.from("profiles").update(payload).eq("id", user.id);
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(payload)
+    .eq("id", user.id)
+    .select("id")
+    .maybeSingle();
   if (error) return { error: error.message };
-  redirect("/");
+  if (!data) return { error: "Could not save your profile. Please try again." };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/profile");
+  return { success: "saved" };
 }
 
 export async function skipProfile(
@@ -699,7 +710,9 @@ export async function skipProfile(
         m.id === me.id ? { ...m, onboarding_completed_at: now } : m,
       ),
     );
-    redirect("/");
+    revalidatePath("/", "layout");
+    revalidatePath("/profile");
+    return { success: "saved" };
   }
 
   const supabase = await createClient();
@@ -708,12 +721,18 @@ export async function skipProfile(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Please log in" };
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("profiles")
     .update({ onboarding_completed_at: now })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("id")
+    .maybeSingle();
   if (error) return { error: error.message };
-  redirect("/");
+  if (!data) return { error: "Could not skip right now. Please try again." };
+
+  revalidatePath("/", "layout");
+  revalidatePath("/profile");
+  return { success: "saved" };
 }
 
 function parseExpiresAt(value: string) {

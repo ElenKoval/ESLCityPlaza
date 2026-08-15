@@ -1,6 +1,11 @@
 -- Run once in Supabase SQL Editor on the existing project.
 
--- 1) Fold volunteer into teacher
+-- 1) Drop old checks first, then fold volunteer into teacher.
+--    (The old requested_role check only allowed student/volunteer, so it
+--    cannot be updated to teacher until the constraint is gone.)
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles drop constraint if exists profiles_requested_role_check;
+
 update public.profiles
 set role = 'teacher'
 where role = 'volunteer';
@@ -9,15 +14,13 @@ update public.profiles
 set requested_role = 'teacher'
 where requested_role = 'volunteer';
 
-alter table public.profiles drop constraint if exists profiles_role_check;
 alter table public.profiles
   add constraint profiles_role_check
   check (role in ('student', 'teacher', 'tech'));
 
-alter table public.profiles drop constraint if exists profiles_requested_role_check;
 alter table public.profiles
   add constraint profiles_requested_role_check
-  check (requested_role in ('student', 'teacher'));
+  check (requested_role is null or requested_role in ('student', 'teacher'));
 
 -- 2) Signup trigger: Student or Teacher only. Never tech.
 create or replace function public.handle_new_user()

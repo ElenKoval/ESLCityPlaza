@@ -1,4 +1,4 @@
--- ESL on Plaza — run this in Supabase SQL Editor once
+-- ESL on the Plaza — run this in Supabase SQL Editor once
 
 create extension if not exists "pgcrypto";
 

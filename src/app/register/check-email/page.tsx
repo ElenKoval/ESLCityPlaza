@@ -23,7 +23,7 @@ export default async function CheckEmailPage({
       <div className="panel stack">
         <p style={{ margin: 0 }}>
           Open the message and tap the link to confirm your email. Then we will
-          send your request to join ESL on Plaza.
+          send your request to join ESL on the Plaza.
         </p>
         <p className="sub" style={{ margin: 0 }}>
           Do not see it? Check spam or promotions. The link expires after a

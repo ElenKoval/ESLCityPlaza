@@ -3,9 +3,9 @@ export default function TermsPage() {
     <div className="page">
       <article className="section panel stack legal-page">
         <h1>Terms</h1>
-        <p className="sub">ESL on Plaza · last updated August 2026</p>
+        <p className="sub">ESL on the Plaza · last updated August 2026</p>
         <p>
-          ESL on Plaza is a community English-practice group, not a school or
+          ESL on the Plaza is a community English-practice group, not a school or
           employer. By creating an account you agree to use the site kindly and
           honestly.
         </p>

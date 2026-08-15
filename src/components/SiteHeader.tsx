@@ -14,11 +14,11 @@ export async function SiteHeader() {
         <nav className="site-nav" aria-label="Main">
           <HomeNavLink />
           {profile?.status === "approved" && <ChatNavLink />}
+          {profile?.status === "approved" && <AnnouncementsNavLink />}
           {profile?.status === "approved" &&
             (profile.role === "teacher" || profile.role === "tech") && (
               <>
                 <ApprovalsNavLink />
-                <AnnouncementsNavLink />
                 <ScheduleNavLink />
               </>
             )}

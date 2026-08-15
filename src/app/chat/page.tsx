@@ -7,7 +7,7 @@ import { useLocalDemo } from "@/lib/demo";
 import type { MessageRow, Role } from "@/lib/types";
 
 export const metadata: Metadata = {
-  title: "Community chat — ESL on Plaza",
+  title: "Community chat — ESL on the Plaza",
 };
 
 export default async function ChatPage() {

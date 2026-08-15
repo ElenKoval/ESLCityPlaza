@@ -1,4 +1,4 @@
-# ESL on Plaza
+# ESL on the Plaza
 
 English practice community site: applications with roles, class sign-ups, and a shared chat.
 
@@ -69,6 +69,6 @@ Set these env vars on the web service (Blueprint lists them as `sync: false` so 
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SITE_URL` = your `https://….onrender.com`
 - `RESEND_API_KEY` (optional — needed to email people when you Approve)
-- `EMAIL_FROM` (optional — verified sender, e.g. `ESL on Plaza <hello@yourdomain.com>`)
+- `EMAIL_FROM` (optional — verified sender, e.g. `ESL on the Plaza <hello@yourdomain.com>`)
 
 Redeploy after saving. Registration and approvals then use real Supabase Auth + Postgres (demo cookie mode turns off automatically once URL + anon key are set).

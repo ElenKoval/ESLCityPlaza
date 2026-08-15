@@ -147,7 +147,7 @@ export default async function HomePage() {
             </>
           ) : (
             <>
-              <h1 className="hero-stage__brand">ESL on Plaza</h1>
+              <h1 className="hero-stage__brand">ESL on the Plaza</h1>
               <p className="hero-stage__lead">
                 Practice English, meet new people, and enjoy the conversation.
               </p>

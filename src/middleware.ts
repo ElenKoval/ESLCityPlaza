@@ -142,7 +142,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (
-      (path.startsWith("/admin") || path.startsWith("/announcements")) &&
+      path.startsWith("/admin") &&
       profile.role !== "teacher" &&
       profile.role !== "tech"
     ) {

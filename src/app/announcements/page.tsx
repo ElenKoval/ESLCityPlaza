@@ -1,13 +1,45 @@
-import { requireStaff } from "@/lib/auth";
+import type { Metadata } from "next";
+import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AnnouncementManager } from "@/components/AnnouncementManager";
+import { AnnouncementBoard } from "@/components/HomeAnnouncements";
 import { useLocalDemo } from "@/lib/demo";
 import { getDemoAnnouncements } from "@/lib/demo-announcements";
-import { toPublicAnnouncement } from "@/lib/announcements";
+import {
+  isAnnouncementCurrent,
+  sortAnnouncements,
+  toPublicAnnouncement,
+} from "@/lib/announcements";
+import { canManageAnnouncements } from "@/lib/roles";
 import type { AnnouncementRow, Role } from "@/lib/types";
 
-export default async function AnnouncementsAdminPage() {
-  await requireStaff();
+export const metadata: Metadata = {
+  title: "Announcements — ESL on the Plaza",
+};
+
+function mapRows(
+  data: Array<
+    AnnouncementRow & {
+      profiles?:
+        | { display_name: string; role: Role }
+        | { display_name: string; role: Role }[]
+        | null;
+    }
+  >,
+) {
+  return data.map((row) => {
+    const profiles = row.profiles as unknown as
+      | { display_name: string; role: Role }
+      | { display_name: string; role: Role }[]
+      | null;
+    const author = Array.isArray(profiles) ? profiles[0] : profiles;
+    return toPublicAnnouncement(row as AnnouncementRow, author);
+  });
+}
+
+export default async function AnnouncementsPage() {
+  const { profile } = await requireApproved();
+  const staff = canManageAnnouncements(profile.role);
 
   let items: AnnouncementRow[] = [];
 
@@ -22,25 +54,25 @@ export default async function AnnouncementsAdminPage() {
       )
       .order("created_at", { ascending: false });
 
-    items = (data ?? []).map((row) => {
-      const profiles = row.profiles as unknown as
-        | { display_name: string; role: Role }
-        | { display_name: string; role: Role }[]
-        | null;
-      const author = Array.isArray(profiles) ? profiles[0] : profiles;
-      return toPublicAnnouncement(row as AnnouncementRow, author);
-    });
+    items = mapRows(data ?? []);
   }
+
+  const current = sortAnnouncements(items.filter(isAnnouncementCurrent));
 
   return (
     <div className="page">
       <section className="section">
-        <h2>Announcements</h2>
+        <h1>Announcements</h1>
         <p className="lead">
-          Post notes for the group. They appear on the home page for approved
-          members.
+          Notes from teachers for the ESL on the Plaza group.
         </p>
-        <AnnouncementManager items={items} />
+        <AnnouncementBoard items={current} className="announce-board" />
+        {staff && (
+          <div className="announce-manage">
+            <h2 className="announce-manage__title">Post or edit</h2>
+            <AnnouncementManager items={items} />
+          </div>
+        )}
       </section>
     </div>
   );

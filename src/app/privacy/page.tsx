@@ -3,9 +3,9 @@ export default function PrivacyPage() {
     <div className="page">
       <article className="section panel stack legal-page">
         <h1>Privacy Policy</h1>
-        <p className="sub">ESL on Plaza · last updated August 2026</p>
+        <p className="sub">ESL on the Plaza · last updated August 2026</p>
         <p>
-          ESL on Plaza is a small English-practice community. We collect only
+          ESL on the Plaza is a small English-practice community. We collect only
           what we need to run the group.
         </p>
         <h2>What we collect</h2>

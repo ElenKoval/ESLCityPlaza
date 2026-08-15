@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import {
   saveProfile,
   skipProfile,
@@ -22,6 +22,12 @@ export function ProfileSetupForm({ profile }: { profile: Profile }) {
     ActionState,
     FormData
   >(skipProfile, null);
+
+  useEffect(() => {
+    if (saveState?.success || skipState?.success) {
+      window.location.assign("/");
+    }
+  }, [saveState, skipState]);
   const existingLangs = (profile.languages ?? []).filter(Boolean);
   const [languages, setLanguages] = useState(
     existingLangs.length ? existingLangs : [""],
@@ -36,7 +42,8 @@ export function ProfileSetupForm({ profile }: { profile: Profile }) {
     });
   }
 
-  const busy = saving || skipping;
+  const leaving = Boolean(saveState?.success || skipState?.success);
+  const busy = saving || skipping || leaving;
 
   return (
     <div className="stack">
@@ -144,14 +151,22 @@ export function ProfileSetupForm({ profile }: { profile: Profile }) {
 
         {saveState?.error && <p className="error">{saveState.error}</p>}
         <button className="btn-primary" type="submit" disabled={busy}>
-          {saving ? "Saving…" : "Save profile"}
+          {leaving && saveState?.success
+            ? "Opening…"
+            : saving
+              ? "Saving…"
+              : "Save profile"}
         </button>
       </form>
 
       <form action={skipAction}>
         {skipState?.error && <p className="error">{skipState.error}</p>}
         <button className="btn-ghost" type="submit" disabled={busy}>
-          {skipping ? "…" : "Skip for now"}
+          {leaving && skipState?.success
+            ? "Opening…"
+            : skipping
+              ? "…"
+              : "Skip for now"}
         </button>
       </form>
     </div>

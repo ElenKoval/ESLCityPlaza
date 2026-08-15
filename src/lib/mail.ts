@@ -1,4 +1,4 @@
-const SITE_NAME = "ESL on Plaza";
+const SITE_NAME = "ESL on the Plaza";
 
 function siteUrl() {
   return (
@@ -14,7 +14,7 @@ export async function sendApprovedWelcomeEmail(to: string, name: string) {
   }
 
   const from =
-    process.env.EMAIL_FROM || "ESL on Plaza <beth.t@example.com>";
+    process.env.EMAIL_FROM || "ESL on the Plaza <beth.t@example.com>";
   const loginUrl = `${siteUrl()}/login`;
   const first = name.trim().split(/\s+/)[0] || "there";
 

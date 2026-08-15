@@ -169,7 +169,7 @@ export function ChatRoom({
       const welcome: ChatMessage = {
         id: "welcome",
         user_id: "system",
-        body: "Welcome to ESL on Plaza chat! Practice English, ask questions, and say hi.",
+        body: "Welcome to ESL on the Plaza chat! Practice English, ask questions, and say hi.",
         created_at: new Date().toISOString(),
         display_name: "Plaza Bot",
         role: "teacher",
