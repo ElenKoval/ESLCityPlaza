@@ -1008,6 +1008,35 @@ textarea {
   font-size: 0.9rem;
 }
 
+.mail-status {
+  margin: 0 0 1rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: 0.7rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.mail-status.is-ok {
+  color: #1b6b45;
+  background: #e8f6ee;
+}
+
+.mail-status.is-off {
+  color: #b42318;
+  background: #fdecea;
+}
+
+.mail-status p {
+  margin: 0;
+}
+
+.mail-status__test {
+  margin-top: 0.65rem;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: start;
+}
+
 .role-badge {
   display: inline-flex;
   align-items: center;

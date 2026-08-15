@@ -227,7 +227,7 @@ export async function signUp(
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/callback?next=/pending`,
+      emailRedirectTo: `${origin}/auth/confirm`,
       data: {
         display_name: displayName,
         requested_role: requestedRole,
@@ -260,6 +260,33 @@ export async function signUp(
   }
 
   redirect("/pending");
+}
+
+export async function sendTestApplicationNotice(
+  _prev: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || me.role !== "tech") {
+    return { error: "Only Tech can send a test email" };
+  }
+
+  const mail = await sendNewApplicationNotice({
+    name: "Test applicant",
+    email: "test@example.com",
+    requestedRole: "student",
+  });
+  if (!mail.sent) return { error: mail.error || "Test email was not sent" };
+  return { success: "Test email sent. Check inbox (and spam) for ESL on the Plaza." };
 }
 
 function generateTempPassword() {

@@ -31,7 +31,7 @@ Also works: `hero.jpeg`, `hero.png`, or `hero.webp`. Refresh the homepage after 
 3. **Authentication → Providers → Email**: enable Email. Turn **Confirm email ON** (the join flow needs the confirmation link).
 4. **Authentication → URL configuration**:
    - Site URL: your Render URL, e.g. `https://esl-citi-plaza.onrender.com`
-   - Redirect URLs: `https://esl-citi-plaza.onrender.com/auth/callback` and `http://localhost:3000/auth/callback`
+   - Redirect URLs: `https://esl-citi-plaza.onrender.com/auth/callback`, `https://esl-citi-plaza.onrender.com/auth/confirm`, and `http://localhost:3000/auth/callback`
 5. **Project Settings → API**: copy **Project URL**, **anon public** key, and **service_role** key (keep service_role secret).
 6. Optional email: create a free [Resend](https://resend.com) API key and set `RESEND_API_KEY` (and optionally `EMAIL_FROM`) on Render. This sends a welcome note after Approve, and notifies Tech when someone applies. Set `APPROVAL_NOTIFY_EMAIL` if you want a specific inbox.
 

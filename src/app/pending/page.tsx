@@ -35,11 +35,11 @@ export default async function PendingPage() {
         ) : (
           <>
             <h2>Thank you!</h2>
-            <p className="lead">
-              Your request to join ESL on the Plaza has been sent.
-            </p>
+            <p className="lead">Your email has been confirmed.</p>
+            <p>Your request to join ESL on Plaza has been sent.</p>
             <p>
-              We’ll let you know when your membership is approved.
+              Please check the website later to see if your account has been
+              approved.
             </p>
           </>
         )}

@@ -9,6 +9,7 @@ import {
 } from "@/lib/demo";
 import { emailsForUserIds } from "@/lib/auth-admin";
 import { getApplicationNoticeStatus } from "@/lib/mail";
+import { SendTestMailButton } from "@/components/SendTestMailButton";
 import type { Profile } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
@@ -59,7 +60,30 @@ export default async function TechPage() {
     }));
   }
 
-  const notice = isDemo ? null : await getApplicationNoticeStatus();
+  let notice: Awaited<ReturnType<typeof getApplicationNoticeStatus>> | null =
+    null;
+  let noticeError: string | null = null;
+  if (!isDemo && profile.role === "tech") {
+    try {
+      notice = await getApplicationNoticeStatus();
+    } catch (error) {
+      noticeError =
+        error instanceof Error ? error.message : "Could not check email status";
+    }
+  }
+
+  const noticeText = isDemo
+    ? "Application emails are off in demo mode."
+    : noticeError
+      ? `Application emails: ${noticeError}`
+      : notice?.ready
+        ? `New applications are emailed to ${notice.recipients.join(", ")}. Sent from ${notice.from}.`
+        : !notice?.hasKey
+          ? "Application emails are off: add RESEND_API_KEY on Render."
+          : !notice?.hasServiceRole
+            ? "Application emails are off: add SUPABASE_SERVICE_ROLE_KEY on Render so the site can find the Tech email."
+            : "Application emails are off: no Tech email found. Check that your Tech account has an email in Auth.";
+  const noticeOk = Boolean(notice?.ready);
 
   return (
     <div className="page">
@@ -70,16 +94,11 @@ export default async function TechPage() {
           email, and date here → Approve or Decline. Approved members get a
           welcome email, then they can use chat and class sign-up.
         </p>
-        {notice && profile.role === "tech" && (
-          <p className={notice.ready ? "success" : "error"}>
-            {notice.ready
-              ? `New applications are emailed to ${notice.recipients.join(", ")}.`
-              : !notice.hasKey
-                ? "Application emails are off: add RESEND_API_KEY on Render."
-                : !notice.hasServiceRole
-                  ? "Application emails are off: add SUPABASE_SERVICE_ROLE_KEY on Render so the site can find the Tech email."
-                  : "Application emails are off: no Tech email found. Check that your Tech account has an email in Auth."}
-          </p>
+        {profile.role === "tech" && (
+          <div className={`mail-status ${noticeOk ? "is-ok" : "is-off"}`}>
+            <p>{noticeText}</p>
+            {noticeOk && <SendTestMailButton />}
+          </div>
         )}
         {isDemo && (
           <form action={resetDemoAction} style={{ marginBottom: "1rem" }}>

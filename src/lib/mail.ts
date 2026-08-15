@@ -1,6 +1,21 @@
 import { createAdminClient, emailsForUserIds } from "@/lib/auth-admin";
 
 const SITE_NAME = "ESL on the Plaza";
+const RESEND_TEST_FROM = "ESL on the Plaza <beth.t@example.com>";
+const PUBLIC_MAIL_HOSTS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "yahoo.co.uk",
+  "outlook.com",
+  "hotmail.com",
+  "live.com",
+  "icloud.com",
+  "me.com",
+  "aol.com",
+  "proton.me",
+  "protonmail.com",
+]);
 
 function siteUrl() {
   return (
@@ -9,11 +24,29 @@ function siteUrl() {
   ).replace(/\/$/, "");
 }
 
+function emailHost(value: string) {
+  const boxed = value.match(/<([^>]+)>/);
+  const email = (boxed?.[1] || value).trim().toLowerCase();
+  return email.split("@")[1] || "";
+}
+
 function fromAddress() {
-  return (
-    process.env.EMAIL_FROM?.trim() ||
-    "ESL on the Plaza <beth.t@example.com>"
-  );
+  const raw = process.env.EMAIL_FROM?.trim();
+  if (!raw) return RESEND_TEST_FROM;
+  const host = emailHost(raw);
+  if (!host || PUBLIC_MAIL_HOSTS.has(host)) return RESEND_TEST_FROM;
+  return raw;
+}
+
+export function friendlyMailError(raw: string | undefined) {
+  const text = raw || "Email was not sent";
+  if (/domain is not verified|not verified/i.test(text)) {
+    return "Resend rejected the sender. Do not put Gmail in EMAIL_FROM — leave it empty, or use a domain verified in Resend.";
+  }
+  if (/only send testing emails|you can only send/i.test(text)) {
+    return "Resend test mode can only send to the email that owns the Resend account.";
+  }
+  return text.slice(0, 280);
 }
 
 function parseEmailList(value: string | undefined) {
@@ -82,7 +115,13 @@ async function sendResendEmail(input: {
     });
 
     if (!response.ok) {
-      lastError = (await response.text()).slice(0, 400);
+      const body = await response.text();
+      try {
+        const parsed = JSON.parse(body) as { message?: string };
+        lastError = parsed.message || body.slice(0, 400);
+      } catch {
+        lastError = body.slice(0, 400);
+      }
       console.error("[mail] Resend rejected", to, lastError);
       continue;
     }
@@ -156,12 +195,13 @@ export async function sendNewApplicationNotice(input: {
     });
     if (!result.sent) {
       console.error("[mail] application notice failed", result.error);
+      return { sent: false as const, error: friendlyMailError(result.error) };
     }
     return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Mail failed";
     console.error("[mail] application notice", message);
-    return { sent: false as const, error: message };
+    return { sent: false as const, error: friendlyMailError(message) };
   }
 }
 
