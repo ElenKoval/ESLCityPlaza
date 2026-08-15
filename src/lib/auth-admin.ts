@@ -26,7 +26,11 @@ export async function emailsForUserIds(
 
   await Promise.all(
     ids.map(async (id) => {
-      const { data } = await admin.auth.admin.getUserById(id);
+      const { data, error } = await admin.auth.admin.getUserById(id);
+      if (error) {
+        console.error("[auth-admin] getUserById", id, error.message);
+        return;
+      }
       if (data.user?.email) map.set(id, data.user.email);
     }),
   );

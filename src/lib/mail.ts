@@ -11,7 +11,8 @@ function siteUrl() {
 
 function fromAddress() {
   return (
-    process.env.EMAIL_FROM || "ESL on the Plaza <beth.t@example.com>"
+    process.env.EMAIL_FROM?.trim() ||
+    "ESL on the Plaza <beth.t@example.com>"
   );
 }
 
@@ -27,11 +28,14 @@ async function approvalNotifyEmails() {
 
   const admin = createAdminClient();
   if (admin) {
-    const { data } = await admin
+    const { data, error } = await admin
       .from("profiles")
       .select("id")
       .eq("role", "tech")
       .eq("status", "approved");
+    if (error) {
+      console.error("[mail] tech profiles", error.message);
+    }
     const ids = (data ?? []).map((row) => row.id);
     const map = await emailsForUserIds(ids);
     for (const email of map.values()) emails.add(email.toLowerCase());
@@ -46,35 +50,65 @@ async function sendResendEmail(input: {
   html: string;
   text: string;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
     return { sent: false as const, error: "RESEND_API_KEY is not set" };
   }
   if (input.to.length === 0) {
-    return { sent: false as const, error: "No recipients" };
+    return {
+      sent: false as const,
+      error: "No Tech email found (needs SUPABASE_SERVICE_ROLE_KEY)",
+    };
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: fromAddress(),
-      to: input.to,
-      subject: input.subject,
-      html: input.html,
-      text: input.text,
-    }),
-  });
+  let lastError = "";
+  let sentCount = 0;
 
-  if (!response.ok) {
-    const body = await response.text();
-    return { sent: false as const, error: body.slice(0, 300) };
+  for (const to of input.to) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      cache: "no-store",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromAddress(),
+        to: [to],
+        subject: input.subject,
+        html: input.html,
+        text: input.text,
+      }),
+    });
+
+    if (!response.ok) {
+      lastError = (await response.text()).slice(0, 400);
+      console.error("[mail] Resend rejected", to, lastError);
+      continue;
+    }
+    sentCount += 1;
   }
 
+  if (sentCount === 0) {
+    return { sent: false as const, error: lastError || "Resend did not send" };
+  }
   return { sent: true as const };
+}
+
+export async function getApplicationNoticeStatus() {
+  const hasKey = Boolean(process.env.RESEND_API_KEY?.trim());
+  const hasServiceRole = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      process.env.SUPABASE_SERVICE_ROLE_KEY,
+  );
+  const recipients = await approvalNotifyEmails();
+  return {
+    hasKey,
+    hasServiceRole,
+    from: fromAddress(),
+    recipients,
+    ready: hasKey && recipients.length > 0,
+  };
 }
 
 export async function sendApprovedWelcomeEmail(to: string, name: string) {
@@ -100,11 +134,12 @@ export async function sendNewApplicationNotice(input: {
 }) {
   try {
     const to = await approvalNotifyEmails();
+    console.info("[mail] application notice recipients", to);
     const approvalsUrl = `${siteUrl()}/tech`;
     const role =
       input.requestedRole === "teacher" ? "Teacher" : "Student";
 
-    return await sendResendEmail({
+    const result = await sendResendEmail({
       to,
       subject: `New ${SITE_NAME} application: ${input.name}`,
       html: `
@@ -119,8 +154,13 @@ export async function sendNewApplicationNotice(input: {
       `,
       text: `Someone applied to join ${SITE_NAME}.\n\nName: ${input.name}\nEmail: ${input.email}\nRole: ${role}\n\nThey still need to confirm their email before you can approve them.\n\nApprovals: ${approvalsUrl}\n`,
     });
+    if (!result.sent) {
+      console.error("[mail] application notice failed", result.error);
+    }
+    return result;
   } catch (error) {
     const message = error instanceof Error ? error.message : "Mail failed";
+    console.error("[mail] application notice", message);
     return { sent: false as const, error: message };
   }
 }

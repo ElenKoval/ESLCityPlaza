@@ -246,11 +246,14 @@ export async function signUp(
     return { error: EXISTING_ACCOUNT_MESSAGE };
   }
 
-  await sendNewApplicationNotice({
+  const mail = await sendNewApplicationNotice({
     name: displayName,
     email,
     requestedRole,
   });
+  if (!mail.sent) {
+    console.error("[signup] application notice not sent", mail.error);
+  }
 
   if (!data.session) {
     redirect(`/register/check-email?email=${encodeURIComponent(email)}`);
