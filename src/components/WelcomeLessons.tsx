@@ -1,6 +1,7 @@
 "use client";
 
 import { CancelClassControl } from "@/components/CancelClassControl";
+import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import type { ClassRow } from "@/lib/types";
 
 function formatClassDay(iso: string) {
@@ -13,7 +14,11 @@ function formatClassDay(iso: string) {
 
 export function WelcomeLessons({ classes }: { classes: ClassRow[] }) {
   const mine = classes
-    .filter((c) => c.enrolled && new Date(c.starts_at).getTime() > Date.now())
+    .filter(
+      (c) =>
+        c.enrolled &&
+        new Date(c.starts_at).getTime() + CLASS_DURATION_MS > Date.now(),
+    )
     .sort(
       (a, b) =>
         new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),

@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { enrollClass } from "@/app/actions";
 import { CancelClassControl } from "@/components/CancelClassControl";
-import { enrollStatus, isClassDate, spotsAvailableLabel } from "@/lib/enrollment";
+import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
+import { isUpcomingClassDate } from "@/lib/class-schedule";
 import {
   addLocalEnrollment,
   readLocalEnrollments,
@@ -22,7 +23,7 @@ function nearestClassDay(from: Date) {
   for (let i = 0; i < 7; i++) {
     const next = new Date(d);
     next.setDate(d.getDate() + i);
-    if (isClassDate(next)) return next;
+    if (isUpcomingClassDate(next)) return next;
   }
   return d;
 }
@@ -206,7 +207,7 @@ export function HomeCalendar({
         {cells.map(({ date, key }) => {
           if (!date) return <span key={key} className="home-cal__cell is-empty" />;
           const k = dayKey(date);
-          const active = isClassDate(date);
+          const active = isUpcomingClassDate(date);
           const has = active && (byDay.get(k)?.length ?? 0) > 0;
           const isSelected = active && k === selectedKey;
           const isToday = k === dayKey(today);
@@ -248,7 +249,7 @@ export function HomeCalendar({
           }).format(selected)}
         </p>
 
-        {isClassDate(selected) && (
+        {isUpcomingClassDate(selected) && (
           <p className="home-cal__when">1:00–3:00 PM</p>
         )}
 
@@ -276,7 +277,7 @@ export function HomeCalendar({
         {message && <p className="success">{message}</p>}
         {error && <p className="error">{error}</p>}
 
-        {access === "approved" && isClassDate(selected) && (
+        {access === "approved" && isUpcomingClassDate(selected) && (
           <div className="home-cal__signup">
             {dayClasses.length === 0 ? (
               <div className="home-cal__signup-row">

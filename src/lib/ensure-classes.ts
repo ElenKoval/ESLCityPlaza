@@ -1,4 +1,5 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import {
   scheduleClassPayload,
   sessionStartsAtForDate,
@@ -26,7 +27,7 @@ export async function ensureUpcomingClasses() {
   const { data: existing } = await admin
     .from("classes")
     .select("id, starts_at")
-    .gte("starts_at", new Date(Date.now() - 60 * 60 * 1000).toISOString());
+    .gte("starts_at", new Date(Date.now() - CLASS_DURATION_MS).toISOString());
 
   const have = existing ?? [];
   const missing = wanted.filter(

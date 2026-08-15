@@ -4,6 +4,9 @@ export const CLASS_CAPACITY = 15;
 /** Sign-up opens this many days before the class (not earlier) */
 export const ENROLL_OPEN_DAYS = 14;
 
+/** Class runs 1:00–3:00 PM, so keep it visible until it ends */
+export const CLASS_DURATION_MS = 2 * 60 * 60 * 1000;
+
 /** Monday = 1, Friday = 5 */
 export function isClassWeekday(day: number) {
   return day === 1 || day === 5;

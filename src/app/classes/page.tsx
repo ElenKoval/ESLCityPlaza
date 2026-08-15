@@ -1,6 +1,7 @@
 import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ClassList } from "@/components/ClassList";
+import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import type { ClassRow } from "@/lib/types";
 
 export default async function ClassesPage() {
@@ -10,7 +11,7 @@ export default async function ClassesPage() {
   const { data: classes } = await supabase
     .from("classes")
     .select("*")
-    .gte("starts_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+    .gte("starts_at", new Date(Date.now() - CLASS_DURATION_MS).toISOString())
     .order("starts_at", { ascending: true });
 
   const ids = (classes ?? []).map((c) => c.id);

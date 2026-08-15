@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth";
 import { needsProfileSetup } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
+import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import { useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { ensureUpcomingClasses } from "@/lib/ensure-classes";
@@ -36,7 +37,7 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
     const { data: classes } = await supabase
       .from("classes")
       .select("*")
-      .gte("starts_at", new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .gte("starts_at", new Date(Date.now() - CLASS_DURATION_MS).toISOString())
       .order("starts_at", { ascending: true });
 
     if (!classes?.length) return [] as ClassRow[];

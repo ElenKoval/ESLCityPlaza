@@ -7,11 +7,18 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
-/** 1:00 PM America/Los_Angeles on this calendar day */
-export function sessionStartsAtIso(year: number, monthIndex: number, day: number) {
+function sessionAtHourIso(
+  year: number,
+  monthIndex: number,
+  day: number,
+  hour: 13 | 15,
+) {
   const dateStr = `${year}-${pad(monthIndex + 1)}-${pad(day)}`;
+  const utcFallbackHour = hour === 13 ? 20 : 22;
   for (const offset of ["-07:00", "-08:00"] as const) {
-    const instant = new Date(`${dateStr}T13:00:00${offset}`);
+    const instant = new Date(
+      `${dateStr}T${pad(hour)}:00:00${offset}`,
+    );
     const laDay = new Intl.DateTimeFormat("en-CA", {
       timeZone: "America/Los_Angeles",
       year: "numeric",
@@ -25,13 +32,33 @@ export function sessionStartsAtIso(year: number, monthIndex: number, day: number
         hour12: false,
       }).format(instant),
     );
-    if (laDay === dateStr && laHour === 13) return instant.toISOString();
+    if (laDay === dateStr && laHour === hour) return instant.toISOString();
   }
-  return new Date(`${dateStr}T20:00:00.000Z`).toISOString();
+  return new Date(`${dateStr}T${pad(utcFallbackHour)}:00:00.000Z`).toISOString();
+}
+
+/** 1:00 PM America/Los_Angeles on this calendar day */
+export function sessionStartsAtIso(year: number, monthIndex: number, day: number) {
+  return sessionAtHourIso(year, monthIndex, day, 13);
+}
+
+/** 3:00 PM America/Los_Angeles on this calendar day */
+export function sessionEndsAtIso(year: number, monthIndex: number, day: number) {
+  return sessionAtHourIso(year, monthIndex, day, 15);
 }
 
 export function sessionStartsAtForDate(d: Date) {
   return sessionStartsAtIso(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+export function sessionEndsAtForDate(d: Date) {
+  return sessionEndsAtIso(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+/** Monday/Friday that has not yet ended (after 3:00 PM). */
+export function isUpcomingClassDate(d: Date, now = new Date()) {
+  if (d.getDay() !== 1 && d.getDay() !== 5) return false;
+  return new Date(sessionEndsAtForDate(d)).getTime() > now.getTime();
 }
 
 export function upcomingSessionStarts(now = new Date()) {
