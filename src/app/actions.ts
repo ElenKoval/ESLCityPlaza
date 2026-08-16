@@ -20,6 +20,7 @@ import {
 } from "@/lib/demo-classes";
 import { findOrCreateClassId } from "@/lib/ensure-classes";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
+import type { EmailOtpType } from "@supabase/supabase-js";
 import { emailForUserId, authEmailExists, createAdminClient } from "@/lib/auth-admin";
 import { sendApprovedWelcomeEmail, sendNewApplicationNotice } from "@/lib/mail";
 import { MAX_INTERESTS, INTEREST_CHIPS, needsProfileSetup } from "@/lib/profile";
@@ -311,6 +312,72 @@ export async function notifyConfirmedApplication() {
     console.error("[confirm] application notice", error);
     return { sent: false as const };
   }
+}
+
+const JOIN_CONFIRM_TYPES = new Set<EmailOtpType>([
+  "signup",
+  "email",
+  "invite",
+  "magiclink",
+]);
+
+export async function confirmEmailFromLink(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const tokenHash = String(formData.get("token_hash") || "").trim();
+  const code = String(formData.get("code") || "").trim();
+  const rawType = String(formData.get("type") || "email") as EmailOtpType;
+
+  if (!tokenHash && !code) {
+    return {
+      error:
+        "This confirmation link is missing. Open the newest email we sent you.",
+    };
+  }
+
+  const supabase = await createClient();
+
+  if (tokenHash) {
+    const types = [...new Set<EmailOtpType>(["email", "signup", rawType])];
+    let verified = false;
+    for (const type of types) {
+      if (!JOIN_CONFIRM_TYPES.has(type)) continue;
+      const { error } = await supabase.auth.verifyOtp({
+        type,
+        token_hash: tokenHash,
+      });
+      if (!error) {
+        verified = true;
+        break;
+      }
+      const lower = error.message.toLowerCase();
+      if (
+        lower.includes("expired") ||
+        lower.includes("already") ||
+        lower.includes("used")
+      ) {
+        break;
+      }
+    }
+    if (!verified) {
+      return {
+        error:
+          "This confirmation link is invalid, expired, or was already used. If you already confirmed, log in and wait for approval.",
+      };
+    }
+  } else {
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error) {
+      return {
+        error:
+          "This confirmation link is invalid, expired, or was already used. If you already confirmed, log in and wait for approval.",
+      };
+    }
+  }
+
+  await notifyConfirmedApplication();
+  redirect("/register/confirmed");
 }
 
 export async function resendConfirmationEmail(
