@@ -159,9 +159,9 @@ async function sendSmtpEmail(input: {
       port,
       secure: port === 465,
       auth: { user, pass },
-      connectionTimeout: 8000,
-      greetingTimeout: 8000,
-      socketTimeout: 10000,
+      connectionTimeout: 15000,
+      greetingTimeout: 15000,
+      socketTimeout: 20000,
     });
     await transporter.sendMail({
       from,
@@ -255,6 +255,29 @@ export async function sendNewApplicationNotice(input: {
       .filter(Boolean)
       .join("\n\n");
 
+    const smtp = await sendSmtpEmail({
+      to: TECH_NOTIFY_EMAIL,
+      subject: "New member request",
+      html,
+      text: `${text}\n`,
+    });
+    if (smtp.sent) {
+      const extra = to.filter((email) => email !== TECH_NOTIFY_EMAIL);
+      if (extra.length > 0) {
+        const extraMail = await sendResendEmail({
+          to: extra,
+          subject: "New member request",
+          html,
+          text: `${text}\n`,
+        });
+        if (!extraMail.sent) {
+          console.error("[mail] extra Resend notice failed", extraMail.error);
+        }
+      }
+      return { sent: true as const };
+    }
+
+    console.error("[mail] application notice SMTP failed, trying Resend", smtp.error);
     const result = await sendResendEmail({
       to,
       subject: "New member request",
@@ -262,15 +285,6 @@ export async function sendNewApplicationNotice(input: {
       text: `${text}\n`,
     });
     if (result.sent) return result;
-
-    console.error("[mail] application notice Resend failed, trying SMTP", result.error);
-    const smtp = await sendSmtpEmail({
-      to: TECH_NOTIFY_EMAIL,
-      subject: "New member request",
-      html,
-      text: `${text}\n`,
-    });
-    if (smtp.sent) return { sent: true as const };
     return {
       sent: false as const,
       error: friendlyMailError(smtp.error || result.error),

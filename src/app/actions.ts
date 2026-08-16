@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE } from "@/lib/enrollment";
 import {
@@ -280,26 +281,50 @@ export async function signUp(
   redirect("/pending");
 }
 
-export async function notifyConfirmedApplication() {
+export async function notifyConfirmedApplication(userHint?: {
+  id: string;
+  email?: string | null;
+}) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user?.email) return { sent: false as const };
+    let userId = userHint?.id;
+    let email = userHint?.email || undefined;
 
-    const { data: profile } = await supabase
+    if (!userId || !email) {
+      const supabase = await createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      userId = userId || user?.id;
+      email = email || user?.email;
+    }
+
+    if (!userId) {
+      console.error("[confirm] application notice skipped: no user");
+      return { sent: false as const };
+    }
+    if (!email) {
+      email = (await emailForUserId(userId)) || undefined;
+    }
+    if (!email) {
+      console.error("[confirm] application notice skipped: no email", userId);
+      return { sent: false as const };
+    }
+
+    const admin = createAdminClient();
+    const db = admin ?? (await createClient());
+    const { data: profile } = await db
       .from("profiles")
-        .select("display_name, status, requested_role, hometown, heard_from")
-      .eq("id", user.id)
+      .select("display_name, status, requested_role, hometown, heard_from")
+      .eq("id", userId)
       .maybeSingle();
     if (!profile || profile.status !== "pending") {
+      console.error("[confirm] application notice skipped: not pending", userId);
       return { sent: false as const };
     }
 
     const mail = await sendNewApplicationNotice({
       name: profile.display_name,
-      email: user.email,
+      email,
       requestedRole: profile.requested_role || "student",
       hometown: profile.hometown,
       heardFrom: profile.heard_from,
@@ -337,18 +362,22 @@ export async function confirmEmailFromLink(
   }
 
   const supabase = await createClient();
+  let confirmedUser: { id: string; email?: string | null } | null = null;
 
   if (tokenHash) {
     const types = [...new Set<EmailOtpType>(["email", "signup", rawType])];
     let verified = false;
     for (const type of types) {
       if (!JOIN_CONFIRM_TYPES.has(type)) continue;
-      const { error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.verifyOtp({
         type,
         token_hash: tokenHash,
       });
       if (!error) {
         verified = true;
+        if (data.user) {
+          confirmedUser = { id: data.user.id, email: data.user.email };
+        }
         break;
       }
       const lower = error.message.toLowerCase();
@@ -367,21 +396,28 @@ export async function confirmEmailFromLink(
       };
     }
   } else {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return {
         error:
           "This confirmation link is invalid, expired, or was already used. If you already confirmed, log in and wait for approval.",
       };
     }
+    if (data.user) {
+      confirmedUser = { id: data.user.id, email: data.user.email };
+    }
   }
 
-  await Promise.race([
-    notifyConfirmedApplication(),
-    new Promise<void>((resolve) => {
-      setTimeout(resolve, 4000);
-    }),
-  ]);
+  if (!confirmedUser) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) confirmedUser = { id: user.id, email: user.email };
+  }
+
+  after(async () => {
+    await notifyConfirmedApplication(confirmedUser ?? undefined);
+  });
   return { success: "confirmed" };
 }
 
