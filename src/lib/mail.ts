@@ -102,7 +102,6 @@ async function sendResendEmail(input: {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       cache: "no-store",
-      signal: AbortSignal.timeout(8000),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -153,16 +152,18 @@ async function sendSmtpEmail(input: {
   const from =
     process.env.SMTP_FROM?.trim() || `ESL on the Plaza <${user}>`;
 
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    requireTLS: port === 587,
+    family: 4,
+    auth: { user, pass },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
+  });
   try {
-    const transporter = nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-      connectionTimeout: 15000,
-      greetingTimeout: 15000,
-      socketTimeout: 20000,
-    });
     await transporter.sendMail({
       from,
       to: input.to,
@@ -175,11 +176,18 @@ async function sendSmtpEmail(input: {
     const message = error instanceof Error ? error.message : "SMTP send failed";
     console.error("[mail] SMTP failed", message);
     return { sent: false as const, error: message.slice(0, 280) };
+  } finally {
+    transporter.close();
   }
 }
 
 export async function getApplicationNoticeStatus() {
   const hasKey = Boolean(process.env.RESEND_API_KEY?.trim());
+  const hasSmtp = Boolean(
+    process.env.SMTP_HOST?.trim() &&
+      process.env.SMTP_USER?.trim() &&
+      process.env.SMTP_PASS?.trim(),
+  );
   const hasServiceRole = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -187,10 +195,11 @@ export async function getApplicationNoticeStatus() {
   const recipients = await approvalNotifyEmails();
   return {
     hasKey,
+    hasSmtp,
     hasServiceRole,
     from: fromAddress(),
     recipients,
-    ready: hasKey && recipients.length > 0,
+    ready: (hasSmtp || hasKey) && recipients.length > 0,
   };
 }
 
@@ -224,9 +233,7 @@ export async function sendNewApplicationNotice(input: {
     const hometown = input.hometown?.trim() || "";
     const heardFrom = input.heardFrom?.trim() || "";
     const extraHtml = [
-      hometown
-        ? `<p>From: ${escapeHtml(hometown)}</p>`
-        : "",
+      hometown ? `<p>From: ${escapeHtml(hometown)}</p>` : "",
       heardFrom
         ? `<p>How they heard about us: ${escapeHtml(heardFrom)}</p>`
         : "",
@@ -255,29 +262,6 @@ export async function sendNewApplicationNotice(input: {
       .filter(Boolean)
       .join("\n\n");
 
-    const smtp = await sendSmtpEmail({
-      to: TECH_NOTIFY_EMAIL,
-      subject: "New member request",
-      html,
-      text: `${text}\n`,
-    });
-    if (smtp.sent) {
-      const extra = to.filter((email) => email !== TECH_NOTIFY_EMAIL);
-      if (extra.length > 0) {
-        const extraMail = await sendResendEmail({
-          to: extra,
-          subject: "New member request",
-          html,
-          text: `${text}\n`,
-        });
-        if (!extraMail.sent) {
-          console.error("[mail] extra Resend notice failed", extraMail.error);
-        }
-      }
-      return { sent: true as const };
-    }
-
-    console.error("[mail] application notice SMTP failed, trying Resend", smtp.error);
     const result = await sendResendEmail({
       to,
       subject: "New member request",
@@ -285,10 +269,22 @@ export async function sendNewApplicationNotice(input: {
       text: `${text}\n`,
     });
     if (result.sent) return result;
-    return {
-      sent: false as const,
-      error: friendlyMailError(smtp.error || result.error),
-    };
+
+    console.error("[mail] application notice Resend failed, trying SMTP", result.error);
+    let smtpSent = 0;
+    let smtpError = result.error || "";
+    for (const recipient of to) {
+      const smtp = await sendSmtpEmail({
+        to: recipient,
+        subject: "New member request",
+        html,
+        text: `${text}\n`,
+      });
+      if (smtp.sent) smtpSent += 1;
+      else smtpError = smtp.error || smtpError;
+    }
+    if (smtpSent > 0) return { sent: true as const };
+    return { sent: false as const, error: friendlyMailError(smtpError) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Mail failed";
     console.error("[mail] application notice", message);

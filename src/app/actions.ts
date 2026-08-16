@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE } from "@/lib/enrollment";
 import {
@@ -312,22 +311,40 @@ export async function notifyConfirmedApplication(userHint?: {
 
     const admin = createAdminClient();
     const db = admin ?? (await createClient());
-    const { data: profile } = await db
+    let profile: {
+      display_name: string;
+      status: string;
+      requested_role: string | null;
+      hometown?: string | null;
+      heard_from?: string | null;
+    } | null = null;
+    const full = await db
       .from("profiles")
       .select("display_name, status, requested_role, hometown, heard_from")
       .eq("id", userId)
       .maybeSingle();
-    if (!profile || profile.status !== "pending") {
+    if (full.error) {
+      console.error("[confirm] profile lookup", full.error.message);
+      const basic = await db
+        .from("profiles")
+        .select("display_name, status, requested_role")
+        .eq("id", userId)
+        .maybeSingle();
+      profile = basic.data;
+    } else {
+      profile = full.data;
+    }
+    if (profile && profile.status !== "pending") {
       console.error("[confirm] application notice skipped: not pending", userId);
       return { sent: false as const };
     }
 
     const mail = await sendNewApplicationNotice({
-      name: profile.display_name,
+      name: profile?.display_name || email.split("@")[0],
       email,
-      requestedRole: profile.requested_role || "student",
-      hometown: profile.hometown,
-      heardFrom: profile.heard_from,
+      requestedRole: profile?.requested_role || "student",
+      hometown: profile?.hometown,
+      heardFrom: profile?.heard_from,
     });
     if (!mail.sent) {
       console.error("[confirm] application notice not sent", mail.error);
@@ -375,8 +392,9 @@ export async function confirmEmailFromLink(
       });
       if (!error) {
         verified = true;
-        if (data.user) {
-          confirmedUser = { id: data.user.id, email: data.user.email };
+        const user = data.user ?? data.session?.user;
+        if (user) {
+          confirmedUser = { id: user.id, email: user.email };
         }
         break;
       }
@@ -403,8 +421,9 @@ export async function confirmEmailFromLink(
           "This confirmation link is invalid, expired, or was already used. If you already confirmed, log in and wait for approval.",
       };
     }
-    if (data.user) {
-      confirmedUser = { id: data.user.id, email: data.user.email };
+    const user = data.user ?? data.session?.user;
+    if (user) {
+      confirmedUser = { id: user.id, email: user.email };
     }
   }
 
@@ -415,9 +434,10 @@ export async function confirmEmailFromLink(
     if (user) confirmedUser = { id: user.id, email: user.email };
   }
 
-  after(async () => {
-    await notifyConfirmedApplication(confirmedUser ?? undefined);
-  });
+  const mail = await notifyConfirmedApplication(confirmedUser ?? undefined);
+  if (!mail.sent) {
+    console.error("[confirm] Tech notice did not send before confirm page");
+  }
   return { success: "confirmed" };
 }
 

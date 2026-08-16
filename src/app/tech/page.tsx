@@ -82,9 +82,9 @@ export default async function TechPage() {
     : noticeError
       ? `Application emails: ${noticeError}`
       : notice?.ready
-        ? `Confirmed applications are emailed to ${notice.recipients.join(", ")} via Resend. Approval emails use Gmail SMTP.`
-        : !notice?.hasKey
-          ? "Application emails are off: add RESEND_API_KEY on Render."
+        ? `Confirmed applications are emailed to ${notice.recipients.join(", ")} via Gmail. Approval emails use the same Gmail inbox.`
+        : !notice?.hasSmtp && !notice?.hasKey
+          ? "Application emails are off: add SMTP_HOST, SMTP_USER, and SMTP_PASS on Render."
           : !notice?.hasServiceRole
             ? "Application emails are off: add SUPABASE_SERVICE_ROLE_KEY on Render so the site can find the Tech email."
             : "Application emails are off: no Tech email found. Check that your Tech account has an email in Auth.";
