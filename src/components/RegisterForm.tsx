@@ -93,6 +93,25 @@ export function RegisterForm() {
           <option value="teacher">Teacher</option>
         </select>
       </label>
+      <label>
+        Where are you from?
+        <input
+          name="hometown"
+          maxLength={80}
+          autoComplete="country-name"
+          placeholder="China"
+        />
+      </label>
+      <p className="field-hint">Optional</p>
+      <label>
+        How did you hear about ESL on the Plaza?
+        <input
+          name="heard_from"
+          maxLength={160}
+          placeholder="A friend, the plaza, Instagram…"
+        />
+      </label>
+      <p className="field-hint">Optional</p>
       {mismatch && <p className="error">Passwords do not match</p>}
       {emailError && <p className="error">{emailError}</p>}
       {!emailError && state?.error && <p className="error">{state.error}</p>}

@@ -23,8 +23,12 @@ export default function PrivacyPage() {
             your application is pending, approved, or declined
           </li>
           <li>
-            Optional profile details: where you are from, languages you speak,
-            interests, and a short “About me”
+            Optional details you share when you apply: where you are from, and
+            how you heard about ESL on the Plaza
+          </li>
+          <li>
+            Optional profile details: languages you speak, interests, and a
+            short “About me”
           </li>
           <li>Your class registrations</li>
           <li>Messages you post in the Community Chat</li>

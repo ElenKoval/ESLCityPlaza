@@ -182,6 +182,16 @@ export function TechPanel({
                       Applied as <RoleBadge role={app.requested_role} />
                     </div>
                   )}
+                  {app.hometown?.trim() && (
+                    <div className="class-meta">
+                      From {app.hometown.trim()}
+                    </div>
+                  )}
+                  {app.heard_from?.trim() && (
+                    <div className="class-meta">
+                      Heard about us: {app.heard_from.trim()}
+                    </div>
+                  )}
                 </div>
                 <div className="class-meta">
                   <span>

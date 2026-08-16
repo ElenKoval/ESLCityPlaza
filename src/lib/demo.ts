@@ -39,6 +39,7 @@ export function getDemoProfile(): Profile {
     status: "approved",
     requested_role: "student",
     hometown: "",
+    heard_from: "",
     languages: [],
     interests: [],
     bio: "",
@@ -113,6 +114,7 @@ export function toPublicProfile(member: DemoMember): Profile {
     status: member.status,
     requested_role: member.requested_role,
     hometown: member.hometown,
+    heard_from: member.heard_from,
     languages: member.languages,
     interests: member.interests,
     bio: member.bio,
@@ -208,6 +210,8 @@ export function createPendingMember(input: {
   email: string;
   password: string;
   requestedRole: RequestedRole;
+  hometown?: string;
+  heardFrom?: string;
 }): DemoMember {
   const now = new Date().toISOString();
   return {
@@ -216,7 +220,8 @@ export function createPendingMember(input: {
     role: input.requestedRole,
     status: "pending",
     requested_role: input.requestedRole,
-    hometown: "",
+    hometown: input.hometown ?? "",
+    heard_from: input.heardFrom ?? "",
     languages: [],
     interests: [],
     bio: "",

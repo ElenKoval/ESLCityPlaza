@@ -182,6 +182,8 @@ export async function signUp(
   const password = String(formData.get("password") || "");
   const confirm = String(formData.get("confirm_password") || "");
   const displayName = String(formData.get("display_name") || "").trim();
+  const hometown = String(formData.get("hometown") || "").trim().slice(0, 80);
+  const heardFrom = String(formData.get("heard_from") || "").trim().slice(0, 160);
   const requestedRole = String(
     formData.get("requested_role") || "student",
   ) as RequestedRole;
@@ -211,6 +213,8 @@ export async function signUp(
       email,
       password,
       requestedRole,
+      hometown,
+      heardFrom,
     });
     await saveDemoMembers([...members, member]);
     await setDemoSession(member.id);
@@ -229,6 +233,8 @@ export async function signUp(
       data: {
         display_name: displayName,
         requested_role: requestedRole,
+        hometown,
+        heard_from: heardFrom,
       },
     },
   });
@@ -242,6 +248,19 @@ export async function signUp(
 
   if (data.user?.identities && data.user.identities.length === 0) {
     return { error: EXISTING_ACCOUNT_MESSAGE };
+  }
+
+  if (data.user) {
+    const admin = createAdminClient();
+    if (admin) {
+      const { error: extraError } = await admin
+        .from("profiles")
+        .update({ hometown, heard_from: heardFrom })
+        .eq("id", data.user.id);
+      if (extraError) {
+        console.error("[signup] application fields", extraError.message);
+      }
+    }
   }
 
   if (!data.session) {
@@ -270,7 +289,7 @@ export async function notifyConfirmedApplication() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("display_name, status, requested_role")
+        .select("display_name, status, requested_role, hometown, heard_from")
       .eq("id", user.id)
       .maybeSingle();
     if (!profile || profile.status !== "pending") {
@@ -281,6 +300,8 @@ export async function notifyConfirmedApplication() {
       name: profile.display_name,
       email: user.email,
       requestedRole: profile.requested_role || "student",
+      hometown: profile.hometown,
+      heardFrom: profile.heard_from,
     });
     if (!mail.sent) {
       console.error("[confirm] application notice not sent", mail.error);

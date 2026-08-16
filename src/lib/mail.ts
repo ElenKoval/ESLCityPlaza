@@ -210,21 +210,52 @@ export async function sendNewApplicationNotice(input: {
   name: string;
   email: string;
   requestedRole: string;
+  hometown?: string;
+  heardFrom?: string;
 }) {
   try {
     const to = await approvalNotifyEmails();
     console.info("[mail] application notice recipients", to);
     const approvalsUrl = `${siteUrl()}/tech`;
+    const hometown = input.hometown?.trim() || "";
+    const heardFrom = input.heardFrom?.trim() || "";
+    const extraHtml = [
+      hometown
+        ? `<p>From: ${escapeHtml(hometown)}</p>`
+        : "",
+      heardFrom
+        ? `<p>How they heard about us: ${escapeHtml(heardFrom)}</p>`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("");
+    const extraText = [
+      hometown ? `From: ${hometown}` : "",
+      heardFrom ? `How they heard about us: ${heardFrom}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    const html = `
+        <p>${escapeHtml(input.name)} has requested to join ${SITE_NAME}.</p>
+        <p>Email: ${escapeHtml(input.email)}</p>
+        ${extraHtml}
+        <p><a href="${approvalsUrl}">Open Approvals</a></p>
+      `;
+    const text = [
+      `${input.name} has requested to join ${SITE_NAME}.`,
+      `Email: ${input.email}`,
+      extraText,
+      `Approvals: ${approvalsUrl}`,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     const result = await sendResendEmail({
       to,
       subject: "New member request",
-      html: `
-        <p>${escapeHtml(input.name)} has requested to join ${SITE_NAME}.</p>
-        <p>Email: ${escapeHtml(input.email)}</p>
-        <p><a href="${approvalsUrl}">Open Approvals</a></p>
-      `,
-      text: `${input.name} has requested to join ${SITE_NAME}.\n\nEmail: ${input.email}\n\nApprovals: ${approvalsUrl}\n`,
+      html,
+      text: `${text}\n`,
     });
     if (result.sent) return result;
 
@@ -235,12 +266,8 @@ export async function sendNewApplicationNotice(input: {
       const smtp = await sendSmtpEmail({
         to: recipient,
         subject: "New member request",
-        html: `
-        <p>${escapeHtml(input.name)} has requested to join ${SITE_NAME}.</p>
-        <p>Email: ${escapeHtml(input.email)}</p>
-        <p><a href="${approvalsUrl}">Open Approvals</a></p>
-      `,
-        text: `${input.name} has requested to join ${SITE_NAME}.\n\nEmail: ${input.email}\n\nApprovals: ${approvalsUrl}\n`,
+        html,
+        text: `${text}\n`,
       });
       if (smtp.sent) smtpSent += 1;
       else smtpError = smtp.error || smtpError;

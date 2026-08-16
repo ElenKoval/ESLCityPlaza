@@ -12,6 +12,7 @@ create table public.profiles (
   requested_role text
     check (requested_role in ('student', 'teacher')),
   hometown text not null default '',
+  heard_from text not null default '',
   languages text[] not null default '{}',
   interests text[] not null default '{}',
   bio text not null default '',
@@ -88,15 +89,21 @@ as $$
 declare
   req text;
   name text;
+  htown text;
+  heard text;
 begin
   req := coalesce(new.raw_user_meta_data->>'requested_role', 'student');
   if req not in ('student', 'teacher') then
     req := 'student';
   end if;
   name := coalesce(nullif(trim(new.raw_user_meta_data->>'display_name'), ''), split_part(new.email, '@', 1));
+  htown := coalesce(nullif(trim(new.raw_user_meta_data->>'hometown'), ''), '');
+  heard := coalesce(nullif(trim(new.raw_user_meta_data->>'heard_from'), ''), '');
 
-  insert into public.profiles (id, display_name, role, status, requested_role)
-  values (new.id, name, req, 'pending', req);
+  insert into public.profiles (
+    id, display_name, role, status, requested_role, hometown, heard_from
+  )
+  values (new.id, name, req, 'pending', req, htown, heard);
   return new;
 end;
 $$;

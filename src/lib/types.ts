@@ -9,6 +9,7 @@ export type Profile = {
   status: ProfileStatus;
   requested_role: RequestedRole | null;
   hometown?: string;
+  heard_from?: string;
   languages?: string[];
   interests?: string[];
   bio?: string;
