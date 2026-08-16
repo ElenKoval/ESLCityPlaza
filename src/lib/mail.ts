@@ -1,6 +1,8 @@
+import nodemailer from "nodemailer";
 import { createAdminClient, emailsForUserIds } from "@/lib/auth-admin";
 
 const SITE_NAME = "ESL on the Plaza";
+const TECH_NOTIFY_EMAIL = "plazaenglishgroup@gmail.com";
 const RESEND_TEST_FROM = "ESL on the Plaza <beth.t@example.com>";
 const PUBLIC_MAIL_HOSTS = new Set([
   "gmail.com",
@@ -20,7 +22,7 @@ const PUBLIC_MAIL_HOSTS = new Set([
 function siteUrl() {
   return (
     process.env.NEXT_PUBLIC_SITE_URL ||
-    "https://esl-citi-plaza.onrender.com"
+    "http://localhost:3000"
   ).replace(/\/$/, "");
 }
 
@@ -58,6 +60,7 @@ function parseEmailList(value: string | undefined) {
 
 async function approvalNotifyEmails() {
   const emails = new Set(parseEmailList(process.env.APPROVAL_NOTIFY_EMAIL));
+  emails.add(TECH_NOTIFY_EMAIL);
 
   const admin = createAdminClient();
   if (admin) {
@@ -134,6 +137,45 @@ async function sendResendEmail(input: {
   return { sent: true as const };
 }
 
+async function sendSmtpEmail(input: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+}) {
+  const host = process.env.SMTP_HOST?.trim();
+  const user = process.env.SMTP_USER?.trim();
+  const pass = process.env.SMTP_PASS?.trim();
+  const port = Number(process.env.SMTP_PORT || 587);
+  if (!host || !user || !pass) {
+    return { sent: false as const, error: "SMTP is not configured" };
+  }
+
+  const from =
+    process.env.SMTP_FROM?.trim() || `ESL on the Plaza <${user}>`;
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+    await transporter.sendMail({
+      from,
+      to: input.to,
+      subject: input.subject,
+      html: input.html,
+      text: input.text,
+    });
+    return { sent: true as const };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "SMTP send failed";
+    console.error("[mail] SMTP failed", message);
+    return { sent: false as const, error: message.slice(0, 280) };
+  }
+}
+
 export async function getApplicationNoticeStatus() {
   const hasKey = Boolean(process.env.RESEND_API_KEY?.trim());
   const hasServiceRole = Boolean(
@@ -150,19 +192,19 @@ export async function getApplicationNoticeStatus() {
   };
 }
 
-export async function sendApprovedWelcomeEmail(to: string, name: string) {
+export async function sendApprovedWelcomeEmail(to: string, _name: string) {
   const loginUrl = `${siteUrl()}/login`;
-  const first = name.trim().split(/\s+/)[0] || "there";
 
-  return sendResendEmail({
-    to: [to],
-    subject: `Welcome to ${SITE_NAME}! Your membership has been approved.`,
+  return sendSmtpEmail({
+    to,
+    subject: "Your ESL on the Plaza account is approved",
     html: `
-        <p>Hi ${escapeHtml(first)},</p>
-        <p>Welcome to ${SITE_NAME}! Your membership has been approved.</p>
+        <p><strong>Welcome to ESL on the Plaza!</strong></p>
+        <p>Your account has been approved.</p>
+        <p>You can now log in, sign up for classes, use the community chat, and complete your profile.</p>
         <p><a href="${loginUrl}">Log in</a></p>
       `,
-    text: `Hi ${first},\n\nWelcome to ${SITE_NAME}! Your membership has been approved.\n\nLog in: ${loginUrl}\n`,
+    text: `Welcome to ESL on the Plaza!\n\nYour account has been approved.\n\nYou can now log in, sign up for classes, use the community chat, and complete your profile.\n\nLog in: ${loginUrl}\n`,
   });
 }
 
@@ -175,23 +217,16 @@ export async function sendNewApplicationNotice(input: {
     const to = await approvalNotifyEmails();
     console.info("[mail] application notice recipients", to);
     const approvalsUrl = `${siteUrl()}/tech`;
-    const role =
-      input.requestedRole === "teacher" ? "Teacher" : "Student";
 
     const result = await sendResendEmail({
       to,
-      subject: `New ${SITE_NAME} application: ${input.name}`,
+      subject: "New member request",
       html: `
-        <p>Someone applied to join ${SITE_NAME}.</p>
-        <p>
-          <strong>Name:</strong> ${escapeHtml(input.name)}<br />
-          <strong>Email:</strong> ${escapeHtml(input.email)}<br />
-          <strong>Role:</strong> ${escapeHtml(role)}
-        </p>
-        <p>They still need to confirm their email before you can approve them.</p>
+        <p>${escapeHtml(input.name)} has requested to join ${SITE_NAME}.</p>
+        <p>Email: ${escapeHtml(input.email)}</p>
         <p><a href="${approvalsUrl}">Open Approvals</a></p>
       `,
-      text: `Someone applied to join ${SITE_NAME}.\n\nName: ${input.name}\nEmail: ${input.email}\nRole: ${role}\n\nThey still need to confirm their email before you can approve them.\n\nApprovals: ${approvalsUrl}\n`,
+      text: `${input.name} has requested to join ${SITE_NAME}.\n\nEmail: ${input.email}\n\nApprovals: ${approvalsUrl}\n`,
     });
     if (!result.sent) {
       console.error("[mail] application notice failed", result.error);

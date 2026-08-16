@@ -77,10 +77,10 @@ export function ProfileSetupForm({
         <p className="field-hint">Optional</p>
 
         <fieldset className="chip-fieldset">
-          <legend>What is your first language?</legend>
+          <legend>Languages</legend>
           {languages.map((lang, index) => (
             <label key={index}>
-              {index === 0 ? "First language" : `Another language`}
+              {index === 0 ? "Language" : `Another language`}
               <span className="lang-row">
                 <input
                   name="languages"
@@ -116,11 +116,11 @@ export function ProfileSetupForm({
               Add another language
             </button>
           )}
-          <p className="field-hint">Optional. Add more if you grew up with two languages.</p>
+          <p className="field-hint">Optional. You can add more than one.</p>
         </fieldset>
 
         <fieldset className="chip-fieldset">
-          <legend>What do you enjoy talking about?</legend>
+          <legend>Interests</legend>
           <div className="interest-chips">
             {INTEREST_CHIPS.map((chip) => {
               const on = interests.includes(chip);
@@ -144,7 +144,7 @@ export function ProfileSetupForm({
         </fieldset>
 
         <label>
-          Tell us a little about yourself
+          About me
           <textarea
             name="bio"
             maxLength={600}
@@ -153,7 +153,7 @@ export function ProfileSetupForm({
             placeholder={BIO_EXAMPLE}
           />
         </label>
-        <p className="field-hint">Optional</p>
+        <p className="field-hint">Optional. A short note is enough.</p>
 
         {saveState?.error && <p className="error">{saveState.error}</p>}
         {mode === "edit" && saveState?.success && (

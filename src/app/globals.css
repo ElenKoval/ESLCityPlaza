@@ -900,7 +900,7 @@ a.site-header__name:hover {
 }
 
 .password-field input {
-  padding-right: 4.25rem;
+  padding-right: 8.25rem;
 }
 
 .password-field__toggle {
@@ -915,6 +915,7 @@ a.site-header__name:hover {
   font-weight: 600;
   cursor: pointer;
   padding: 0.3rem 0.45rem;
+  white-space: nowrap;
 }
 
 .password-field__toggle:hover {

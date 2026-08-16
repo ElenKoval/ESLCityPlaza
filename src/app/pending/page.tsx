@@ -28,18 +28,22 @@ export default async function PendingPage() {
           <>
             <h2>Application declined</h2>
             <p className="lead">
-              Classes and chat stay closed for now. Contact the organizers if
-              this looks wrong.
+              Your request to join ESL on the Plaza was not approved.
+            </p>
+            <p>
+              You can log in, but community chat, class sign-up, and member
+              profiles stay closed. Contact the organizers if this looks wrong.
             </p>
           </>
         ) : (
           <>
-            <h2>Thank you!</h2>
-            <p className="lead">Your email has been confirmed.</p>
-            <p>Your request to join ESL on Plaza has been sent.</p>
+            <h2>Please wait for approval</h2>
+            <p className="lead">
+              Your request to join ESL on the Plaza has been sent.
+            </p>
             <p>
-              Please check the website later to see if your account has been
-              approved.
+              You can log in, but community chat, class sign-up, and member
+              profiles stay closed until we approve your account.
             </p>
           </>
         )}

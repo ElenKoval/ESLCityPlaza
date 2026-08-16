@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { notifyConfirmedApplication } from "@/app/actions";
 import { createClient } from "@/lib/supabase/client";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
@@ -20,6 +21,25 @@ const OTP_TYPES: EmailOtpType[] = [
 function otpTypes(raw: string | null): EmailOtpType[] {
   const first = OTP_TYPES.find((item) => item === raw);
   return [...new Set(first ? [first, "signup", "email"] : ["signup", "email"])];
+}
+
+function friendlyConfirmError(raw: string) {
+  const text = raw.toLowerCase();
+  if (text.includes("already") && text.includes("confirm")) {
+    return "This email is already confirmed. You can log in and wait for approval.";
+  }
+  if (
+    text.includes("expired") ||
+    text.includes("otp_expired") ||
+    text.includes("already used") ||
+    text.includes("invalid") ||
+    text.includes("token") ||
+    text.includes("code") ||
+    text.includes("missing")
+  ) {
+    return "This confirmation link has expired or was already used. Apply again to get a new email.";
+  }
+  return "This confirmation link did not work. Apply again to get a new email.";
 }
 
 export function AuthConfirmClient() {
@@ -43,22 +63,36 @@ export function AuthConfirmClient() {
       const type = params.get("type") || hash.get("type");
       const accessToken = hash.get("access_token");
       const refreshToken = hash.get("refresh_token");
+      const hasConfirmToken = Boolean(
+        code || tokenHash || (accessToken && refreshToken),
+      );
 
       if (params.get("error_description") || params.get("error")) {
         setError(
-          params.get("error_description") ||
-            params.get("error") ||
-            "This confirmation link did not work.",
+          friendlyConfirmError(
+            params.get("error_description") ||
+              params.get("error") ||
+              "This confirmation link did not work.",
+          ),
+        );
+        return;
+      }
+
+      if (!hasConfirmToken) {
+        setError(
+          "This confirmation link is missing or incomplete. Open the newest email we sent you.",
         );
         return;
       }
 
       let message: string | null = null;
+      let confirmedNow = false;
 
       if (code) {
         const { error: codeError } =
           await supabase.auth.exchangeCodeForSession(code);
-        message = codeError?.message ?? null;
+        if (!codeError) confirmedNow = true;
+        else message = codeError.message;
       } else if (tokenHash) {
         for (const otpType of otpTypes(type)) {
           const { error: otpError } = await supabase.auth.verifyOtp({
@@ -67,6 +101,7 @@ export function AuthConfirmClient() {
           });
           if (!otpError) {
             message = null;
+            confirmedNow = true;
             break;
           }
           message = otpError.message;
@@ -76,17 +111,14 @@ export function AuthConfirmClient() {
           access_token: accessToken,
           refresh_token: refreshToken,
         });
-        message = sessionError?.message ?? null;
-      } else {
-        const { data } = await supabase.auth.getSession();
-        if (!data.session) {
-          message = "This confirmation link is missing or has expired.";
-        }
+        if (!sessionError) confirmedNow = true;
+        else message = sessionError.message;
       }
 
       if (cancelled) return;
-      if (message) {
-        setError(message);
+
+      if (!confirmedNow) {
+        setError(friendlyConfirmError(message || "This confirmation link did not work."));
         return;
       }
 
@@ -97,6 +129,17 @@ export function AuthConfirmClient() {
       if (type && !JOIN_TYPES.has(type) && type !== "email_change") {
         router.replace("/pending");
         return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        try {
+          await notifyConfirmedApplication();
+        } catch (notifyError) {
+          console.error("[confirm] notice", notifyError);
+        }
       }
 
       router.replace("/register/confirmed");
@@ -114,7 +157,7 @@ export function AuthConfirmClient() {
       <div className="auth-shell">
         <h1>Link did not work</h1>
         <p className="sub">
-          This confirmation link is invalid or has expired.
+          This confirmation link is invalid, expired, or was already used.
         </p>
         <div className="panel stack">
           <p className="error" style={{ margin: 0 }}>
@@ -122,7 +165,8 @@ export function AuthConfirmClient() {
           </p>
           <p style={{ margin: 0 }}>
             You can <Link href="/register">apply again</Link> to get a new
-            email.
+            email, or <Link href="/login">log in</Link> if you already
+            confirmed.
           </p>
         </div>
       </div>

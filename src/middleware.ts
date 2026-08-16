@@ -111,6 +111,21 @@ export async function middleware(request: NextRequest) {
 
   if ((user || hasDemo) && (path === "/login" || path === "/register")) {
     const redirectUrl = request.nextUrl.clone();
+    if (hasDemo && demoUserId) {
+      const status = demoMemberStatus(request, demoUserId);
+      redirectUrl.pathname = status === "approved" ? "/" : "/pending";
+      return NextResponse.redirect(redirectUrl);
+    }
+    if (user) {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("status")
+        .eq("id", user.id)
+        .maybeSingle();
+      redirectUrl.pathname =
+        profile?.status === "approved" ? "/" : "/pending";
+      return NextResponse.redirect(redirectUrl);
+    }
     redirectUrl.pathname = "/";
     return NextResponse.redirect(redirectUrl);
   }

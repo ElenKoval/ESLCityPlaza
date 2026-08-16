@@ -7,7 +7,7 @@ import {
   resetDemoMembers,
   useLocalDemo,
 } from "@/lib/demo";
-import { emailsForUserIds } from "@/lib/auth-admin";
+import { authContactsForUserIds } from "@/lib/auth-admin";
 import { getApplicationNoticeStatus } from "@/lib/mail";
 import { SendTestMailButton } from "@/components/SendTestMailButton";
 import type { Profile } from "@/lib/types";
@@ -46,17 +46,22 @@ export default async function TechPage() {
 
     applications = (pending as Profile[]) ?? [];
     members = (rest as Profile[]) ?? [];
-    const emailMap = await emailsForUserIds([
+    const contacts = await authContactsForUserIds([
       ...applications.map((p) => p.id),
       ...members.map((p) => p.id),
     ]);
-    applications = applications.map((p) => ({
-      ...p,
-      email: emailMap.get(p.id) ?? p.email,
-    }));
+    const canCheckConfirm = Boolean(
+      process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
+    );
+    applications = applications
+      .map((p) => ({
+        ...p,
+        email: contacts.get(p.id)?.email ?? p.email,
+      }))
+      .filter((p) => !canCheckConfirm || contacts.get(p.id)?.confirmed);
     members = members.map((p) => ({
       ...p,
-      email: emailMap.get(p.id) ?? p.email,
+      email: contacts.get(p.id)?.email ?? p.email,
     }));
   }
 
@@ -77,7 +82,7 @@ export default async function TechPage() {
     : noticeError
       ? `Application emails: ${noticeError}`
       : notice?.ready
-        ? `New applications are emailed to ${notice.recipients.join(", ")}. Sent from ${notice.from}.`
+        ? `Confirmed applications are emailed to ${notice.recipients.join(", ")} via Resend. Approval emails use Gmail SMTP.`
         : !notice?.hasKey
           ? "Application emails are off: add RESEND_API_KEY on Render."
           : !notice?.hasServiceRole

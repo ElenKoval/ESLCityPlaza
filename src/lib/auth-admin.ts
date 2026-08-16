@@ -17,10 +17,10 @@ export async function emailForUserId(userId: string): Promise<string | null> {
   return data.user.email;
 }
 
-export async function emailsForUserIds(
+export async function authContactsForUserIds(
   ids: string[],
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
+): Promise<Map<string, { email: string; confirmed: boolean }>> {
+  const map = new Map<string, { email: string; confirmed: boolean }>();
   const admin = createAdminClient();
   if (!admin || ids.length === 0) return map;
 
@@ -31,9 +31,23 @@ export async function emailsForUserIds(
         console.error("[auth-admin] getUserById", id, error.message);
         return;
       }
-      if (data.user?.email) map.set(id, data.user.email);
+      if (data.user?.email) {
+        map.set(id, {
+          email: data.user.email,
+          confirmed: Boolean(data.user.email_confirmed_at),
+        });
+      }
     }),
   );
+  return map;
+}
+
+export async function emailsForUserIds(
+  ids: string[],
+): Promise<Map<string, string>> {
+  const contacts = await authContactsForUserIds(ids);
+  const map = new Map<string, string>();
+  for (const [id, contact] of contacts) map.set(id, contact.email);
   return map;
 }
 

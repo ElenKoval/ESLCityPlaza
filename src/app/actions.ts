@@ -40,6 +40,7 @@ import {
 } from "@/lib/demo-announcements";
 import {
   EXISTING_ACCOUNT_MESSAGE,
+  emailFormatError,
   isExistingAccountError,
   MIN_PASSWORD_LENGTH,
   normalizeEmail,
@@ -163,6 +164,9 @@ export async function signIn(
     .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
     .maybeSingle();
 
+  if (profile?.status === "pending" || profile?.status === "rejected") {
+    redirect("/pending");
+  }
   if (profile && needsProfileSetup(profile)) {
     redirect("/profile");
   }
@@ -246,6 +250,10 @@ export async function signUp(
     return { error: EXISTING_ACCOUNT_MESSAGE };
   }
 
+  if (!data.session) {
+    redirect(`/register/check-email?email=${encodeURIComponent(email)}`);
+  }
+
   const mail = await sendNewApplicationNotice({
     name: displayName,
     email,
@@ -255,11 +263,68 @@ export async function signUp(
     console.error("[signup] application notice not sent", mail.error);
   }
 
-  if (!data.session) {
-    redirect(`/register/check-email?email=${encodeURIComponent(email)}`);
-  }
-
   redirect("/pending");
+}
+
+export async function notifyConfirmedApplication() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user?.email) return { sent: false as const };
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("display_name, status, requested_role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!profile || profile.status !== "pending") {
+      return { sent: false as const };
+    }
+
+    const mail = await sendNewApplicationNotice({
+      name: profile.display_name,
+      email: user.email,
+      requestedRole: profile.requested_role || "student",
+    });
+    if (!mail.sent) {
+      console.error("[confirm] application notice not sent", mail.error);
+    }
+    return mail;
+  } catch (error) {
+    console.error("[confirm] application notice", error);
+    return { sent: false as const };
+  }
+}
+
+export async function resendConfirmationEmail(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const email = normalizeEmail(String(formData.get("email") || ""));
+  const emailError = emailFormatError(email);
+  if (emailError) return { error: emailError };
+
+  const headersList = await headers();
+  const origin =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    headersList.get("origin") ||
+    "http://localhost:3000";
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${origin}/auth/confirm` },
+  });
+  if (error) {
+    console.error("[resend confirmation]", error.message);
+    return {
+      error: "Could not send another email just now. Check spam, or try again later.",
+    };
+  }
+  return { success: "If an account exists, we sent another confirmation email." };
 }
 
 export async function sendTestApplicationNotice(
@@ -442,15 +507,12 @@ export async function reviewApplication(
     }
     const members = await getDemoMembers();
     const target = members.find((m) => m.id === userId);
+    if (!target) return { error: "Application not found" };
+    if (target.status !== "pending") {
+      return { error: "This application is no longer pending" };
+    }
     if (target?.role === "tech") {
       return { error: "Cannot change a Tech account" };
-    }
-    if (
-      me.role === "teacher" &&
-      target?.role === "teacher" &&
-      target.status === "approved"
-    ) {
-      return { error: "Teachers cannot change other teachers" };
     }
     const next = members.map((m) => {
       if (m.id !== userId) return m;
@@ -495,15 +557,11 @@ export async function reviewApplication(
     .eq("id", userId)
     .maybeSingle();
   if (!target) return { error: "Application not found" };
+  if (target.status !== "pending") {
+    return { error: "This application is no longer pending" };
+  }
   if (target.role === "tech") {
     return { error: "Cannot change a Tech account" };
-  }
-  if (
-    me.role === "teacher" &&
-    target.role === "teacher" &&
-    target.status === "approved"
-  ) {
-    return { error: "Teachers cannot change other teachers" };
   }
 
   const payload =
@@ -520,8 +578,15 @@ export async function reviewApplication(
           reviewed_by: user.id,
         };
 
-  const { error } = await supabase.from("profiles").update(payload).eq("id", userId);
+  const { data: updated, error } = await supabase
+    .from("profiles")
+    .update(payload)
+    .eq("id", userId)
+    .eq("status", "pending")
+    .select("id")
+    .maybeSingle();
   if (error) return { error: error.message };
+  if (!updated) return { error: "This application is no longer pending" };
 
   if (decision === "approve") {
     const email = await emailForUserId(userId);
@@ -530,27 +595,28 @@ export async function reviewApplication(
       .select("display_name")
       .eq("id", userId)
       .maybeSingle();
+    revalidatePath("/tech");
+    revalidatePath("/pending");
     if (email) {
       const mail = await sendApprovedWelcomeEmail(
         email,
         person?.display_name || "there",
       );
-      revalidatePath("/tech");
       if (!mail.sent) {
+        console.error("[approve] approval email not sent", mail.error);
         return {
-          success:
-            "Approved. Welcome email was not sent — add RESEND_API_KEY on Render.",
+          success: "User approved, but approval email could not be sent.",
         };
       }
       return { success: "Approved. We emailed them a welcome note." };
     }
-    revalidatePath("/tech");
     return {
-      success: "Approved. Could not look up their email (needs service role key).",
+      success: "User approved, but approval email could not be sent.",
     };
   }
 
   revalidatePath("/tech");
+  revalidatePath("/pending");
   return { success: "Application declined" };
 }
 
@@ -813,6 +879,15 @@ export async function enrollClass(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return { error: "Please log in" };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me || me.status !== "approved") {
+    return { error: "Your application must be approved first" };
+  }
 
   const { data: classRow } = await supabase
     .from("classes")

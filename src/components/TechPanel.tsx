@@ -160,8 +160,9 @@ export function TechPanel({
           Pending applications
         </h3>
         <p className="lead" style={{ margin: 0 }}>
-          New people apply on the site. They stay locked out of chat and
-          lessons until you approve them here.
+          New people apply on the site. After they confirm their email, you
+          see their name, email, and date here. They stay locked out of chat
+          and lessons until you approve them.
         </p>
         {applications.length === 0 ? (
           <p style={{ margin: 0 }}>No new applications.</p>

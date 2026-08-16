@@ -34,7 +34,7 @@ export function PasswordField({
         aria-pressed={visible}
         aria-label={visible ? "Hide password" : "Show password"}
       >
-        {visible ? "Hide" : "Show"}
+        {visible ? "Hide password" : "Show password"}
       </button>
     </span>
   );
