@@ -376,8 +376,13 @@ export async function confirmEmailFromLink(
     }
   }
 
-  await notifyConfirmedApplication();
-  redirect("/register/confirmed");
+  await Promise.race([
+    notifyConfirmedApplication(),
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, 4000);
+    }),
+  ]);
+  return { success: "confirmed" };
 }
 
 export async function resendConfirmationEmail(

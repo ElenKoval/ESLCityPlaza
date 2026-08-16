@@ -29,6 +29,12 @@ export function ConfirmEmailClient({
     action(formData);
   }, [action, tokenHash, type, code]);
 
+  useEffect(() => {
+    if (state?.success) {
+      window.location.replace("/register/confirmed");
+    }
+  }, [state]);
+
   if (state?.error) {
     return (
       <div className="auth-shell">

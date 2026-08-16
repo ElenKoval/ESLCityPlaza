@@ -102,6 +102,7 @@ async function sendResendEmail(input: {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       cache: "no-store",
+      signal: AbortSignal.timeout(8000),
       headers: {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
@@ -158,6 +159,9 @@ async function sendSmtpEmail(input: {
       port,
       secure: port === 465,
       auth: { user, pass },
+      connectionTimeout: 8000,
+      greetingTimeout: 8000,
+      socketTimeout: 10000,
     });
     await transporter.sendMail({
       from,
@@ -260,20 +264,17 @@ export async function sendNewApplicationNotice(input: {
     if (result.sent) return result;
 
     console.error("[mail] application notice Resend failed, trying SMTP", result.error);
-    let smtpSent = 0;
-    let smtpError = result.error || "";
-    for (const recipient of to) {
-      const smtp = await sendSmtpEmail({
-        to: recipient,
-        subject: "New member request",
-        html,
-        text: `${text}\n`,
-      });
-      if (smtp.sent) smtpSent += 1;
-      else smtpError = smtp.error || smtpError;
-    }
-    if (smtpSent > 0) return { sent: true as const };
-    return { sent: false as const, error: friendlyMailError(smtpError) };
+    const smtp = await sendSmtpEmail({
+      to: TECH_NOTIFY_EMAIL,
+      subject: "New member request",
+      html,
+      text: `${text}\n`,
+    });
+    if (smtp.sent) return { sent: true as const };
+    return {
+      sent: false as const,
+      error: friendlyMailError(smtp.error || result.error),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Mail failed";
     console.error("[mail] application notice", message);
