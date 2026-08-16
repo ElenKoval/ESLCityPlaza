@@ -76,7 +76,7 @@ export async function GET(request: NextRequest) {
       const reader = createAdminClient() ?? supabase;
       const { data: profile } = await reader
         .from("profiles")
-        .select("display_name, status, requested_role, hometown, heard_from")
+        .select("display_name, status, requested_role")
         .eq("id", user.id)
         .maybeSingle();
       if (!profile) {
@@ -88,8 +88,6 @@ export async function GET(request: NextRequest) {
           name: profile.display_name,
           email: user.email,
           requestedRole: profile.requested_role || "student",
-          hometown: profile.hometown,
-          heardFrom: profile.heard_from,
         });
         if (!mail.sent) {
           console.error("[auth/confirm] application notice not sent", mail.error);

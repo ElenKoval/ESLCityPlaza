@@ -127,6 +127,7 @@ async function sendResendEmail(input: {
       console.error("[mail] Resend rejected", to, lastError);
       continue;
     }
+    console.info("[mail] Resend accepted", to);
     sentCount += 1;
   }
 
@@ -228,7 +229,7 @@ export async function sendNewApplicationNotice(input: {
   heardFrom?: string;
 }) {
   try {
-    const to = await approvalNotifyEmails();
+    const to = [TECH_NOTIFY_EMAIL];
     console.info("[mail] application notice recipients", to);
     const approvalsUrl = `${siteUrl()}/tech`;
     const hometown = input.hometown?.trim() || "";
@@ -271,21 +272,11 @@ export async function sendNewApplicationNotice(input: {
     });
     if (result.sent) return result;
 
-    console.error("[mail] application notice Resend failed, trying SMTP", result.error);
-    let smtpSent = 0;
-    let smtpError = result.error || "";
-    for (const recipient of to) {
-      const smtp = await sendSmtpEmail({
-        to: recipient,
-        subject: "New member request",
-        html,
-        text: `${text}\n`,
-      });
-      if (smtp.sent) smtpSent += 1;
-      else smtpError = smtp.error || smtpError;
-    }
-    if (smtpSent > 0) return { sent: true as const };
-    return { sent: false as const, error: friendlyMailError(smtpError) };
+    console.error("[mail] application notice Resend failed", result.error);
+    return {
+      sent: false as const,
+      error: friendlyMailError(result.error),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Mail failed";
     console.error("[mail] application notice", message);
