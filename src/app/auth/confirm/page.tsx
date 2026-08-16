@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { ConfirmEmailForm } from "@/components/ConfirmEmailForm";
+import { ConfirmEmailClient } from "@/components/ConfirmEmailClient";
 
 export default async function AuthConfirmPage({
   searchParams,
@@ -16,10 +16,6 @@ export default async function AuthConfirmPage({
   }
 
   return (
-    <div className="auth-shell">
-      <h1>Confirm your email</h1>
-      <p className="sub">One last tap — this keeps the confirmation link safe.</p>
-      <ConfirmEmailForm tokenHash={tokenHash} type={type} code={code} />
-    </div>
+    <ConfirmEmailClient tokenHash={tokenHash} type={type} code={code} />
   );
 }
