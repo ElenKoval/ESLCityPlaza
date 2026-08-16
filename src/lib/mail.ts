@@ -1,4 +1,5 @@
 import nodemailer from "nodemailer";
+import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { createAdminClient, emailsForUserIds } from "@/lib/auth-admin";
 import { publicSiteUrl } from "@/lib/site-url";
 
@@ -152,17 +153,17 @@ async function sendSmtpEmail(input: {
   const from =
     process.env.SMTP_FROM?.trim() || `ESL on the Plaza <${user}>`;
 
-  const transporter = nodemailer.createTransport({
+  const smtpOptions: SMTPTransport.Options = {
     host,
     port,
     secure: port === 465,
     requireTLS: port === 587,
-    family: 4,
     auth: { user, pass },
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 20000,
-  });
+  };
+  const transporter = nodemailer.createTransport(smtpOptions);
   try {
     await transporter.sendMail({
       from,

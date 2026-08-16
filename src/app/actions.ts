@@ -343,8 +343,8 @@ export async function notifyConfirmedApplication(userHint?: {
       name: profile?.display_name || email.split("@")[0],
       email,
       requestedRole: profile?.requested_role || "student",
-      hometown: profile?.hometown,
-      heardFrom: profile?.heard_from,
+      hometown: profile?.hometown ?? undefined,
+      heardFrom: profile?.heard_from ?? undefined,
     });
     if (!mail.sent) {
       console.error("[confirm] application notice not sent", mail.error);
