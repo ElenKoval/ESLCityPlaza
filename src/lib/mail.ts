@@ -1,5 +1,6 @@
 import nodemailer from "nodemailer";
 import { createAdminClient, emailsForUserIds } from "@/lib/auth-admin";
+import { publicSiteUrl } from "@/lib/site-url";
 
 const SITE_NAME = "ESL on the Plaza";
 const TECH_NOTIFY_EMAIL = "plazaenglishgroup@gmail.com";
@@ -20,10 +21,7 @@ const PUBLIC_MAIL_HOSTS = new Set([
 ]);
 
 function siteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    "http://localhost:3000"
-  ).replace(/\/$/, "");
+  return publicSiteUrl();
 }
 
 function emailHost(value: string) {

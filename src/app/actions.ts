@@ -2,7 +2,6 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE } from "@/lib/enrollment";
 import {
@@ -33,6 +32,7 @@ import {
   canReviewApplications,
 } from "@/lib/roles";
 import { DEFAULT_CLASS_LOCATION } from "@/lib/class-schedule";
+import { authConfirmUrl } from "@/lib/site-url";
 import type { AnnouncementRow, Profile, RequestedRole, Role } from "@/lib/types";
 import {
   getDemoAnnouncements,
@@ -221,17 +221,11 @@ export async function signUp(
   if (exists) return { error: EXISTING_ACCOUNT_MESSAGE };
 
   const supabase = await createClient();
-  const headersList = await headers();
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    headersList.get("origin") ||
-    "http://localhost:3000";
-
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
-      emailRedirectTo: `${origin}/auth/confirm`,
+      emailRedirectTo: authConfirmUrl(),
       data: {
         display_name: displayName,
         requested_role: requestedRole,
@@ -306,17 +300,11 @@ export async function resendConfirmationEmail(
   const emailError = emailFormatError(email);
   if (emailError) return { error: emailError };
 
-  const headersList = await headers();
-  const origin =
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    headersList.get("origin") ||
-    "http://localhost:3000";
-
   const supabase = await createClient();
   const { error } = await supabase.auth.resend({
     type: "signup",
     email,
-    options: { emailRedirectTo: `${origin}/auth/confirm` },
+    options: { emailRedirectTo: authConfirmUrl() },
   });
   if (error) {
     console.error("[resend confirmation]", error.message);

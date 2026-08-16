@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { sendNewApplicationNotice } from "@/lib/mail";
+import { publicSiteUrl } from "@/lib/site-url";
 
 const JOIN_TYPES = new Set<EmailOtpType>([
   "signup",
@@ -10,12 +11,8 @@ const JOIN_TYPES = new Set<EmailOtpType>([
   "magiclink",
 ]);
 
-function redirectTo(request: NextRequest, pathname: string) {
-  const url = request.nextUrl.clone();
-  url.pathname = pathname;
-  url.search = "";
-  url.hash = "";
-  return url;
+function redirectTo(pathname: string) {
+  return new URL(pathname, `${publicSiteUrl()}/`);
 }
 
 export async function GET(request: NextRequest) {
@@ -24,7 +21,7 @@ export async function GET(request: NextRequest) {
   const rawType = request.nextUrl.searchParams.get("type");
   const type = (rawType || "signup") as EmailOtpType;
 
-  const errorUrl = redirectTo(request, "/auth/error");
+  const errorUrl = redirectTo("/auth/error");
 
   if (!tokenHash && !code) {
     return NextResponse.redirect(errorUrl);
@@ -96,7 +93,7 @@ export async function GET(request: NextRequest) {
   }
 
   const response = NextResponse.redirect(
-    redirectTo(request, "/register/confirmed"),
+    redirectTo("/register/confirmed"),
   );
   for (const cookie of pendingCookies) {
     response.cookies.set(cookie.name, cookie.value, cookie.options);
