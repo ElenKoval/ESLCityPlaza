@@ -1,3 +1,5 @@
+import { resolve4 } from "node:dns/promises";
+import { isIP } from "node:net";
 import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { createAdminClient, emailsForUserIds } from "@/lib/auth-admin";
@@ -20,6 +22,26 @@ const PUBLIC_MAIL_HOSTS = new Set([
   "proton.me",
   "protonmail.com",
 ]);
+
+function smtpNetError(error: unknown) {
+  const err =
+    error && typeof error === "object"
+      ? (error as {
+          message?: string;
+          code?: string;
+          errno?: number;
+          syscall?: string;
+          address?: string;
+        })
+      : {};
+  return {
+    message: err.message || "SMTP send failed",
+    code: err.code,
+    errno: err.errno,
+    syscall: err.syscall,
+    address: err.address,
+  };
+}
 
 function siteUrl() {
   return publicSiteUrl();
@@ -154,12 +176,31 @@ async function sendSmtpEmail(input: {
   const from =
     process.env.SMTP_FROM?.trim() || `ESL on the Plaza <${user}>`;
 
+  let connectHost = host;
+  if (!isIP(host)) {
+    try {
+      const ipv4 = await resolve4(host);
+      if (!ipv4[0]) {
+        return { sent: false as const, error: `No IPv4 address for ${host}` };
+      }
+      connectHost = ipv4[0];
+    } catch (error) {
+      const details = smtpNetError(error);
+      console.error("[mail] SMTP DNS failed", details);
+      return {
+        sent: false as const,
+        error: details.message.slice(0, 280),
+      };
+    }
+  }
+
   const smtpOptions: SMTPTransport.Options = {
-    host,
+    host: connectHost,
     port,
-    secure: port === 465,
-    requireTLS: port === 587,
+    secure: false,
+    requireTLS: true,
     auth: { user, pass },
+    tls: { servername: "smtp.gmail.com" },
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 20000,
@@ -175,9 +216,9 @@ async function sendSmtpEmail(input: {
     });
     return { sent: true as const };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "SMTP send failed";
-    console.error("[mail] SMTP failed", message);
-    return { sent: false as const, error: message.slice(0, 280) };
+    const details = smtpNetError(error);
+    console.error("[mail] SMTP failed", details);
+    return { sent: false as const, error: details.message.slice(0, 280) };
   } finally {
     transporter.close();
   }
