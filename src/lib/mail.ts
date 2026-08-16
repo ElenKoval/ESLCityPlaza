@@ -226,11 +226,27 @@ export async function sendNewApplicationNotice(input: {
       `,
       text: `${input.name} has requested to join ${SITE_NAME}.\n\nEmail: ${input.email}\n\nApprovals: ${approvalsUrl}\n`,
     });
-    if (!result.sent) {
-      console.error("[mail] application notice failed", result.error);
-      return { sent: false as const, error: friendlyMailError(result.error) };
+    if (result.sent) return result;
+
+    console.error("[mail] application notice Resend failed, trying SMTP", result.error);
+    let smtpSent = 0;
+    let smtpError = result.error || "";
+    for (const recipient of to) {
+      const smtp = await sendSmtpEmail({
+        to: recipient,
+        subject: "New member request",
+        html: `
+        <p>${escapeHtml(input.name)} has requested to join ${SITE_NAME}.</p>
+        <p>Email: ${escapeHtml(input.email)}</p>
+        <p><a href="${approvalsUrl}">Open Approvals</a></p>
+      `,
+        text: `${input.name} has requested to join ${SITE_NAME}.\n\nEmail: ${input.email}\n\nApprovals: ${approvalsUrl}\n`,
+      });
+      if (smtp.sent) smtpSent += 1;
+      else smtpError = smtp.error || smtpError;
     }
-    return result;
+    if (smtpSent > 0) return { sent: true as const };
+    return { sent: false as const, error: friendlyMailError(smtpError) };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Mail failed";
     console.error("[mail] application notice", message);

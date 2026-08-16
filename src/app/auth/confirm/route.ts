@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { sendNewApplicationNotice } from "@/lib/mail";
+import { createAdminClient } from "@/lib/auth-admin";
 import { publicSiteUrl } from "@/lib/site-url";
 
 const JOIN_TYPES = new Set<EmailOtpType>([
@@ -55,7 +56,7 @@ export async function GET(request: NextRequest) {
     },
   });
 
-  const { error } = tokenHash
+  const { data, error } = tokenHash
     ? await supabase.auth.verifyOtp({
         type: JOIN_TYPES.has(type) ? type : "signup",
         token_hash: tokenHash,
@@ -67,17 +68,22 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(errorUrl);
   }
 
+  const user = data.user ?? data.session?.user ?? null;
   try {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user?.email) {
-      const { data: profile } = await supabase
+    if (!user?.email) {
+      console.error("[auth/confirm] confirmed, but no user on the session");
+    } else {
+      const reader = createAdminClient() ?? supabase;
+      const { data: profile } = await reader
         .from("profiles")
         .select("display_name, status, requested_role")
         .eq("id", user.id)
         .maybeSingle();
-      if (profile?.status === "pending") {
+      if (!profile) {
+        console.error("[auth/confirm] no profile for", user.id);
+      } else if (profile.status !== "pending") {
+        console.info("[auth/confirm] skip notice, status is", profile.status);
+      } else {
         const mail = await sendNewApplicationNotice({
           name: profile.display_name,
           email: user.email,
