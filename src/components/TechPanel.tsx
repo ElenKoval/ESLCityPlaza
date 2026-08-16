@@ -90,7 +90,7 @@ function ReviewForm({ profile }: { profile: Profile }) {
           value="approve"
           disabled={pending}
         >
-          Approve
+          {pending ? "Saving…" : "Approve"}
         </button>
         <button
           className="btn-danger"

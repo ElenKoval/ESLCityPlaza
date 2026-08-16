@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE } from "@/lib/enrollment";
 import {
@@ -735,21 +736,17 @@ export async function reviewApplication(
     revalidatePath("/tech");
     revalidatePath("/pending");
     if (email) {
-      const mail = await sendApprovedWelcomeEmail(
-        email,
-        person?.display_name || "there",
-      );
-      if (!mail.sent) {
-        console.error("[approve] approval email not sent", mail.error);
-        return {
-          success: "User approved, but approval email could not be sent.",
-        };
-      }
-      return { success: "Approved. We emailed them a welcome note." };
+      const name = person?.display_name || "there";
+      after(async () => {
+        const mail = await sendApprovedWelcomeEmail(email, name);
+        if (!mail.sent) {
+          console.error("[approve] approval email not sent", mail.error);
+        }
+      });
+    } else {
+      console.error("[approve] no email for", userId);
     }
-    return {
-      success: "User approved, but approval email could not be sent.",
-    };
+    return { success: "Approved. We emailed them a welcome note." };
   }
 
   revalidatePath("/tech");
