@@ -5,7 +5,7 @@ import { publicSiteUrl } from "@/lib/site-url";
 
 const SITE_NAME = "ESL on the Plaza";
 const TECH_NOTIFY_EMAIL = "plazaenglishgroup@gmail.com";
-const RESEND_TEST_FROM = "ESL on the Plaza <beth.t@example.com>";
+const RESEND_TEST_FROM = "ESL on the Plaza <onboarding@resend.dev>";
 const PUBLIC_MAIL_HOSTS = new Set([
   "gmail.com",
   "googlemail.com",
