@@ -27,9 +27,7 @@ import { emailForUserId, authEmailExists, createAdminClient } from "@/lib/auth-a
 import { sendApprovedWelcomeEmail, sendNewApplicationNotice } from "@/lib/mail";
 import {
   MAX_INTERESTS,
-  OTHER_INTEREST,
-  PRESET_INTERESTS,
-  normalizeCustomInterest,
+  splitStoredInterests,
 } from "@/lib/profile";
 import {
   assignableRoles,
@@ -1782,33 +1780,12 @@ export async function unenrollClass(
 function collectProfileInterests(formData: FormData):
   | { interests: string[] }
   | { error: string } {
-  const preset = new Set<string>(PRESET_INTERESTS);
-  const selected = formData
+  const values = formData
     .getAll("interests")
     .map((value) => String(value).trim())
-    .filter((value) => preset.has(value));
-  const unique = [...new Set(selected)];
-  const otherSelected = String(formData.get("other_selected") || "") === "true";
-  const typed = normalizeCustomInterest(
-    String(formData.get("other_interest") || ""),
-  );
-
-  if (otherSelected && !typed) {
-    return { error: "Please type your other interest." };
-  }
-
-  const interests = unique.slice();
-  if (otherSelected && typed) {
-    const match = PRESET_INTERESTS.find(
-      (chip) => chip.toLowerCase() === typed.toLowerCase(),
-    );
-    if (match) {
-      if (!interests.includes(match)) interests.push(match);
-    } else if (typed !== OTHER_INTEREST) {
-      interests.push(typed);
-    }
-  }
-
+    .filter(Boolean);
+  const { selected, custom } = splitStoredInterests(values);
+  const interests = custom ? [...selected, custom] : selected;
   return { interests: interests.slice(0, MAX_INTERESTS) };
 }
 

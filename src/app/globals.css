@@ -2400,11 +2400,36 @@ button.chat-msg__name {
   color: var(--plaza-deep);
 }
 
+.interest-chip--custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  cursor: default;
+}
+
+.interest-chip__remove {
+  display: grid;
+  place-items: center;
+  width: 1.15rem;
+  height: 1.15rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--plaza-deep);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.interest-chip__remove:hover {
+  background: rgba(196, 81, 12, 0.12);
+}
+
 .interest-other {
   display: grid;
   gap: 0.3rem;
   margin-top: 0.15rem;
-  max-width: 22rem;
 }
 
 .interest-other__top {
@@ -2412,6 +2437,7 @@ button.chat-msg__name {
   align-items: baseline;
   justify-content: space-between;
   gap: 0.75rem;
+  max-width: 22rem;
   font-size: 0.88rem;
 }
 
@@ -2419,6 +2445,41 @@ button.chat-msg__name {
   color: var(--ink-soft);
   font-size: 0.78rem;
   font-variant-numeric: tabular-nums;
+}
+
+.interest-other__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.interest-other__row input {
+  flex: 1 1 12rem;
+  min-width: 0;
+  max-width: 22rem;
+}
+
+.interest-other__add {
+  flex-shrink: 0;
+  width: auto;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(196, 81, 12, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 244, 230, 0.95);
+  color: var(--plaza-deep);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.interest-other__add:hover:not(:disabled) {
+  background: rgba(232, 106, 23, 0.14);
+}
+
+.interest-other__add:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .form-grid {

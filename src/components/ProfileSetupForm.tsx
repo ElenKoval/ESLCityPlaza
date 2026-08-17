@@ -9,9 +9,9 @@ import {
 import {
   BIO_EXAMPLE,
   CUSTOM_INTEREST_MAX,
-  INTEREST_CHIPS,
   MAX_INTERESTS,
   OTHER_INTEREST,
+  PRESET_INTERESTS,
   normalizeCustomInterest,
   splitStoredInterests,
 } from "@/lib/profile";
@@ -44,31 +44,58 @@ export function ProfileSetupForm({
   );
   const storedInterests = splitStoredInterests(profile.interests ?? []);
   const [interests, setInterests] = useState<string[]>(storedInterests.selected);
-  const [otherOn, setOtherOn] = useState(
-    Boolean(storedInterests.custom) ||
-      (profile.interests ?? []).includes(OTHER_INTEREST),
-  );
-  const [customInterest, setCustomInterest] = useState(storedInterests.custom);
+  const [customChip, setCustomChip] = useState(storedInterests.custom);
+  const [otherOn, setOtherOn] = useState(false);
+  const [otherDraft, setOtherDraft] = useState("");
   const [interestError, setInterestError] = useState<string | null>(null);
+
+  const interestUsed = interests.length + (customChip ? 1 : 0);
 
   function toggleInterest(chip: string) {
     setInterestError(null);
     if (chip === OTHER_INTEREST) {
+      if (customChip) return;
       setOtherOn((prev) => {
         if (prev) {
-          setCustomInterest("");
+          setOtherDraft("");
           return false;
         }
-        if (interests.length >= MAX_INTERESTS) return prev;
+        if (interestUsed >= MAX_INTERESTS) return prev;
         return true;
       });
       return;
     }
     setInterests((prev) => {
       if (prev.includes(chip)) return prev.filter((item) => item !== chip);
-      if (prev.length + (otherOn ? 1 : 0) >= MAX_INTERESTS) return prev;
+      if (prev.length + (customChip ? 1 : 0) >= MAX_INTERESTS) return prev;
       return [...prev, chip];
     });
+  }
+
+  function addCustomInterest() {
+    const value = normalizeCustomInterest(otherDraft);
+    if (!value) {
+      setInterestError("Please type your other interest.");
+      return;
+    }
+    if (customChip || interestUsed >= MAX_INTERESTS) return;
+
+    const match = PRESET_INTERESTS.find(
+      (chip) => chip.toLowerCase() === value.toLowerCase(),
+    );
+    if (match) {
+      setInterests((prev) => (prev.includes(match) ? prev : [...prev, match]));
+    } else {
+      setCustomChip(value);
+    }
+    setOtherDraft("");
+    setOtherOn(false);
+    setInterestError(null);
+  }
+
+  function removeCustomInterest() {
+    setCustomChip("");
+    setInterestError(null);
   }
 
   const leaving = Boolean(saveState?.success || skipState?.success);
@@ -76,16 +103,7 @@ export function ProfileSetupForm({
 
   return (
     <div className="stack">
-      <form
-        action={saveAction}
-        className="panel profile-form"
-        onSubmit={(e) => {
-          if (otherOn && !normalizeCustomInterest(customInterest)) {
-            e.preventDefault();
-            setInterestError("Please type your other interest.");
-          }
-        }}
-      >
+      <form action={saveAction} className="panel profile-form">
         <p className="profile-form__note">
           Everything except your name is optional.
         </p>
@@ -158,9 +176,8 @@ export function ProfileSetupForm({
         <section className="profile-form__group">
           <h2 className="profile-form__heading">Interests</h2>
           <div className="interest-chips">
-            {INTEREST_CHIPS.map((chip) => {
-              const on =
-                chip === OTHER_INTEREST ? otherOn : interests.includes(chip);
+            {PRESET_INTERESTS.map((chip) => {
+              const on = interests.includes(chip);
               return (
                 <button
                   key={chip}
@@ -173,32 +190,71 @@ export function ProfileSetupForm({
                 </button>
               );
             })}
+            {customChip && (
+              <span className="interest-chip is-on interest-chip--custom">
+                {customChip}
+                <button
+                  type="button"
+                  className="interest-chip__remove"
+                  aria-label={`Remove ${customChip}`}
+                  onClick={removeCustomInterest}
+                >
+                  ×
+                </button>
+              </span>
+            )}
+            <button
+              type="button"
+              className={`interest-chip ${otherOn ? "is-on" : ""}`}
+              aria-pressed={otherOn}
+              onClick={() => toggleInterest(OTHER_INTEREST)}
+            >
+              {OTHER_INTEREST}
+            </button>
           </div>
           {otherOn && (
-            <label className="interest-other">
+            <div className="interest-other">
               <span className="interest-other__top">
                 Other interest
                 <span className="interest-other__count">
-                  {customInterest.length} / {CUSTOM_INTEREST_MAX}
+                  {otherDraft.length} / {CUSTOM_INTEREST_MAX}
                 </span>
               </span>
-              <input
-                name="other_interest"
-                value={customInterest}
-                maxLength={CUSTOM_INTEREST_MAX}
-                placeholder="Type your interest..."
-                autoComplete="off"
-                onChange={(e) => {
-                  setInterestError(null);
-                  setCustomInterest(e.target.value.slice(0, CUSTOM_INTEREST_MAX));
-                }}
-              />
-            </label>
+              <div className="interest-other__row">
+                <input
+                  value={otherDraft}
+                  maxLength={CUSTOM_INTEREST_MAX}
+                  placeholder="Type your interest..."
+                  autoComplete="off"
+                  aria-label="Other interest"
+                  onChange={(e) => {
+                    setInterestError(null);
+                    setOtherDraft(e.target.value.slice(0, CUSTOM_INTEREST_MAX));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustomInterest();
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="interest-other__add"
+                  onClick={addCustomInterest}
+                  disabled={!normalizeCustomInterest(otherDraft)}
+                >
+                  Add interest
+                </button>
+              </div>
+            </div>
           )}
           {interests.map((chip) => (
             <input key={chip} type="hidden" name="interests" value={chip} />
           ))}
-          {otherOn && <input type="hidden" name="other_selected" value="true" />}
+          {customChip && (
+            <input type="hidden" name="interests" value={customChip} />
+          )}
           <p className="field-hint">Choose up to {MAX_INTERESTS}.</p>
           {interestError && <p className="error">{interestError}</p>}
         </section>
