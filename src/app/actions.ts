@@ -30,16 +30,25 @@ import {
   canDeleteMember,
   canEditClassSchedule,
   canManageAnnouncements,
+  canManageClassTopics,
   canManageClasses,
   canReviewApplications,
 } from "@/lib/roles";
 import { DEFAULT_CLASS_LOCATION } from "@/lib/class-schedule";
 import { authConfirmUrl } from "@/lib/site-url";
-import type { AnnouncementRow, Profile, RequestedRole, Role } from "@/lib/types";
+import type { AnnouncementRow, ClassTopicRow, Profile, RequestedRole, Role } from "@/lib/types";
 import {
   getDemoAnnouncements,
   saveDemoAnnouncements,
 } from "@/lib/demo-announcements";
+import {
+  getDemoClassTopics,
+  saveDemoClassTopics,
+} from "@/lib/demo-class-topics";
+import {
+  CLASS_TOPIC_CONTENT_MAX,
+  CLASS_TOPIC_TITLE_MAX,
+} from "@/lib/class-topics";
 import {
   EXISTING_ACCOUNT_MESSAGE,
   emailFormatError,
@@ -1489,4 +1498,218 @@ export async function deleteAnnouncement(
   revalidatePath("/");
   revalidatePath("/announcements");
   return { success: "Announcement deleted" };
+}
+
+function revalidateClassTopics(id?: string) {
+  revalidatePath("/");
+  revalidatePath("/topics");
+  revalidatePath("/my");
+  if (id) {
+    revalidatePath(`/topics/${id}`);
+    revalidatePath(`/topics/${id}/edit`);
+  }
+}
+
+function classTopicFields(formData: FormData) {
+  const id = String(formData.get("id") || "").trim();
+  const classId = String(formData.get("class_id") || "").trim();
+  const title = String(formData.get("title") || "").trim();
+  const content = String(formData.get("content") || "").trim();
+  const intent = String(formData.get("intent") || "").trim();
+  return { id, classId, title, content, intent };
+}
+
+export async function saveClassTopic(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const { id, classId, title, content, intent } = classTopicFields(formData);
+  if (!classId) return { error: "Choose a class" };
+  if (!title) return { error: "Add a topic title" };
+  if (!content) return { error: "Add the questions or text for this class" };
+  if (title.length > CLASS_TOPIC_TITLE_MAX) return { error: "Title is too long" };
+  if (content.length > CLASS_TOPIC_CONTENT_MAX) {
+    return { error: "Topic text is too long" };
+  }
+
+  const publishNow = intent === "publish";
+  const now = new Date().toISOString();
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+      return { error: "Only Teacher or Tech can edit class topics" };
+    }
+    const rows = await getDemoClassTopics();
+    const existing =
+      rows.find((row) => row.id === id) ||
+      rows.find((row) => row.class_id === classId);
+    const row: ClassTopicRow = existing
+      ? {
+          ...existing,
+          class_id: classId,
+          title,
+          content,
+          is_published:
+            intent === "save" ? existing.is_published : publishNow,
+          updated_at: now,
+        }
+      : {
+          id: crypto.randomUUID(),
+          class_id: classId,
+          title,
+          content,
+          created_by: me.id,
+          is_published: publishNow,
+          created_at: now,
+          updated_at: now,
+        };
+    const next = existing
+      ? rows.map((item) => (item.id === existing.id ? row : item))
+      : [row, ...rows];
+    await saveDemoClassTopics(next);
+    revalidateClassTopics(row.id);
+    redirect(`/topics/${row.id}`);
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+    return { error: "Only Teacher or Tech can edit class topics" };
+  }
+
+  const { data: existing } = await supabase
+    .from("class_topics")
+    .select("id, is_published")
+    .eq("class_id", classId)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("class_topics")
+      .update({
+        title,
+        content,
+        is_published:
+          intent === "save" ? existing.is_published : publishNow,
+        updated_at: now,
+      })
+      .eq("id", existing.id);
+    if (error) return { error: error.message };
+    revalidateClassTopics(existing.id);
+    redirect(`/topics/${existing.id}`);
+  }
+
+  const { data: created, error } = await supabase
+    .from("class_topics")
+    .insert({
+      class_id: classId,
+      title,
+      content,
+      created_by: user.id,
+      is_published: publishNow,
+      updated_at: now,
+    })
+    .select("id")
+    .single();
+  if (error || !created) return { error: error?.message || "Could not save topic" };
+  revalidateClassTopics(created.id);
+  redirect(`/topics/${created.id}`);
+}
+
+export async function setClassTopicPublished(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = String(formData.get("id") || "").trim();
+  const published = String(formData.get("published") || "") === "true";
+  if (!id) return { error: "Missing topic" };
+  const now = new Date().toISOString();
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+      return { error: "Only Teacher or Tech can publish class topics" };
+    }
+    const rows = await getDemoClassTopics();
+    const found = rows.find((row) => row.id === id);
+    if (!found) return { error: "Topic not found" };
+    await saveDemoClassTopics(
+      rows.map((row) =>
+        row.id === id
+          ? { ...row, is_published: published, updated_at: now }
+          : row,
+      ),
+    );
+    revalidateClassTopics(id);
+    return { success: published ? "Topic published" : "Topic unpublished" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+    return { error: "Only Teacher or Tech can publish class topics" };
+  }
+
+  const { error } = await supabase
+    .from("class_topics")
+    .update({ is_published: published, updated_at: now })
+    .eq("id", id);
+  if (error) return { error: error.message };
+  revalidateClassTopics(id);
+  return { success: published ? "Topic published" : "Topic unpublished" };
+}
+
+export async function deleteClassTopic(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = String(formData.get("id") || "").trim();
+  if (!id) return { error: "Missing topic" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+      return { error: "Only Teacher or Tech can delete class topics" };
+    }
+    const rows = await getDemoClassTopics();
+    await saveDemoClassTopics(rows.filter((row) => row.id !== id));
+    revalidateClassTopics();
+    redirect("/topics");
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+    return { error: "Only Teacher or Tech can delete class topics" };
+  }
+
+  const { error } = await supabase.from("class_topics").delete().eq("id", id);
+  if (error) return { error: error.message };
+  revalidateClassTopics();
+  redirect("/topics");
 }

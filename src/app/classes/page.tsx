@@ -2,6 +2,7 @@ import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ClassList } from "@/components/ClassList";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
+import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
 import type { ClassRow } from "@/lib/types";
 
 export default async function ClassesPage() {
@@ -36,6 +37,10 @@ export default async function ClassesPage() {
     enrolled: mine.has(c.id),
   }));
 
+  const topicMap = await loadTopicSummariesByClassIds(items.map((c) => c.id));
+  const topics: Record<string, { id: string; title: string }> = {};
+  for (const [classId, topic] of topicMap) topics[classId] = topic;
+
   return (
     <div className="page">
       <section className="section">
@@ -43,7 +48,7 @@ export default async function ClassesPage() {
         <p className="lead">
           Sign up for an upcoming session. You can cancel anytime.
         </p>
-        <ClassList items={items} />
+        <ClassList items={items} topics={topics} />
       </section>
     </div>
   );

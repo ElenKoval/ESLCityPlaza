@@ -848,10 +848,7 @@ a.site-header__name:hover {
   text-underline-offset: 2px;
 }
 
-.section {
-  margin-bottom: 3rem;
-}
-
+.section h1,
 .section h2 {
   font-family: var(--font-display);
   font-size: clamp(1.8rem, 4vw, 2.6rem);
@@ -1588,6 +1585,57 @@ button.chat-msg__name {
   background: var(--plaza);
   border-color: var(--plaza);
   color: white;
+}
+
+.form-grid {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.topic-chip {
+  margin: 0.35rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem 0.75rem;
+  font-size: 0.95rem;
+}
+
+.topic-chip a {
+  color: var(--plaza-deep);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.topic-chip a:hover {
+  color: var(--plaza);
+}
+
+.topic-body {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 1.02rem;
+}
+
+.topic-page h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.topic-back {
+  margin: 1.25rem 0 0;
+  color: var(--ink-soft);
+}
+
+.topic-back a {
+  color: var(--plaza-deep);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 @keyframes rise {

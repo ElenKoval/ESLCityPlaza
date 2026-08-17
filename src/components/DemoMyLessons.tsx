@@ -6,7 +6,13 @@ import { buildDemoClasses } from "@/lib/demo-class-data";
 import { readLocalEnrollments } from "@/lib/demo-enroll-client";
 import type { ClassRow } from "@/lib/types";
 
-export function DemoMyLessons({ initial }: { initial: ClassRow[] }) {
+export function DemoMyLessons({
+  initial,
+  topics,
+}: {
+  initial: ClassRow[];
+  topics?: Record<string, { id: string; title: string }>;
+}) {
   const [items, setItems] = useState(initial);
 
   useEffect(() => {
@@ -33,6 +39,7 @@ export function DemoMyLessons({ initial }: { initial: ClassRow[] }) {
   return (
     <ClassList
       items={items}
+      topics={topics}
       emptyText="You have no lessons yet. Pick a Monday or Friday on the home calendar."
     />
   );

@@ -9,6 +9,7 @@ import {
 } from "@/app/actions";
 import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
 import { classLocation, formatClassHours } from "@/lib/class-schedule";
+import { ClassTopicChip } from "@/components/ClassTopicChip";
 import type { ClassRow } from "@/lib/types";
 
 function useRefreshOnSuccess(state: ActionState) {
@@ -55,9 +56,11 @@ function UnenrollButton({ classId }: { classId: string }) {
 export function ClassList({
   items,
   emptyText = "No lessons yet. Sign up from the calendar on the home page.",
+  topics,
 }: {
   items: ClassRow[];
   emptyText?: string;
+  topics?: Record<string, { id: string; title: string }>;
 }) {
   if (items.length === 0) {
     return (
@@ -86,6 +89,7 @@ export function ClassList({
             </h3>
             <p>{formatClassHours(item.starts_at)}</p>
             <p className="class-place">{classLocation(item.location)}</p>
+            <ClassTopicChip topic={topics?.[item.id]} />
             <div className="class-meta">
               <span>{spotsAvailableLabel(count, item.capacity)}</span>
             </div>

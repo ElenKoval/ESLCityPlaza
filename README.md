@@ -29,6 +29,7 @@ Also works: `hero.jpeg`, `hero.png`, or `hero.webp`. Refresh the homepage after 
    - [`supabase/profile-upgrade.sql`](supabase/profile-upgrade.sql) (optional profile fields)
    - [`supabase/roles-announcements-upgrade.sql`](supabase/roles-announcements-upgrade.sql) (student/teacher/tech + homepage announcements)
    - [`supabase/application-fields-upgrade.sql`](supabase/application-fields-upgrade.sql) (optional “where from” / “how did you hear” on Apply)
+   - [`supabase/class-topics-upgrade.sql`](supabase/class-topics-upgrade.sql) (optional Class Topics for a session)
 3. **Authentication → Providers → Email**: enable Email. Turn **Confirm email ON** (the join flow needs the confirmation link).
 4. **Authentication → URL configuration**:
    - Site URL: your Render URL, e.g. `https://esl-citi-plaza.onrender.com`

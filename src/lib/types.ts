@@ -34,6 +34,26 @@ export type ClassRow = {
   enrolled?: boolean;
 };
 
+export type ClassTopicRow = {
+  id: string;
+  class_id: string;
+  title: string;
+  content: string;
+  created_by: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+  class_title?: string;
+  class_starts_at?: string;
+  class_location?: string;
+};
+
+export type ClassTopicSummary = {
+  id: string;
+  class_id: string;
+  title: string;
+};
+
 export type AnnouncementRow = {
   id: string;
   title: string;

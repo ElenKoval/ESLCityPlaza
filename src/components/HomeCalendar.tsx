@@ -17,6 +17,7 @@ import {
   addLocalEnrollment,
   readLocalEnrollments,
 } from "@/lib/demo-enroll-client";
+import { ClassTopicChip } from "@/components/ClassTopicChip";
 import type { ClassRow } from "@/lib/types";
 
 type Access = "guest" | "pending" | "rejected" | "approved";
@@ -48,10 +49,12 @@ export function HomeCalendar({
   classes: initialClasses,
   access,
   demoMode = false,
+  topics,
 }: {
   classes: ClassRow[];
   access: Access;
   demoMode?: boolean;
+  topics?: Record<string, { id: string; title: string }>;
 }) {
   const today = useMemo(() => {
     const t = new Date();
@@ -264,6 +267,10 @@ export function HomeCalendar({
           <>
             <p className="home-cal__when">{selectedHours}</p>
             <p className="home-cal__where">{selectedPlace}</p>
+            {access === "approved" &&
+              dayClasses.map((c) => (
+                <ClassTopicChip key={c.id} topic={topics?.[c.id]} />
+              ))}
           </>
         )}
 

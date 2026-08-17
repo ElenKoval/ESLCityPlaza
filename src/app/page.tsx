@@ -13,6 +13,7 @@ import { ensureUpcomingClasses } from "@/lib/ensure-classes";
 import { WelcomeLessons } from "@/components/WelcomeLessons";
 import { HomeAnnouncements } from "@/components/HomeAnnouncements";
 import { loadCurrentAnnouncements } from "@/lib/load-announcements";
+import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
 import type { ClassRow } from "@/lib/types";
 
 function welcomeFirstName(displayName: string | null | undefined) {
@@ -93,6 +94,9 @@ export default async function HomePage() {
 
   const canEnroll = access === "approved";
   const classes = await loadClasses(userId, canEnroll);
+  const topicMap = await loadTopicSummariesByClassIds(classes.map((c) => c.id));
+  const topics: Record<string, { id: string; title: string }> = {};
+  for (const [classId, topic] of topicMap) topics[classId] = topic;
   const announcements = await loadCurrentAnnouncements(3);
   const firstName = welcomeFirstName(profile?.display_name);
 
@@ -109,7 +113,7 @@ export default async function HomePage() {
           {access === "approved" ? (
             <>
               <h1 className="hero-stage__brand">Welcome, {firstName}!</h1>
-              <WelcomeLessons classes={classes} />
+              <WelcomeLessons classes={classes} topics={topics} />
             </>
           ) : (
             <>
@@ -143,6 +147,7 @@ export default async function HomePage() {
           classes={classes}
           access={access}
           demoMode={demoMode}
+          topics={topics}
         />
         <HomeChatCard access={access} />
       </section>

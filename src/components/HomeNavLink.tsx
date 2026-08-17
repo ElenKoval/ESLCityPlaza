@@ -42,6 +42,10 @@ export function ChatNavLink() {
   return <NavLink href="/chat">Chat</NavLink>;
 }
 
+export function ClassTopicsNavLink() {
+  return <NavLink href="/topics">Class Topics</NavLink>;
+}
+
 export function AnnouncementsNavLink() {
   return <NavLink href="/announcements">Announcements</NavLink>;
 }

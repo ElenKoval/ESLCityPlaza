@@ -4,6 +4,7 @@ import { ClassList } from "@/components/ClassList";
 import { DemoMyLessons } from "@/components/DemoMyLessons";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
+import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
 import type { ClassRow } from "@/lib/types";
 
 export default async function MyLessonsPage() {
@@ -40,6 +41,10 @@ export default async function MyLessonsPage() {
       ) as ClassRow[];
   }
 
+  const topicMap = await loadTopicSummariesByClassIds(items.map((c) => c.id));
+  const topics: Record<string, { id: string; title: string }> = {};
+  for (const [classId, topic] of topicMap) topics[classId] = topic;
+
   return (
     <div className="page">
       <section className="section">
@@ -48,10 +53,11 @@ export default async function MyLessonsPage() {
           Dates you signed up for. Sign up from the home page calendar.
         </p>
         {demoMode ? (
-          <DemoMyLessons initial={items} />
+          <DemoMyLessons initial={items} topics={topics} />
         ) : (
           <ClassList
             items={items}
+            topics={topics}
             emptyText="You have no lessons yet. Pick a Monday or Friday on the home calendar."
           />
         )}

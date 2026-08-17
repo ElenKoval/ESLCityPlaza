@@ -38,6 +38,10 @@ export function canManageAnnouncements(role: Role) {
   return isStaff(role);
 }
 
+export function canManageClassTopics(role: Role) {
+  return isStaff(role);
+}
+
 export function canAnnounce(role: Role) {
   return isStaff(role);
 }

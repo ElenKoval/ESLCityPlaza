@@ -1,6 +1,7 @@
 "use client";
 
 import { CancelClassControl } from "@/components/CancelClassControl";
+import { ClassTopicChip } from "@/components/ClassTopicChip";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import { classLocation, formatClassHours } from "@/lib/class-schedule";
 import type { ClassRow } from "@/lib/types";
@@ -13,7 +14,13 @@ function formatClassDay(iso: string) {
   }).format(new Date(iso));
 }
 
-export function WelcomeLessons({ classes }: { classes: ClassRow[] }) {
+export function WelcomeLessons({
+  classes,
+  topics,
+}: {
+  classes: ClassRow[];
+  topics?: Record<string, { id: string; title: string }>;
+}) {
   const mine = classes
     .filter(
       (c) =>
@@ -41,6 +48,7 @@ export function WelcomeLessons({ classes }: { classes: ClassRow[] }) {
                   {formatClassHours(c.starts_at)}
                 </p>
                 <p className="welcome-lessons__place">{classLocation(c.location)}</p>
+                <ClassTopicChip topic={topics?.[c.id]} />
               </div>
               <CancelClassControl classId={c.id} />
             </div>
