@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import Link from "next/link";
 import { signIn, type ActionState } from "@/app/actions";
 import { PasswordField } from "@/components/PasswordField";
@@ -10,6 +10,17 @@ export function LoginForm({ next = "/" }: { next?: string }) {
     signIn,
     null,
   );
+
+  useEffect(() => {
+    if (!state?.success) return;
+    const dest =
+      state.success.startsWith("/") && !state.success.startsWith("//")
+        ? state.success
+        : "/";
+    window.location.assign(dest);
+  }, [state]);
+
+  const leaving = Boolean(state?.success);
 
   return (
     <form action={action} className="panel form-grid" noValidate>
@@ -36,8 +47,8 @@ export function LoginForm({ next = "/" }: { next?: string }) {
         />
       </label>
       {state?.error && <p className="error">{state.error}</p>}
-      <button className="btn-primary" type="submit" disabled={pending}>
-        {pending ? "Signing in…" : "Log in"}
+      <button className="btn-primary" type="submit" disabled={pending || leaving}>
+        {pending || leaving ? "Signing in…" : "Log in"}
       </button>
       <p className="sub" style={{ margin: 0 }}>
         No account yet? <Link href="/register">Apply to join</Link>

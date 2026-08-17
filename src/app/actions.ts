@@ -142,10 +142,12 @@ export async function signIn(
       return { error: "Invalid login or password" };
     }
     await setDemoSession(match.id);
+    revalidatePath("/", "layout");
     if (match.status !== "approved") {
       redirect("/pending");
     }
-    redirect(next.startsWith("/") ? next : "/");
+    const dest = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+    return { success: dest };
   }
 
   const resolved = await resolveLoginEmail(login);
@@ -167,17 +169,24 @@ export async function signIn(
     return { error: error.message };
   }
 
+  const dest = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  revalidatePath("/", "layout");
+  revalidatePath(dest);
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("*")
-    .eq("id", (await supabase.auth.getUser()).data.user?.id ?? "")
+    .select("status")
+    .eq("id", user?.id ?? "")
     .maybeSingle();
 
   if (profile?.status === "pending" || profile?.status === "rejected") {
     redirect("/pending");
   }
 
-  redirect(next.startsWith("/") ? next : "/");
+  return { success: dest };
 }
 
 export async function signUp(
