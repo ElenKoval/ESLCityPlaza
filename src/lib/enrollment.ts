@@ -15,6 +15,15 @@ export function isClassWeekday(day: number) {
   return day === 1 || day === 5;
 }
 
+/** True if this class start is a Plaza calendar day (Mon/Fri in Los Angeles). */
+export function isPlazaCalendarClass(startsAt: string) {
+  const weekday = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    weekday: "short",
+  }).format(new Date(startsAt));
+  return weekday === "Mon" || weekday === "Fri";
+}
+
 export function isClassDate(d: Date) {
   return isClassWeekday(d.getDay());
 }

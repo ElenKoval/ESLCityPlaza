@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { getDemoClassTopics } from "@/lib/demo-class-topics";
-import { CLASS_DURATION_MS } from "@/lib/enrollment";
+import { CLASS_DURATION_MS, isPlazaCalendarClass } from "@/lib/enrollment";
 import { canManageClassTopics } from "@/lib/roles";
 import type { ClassRow, ClassTopicRow, ClassTopicSummary, Role } from "@/lib/types";
 
@@ -39,13 +39,18 @@ async function loadClassesByIds(ids: string[]): Promise<Map<string, ClassRow>> {
 
 export async function loadUpcomingClassesForTopics(): Promise<ClassRow[]> {
   const cutoff = new Date(Date.now() - CLASS_DURATION_MS).toISOString();
-  if (useLocalDemo() || (await hasDemoSession())) {
-    return (await getDemoClassesWithEnrollments())
-      .filter((row) => row.starts_at >= cutoff)
+  const onlyCalendar = (rows: ClassRow[]) =>
+    rows
+      .filter(
+        (row) => row.starts_at >= cutoff && isPlazaCalendarClass(row.starts_at),
+      )
       .sort(
         (a, b) =>
           new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
       );
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    return onlyCalendar(await getDemoClassesWithEnrollments());
   }
 
   const supabase = await createClient();
@@ -54,7 +59,7 @@ export async function loadUpcomingClassesForTopics(): Promise<ClassRow[]> {
     .select("*")
     .gte("starts_at", cutoff)
     .order("starts_at", { ascending: true });
-  return (data ?? []) as ClassRow[];
+  return onlyCalendar((data ?? []) as ClassRow[]);
 }
 
 export async function loadClassTopics(options?: {

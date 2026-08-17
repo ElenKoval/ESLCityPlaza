@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE } from "@/lib/enrollment";
+import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE, isPlazaCalendarClass } from "@/lib/enrollment";
 import {
   createPendingMember,
   getDemoMembers,
@@ -16,6 +16,7 @@ import {
 } from "@/lib/demo";
 import {
   buildDemoClasses,
+  getDemoClassesWithEnrollments,
   getDemoEnrollmentIds,
   saveDemoEnrollmentIds,
 } from "@/lib/demo-classes";
@@ -1519,6 +1520,22 @@ function classTopicFields(formData: FormData) {
   return { id, classId, title, content, intent };
 }
 
+async function classStartsAtForTopic(classId: string): Promise<string | null> {
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const match = (await getDemoClassesWithEnrollments()).find(
+      (row) => row.id === classId,
+    );
+    return match?.starts_at ?? null;
+  }
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("classes")
+    .select("starts_at")
+    .eq("id", classId)
+    .maybeSingle();
+  return data?.starts_at ?? null;
+}
+
 export async function saveClassTopic(
   _prev: ActionState,
   formData: FormData,
@@ -1530,6 +1547,11 @@ export async function saveClassTopic(
   if (title.length > CLASS_TOPIC_TITLE_MAX) return { error: "Title is too long" };
   if (content.length > CLASS_TOPIC_CONTENT_MAX) {
     return { error: "Topic text is too long" };
+  }
+
+  const classStartsAt = await classStartsAtForTopic(classId);
+  if (!classStartsAt || !isPlazaCalendarClass(classStartsAt)) {
+    return { error: "Choose a Monday or Friday class from the calendar" };
   }
 
   const publishNow = intent === "publish";

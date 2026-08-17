@@ -33,11 +33,11 @@ export default async function NewClassTopicPage({
       <section className="section">
         <h1>Add class topic</h1>
         <p className="lead">
-          Choose an upcoming class, paste your questions, then save a draft or
-          publish.
+          Choose an upcoming Monday or Friday class, paste your questions, then
+          save a draft or publish.
         </p>
         {classes.length === 0 ? (
-          <p>No upcoming classes to attach a topic to yet.</p>
+          <p>No upcoming Monday or Friday classes to attach a topic to yet.</p>
         ) : (
           <ClassTopicForm classes={classes} existingByClass={existingByClass} />
         )}
