@@ -33,7 +33,19 @@ export function WelcomeLessons({
     )
     .slice(0, 4);
 
-  if (mine.length === 0) return null;
+  if (mine.length === 0) {
+    return (
+      <div className="welcome-lessons">
+        <h2 className="welcome-lessons__title">My classes</h2>
+        <p className="welcome-lessons__empty">
+          You&apos;re not signed up for any upcoming classes yet.
+        </p>
+        <a href="#home-cal" className="welcome-lessons__cal-link">
+          View calendar
+        </a>
+      </div>
+    );
+  }
 
   return (
     <div className="welcome-lessons">

@@ -79,33 +79,31 @@ export function ProfileSetupForm({
         <fieldset className="chip-fieldset">
           <legend>Languages</legend>
           {languages.map((lang, index) => (
-            <label key={index}>
-              {index === 0 ? "Language" : `Another language`}
-              <span className="lang-row">
-                <input
-                  name="languages"
-                  maxLength={60}
-                  value={lang}
-                  placeholder={index === 0 ? "Mandarin Chinese" : ""}
-                  onChange={(e) => {
-                    const next = [...languages];
-                    next[index] = e.target.value;
-                    setLanguages(next);
-                  }}
-                />
-                {index > 0 && (
-                  <button
-                    type="button"
-                    className="btn-ghost"
-                    onClick={() =>
-                      setLanguages(languages.filter((_, i) => i !== index))
-                    }
-                  >
-                    Remove
-                  </button>
-                )}
-              </span>
-            </label>
+            <span className="lang-row" key={index}>
+              <input
+                name="languages"
+                maxLength={60}
+                value={lang}
+                placeholder={index === 0 ? "Mandarin Chinese" : ""}
+                aria-label={index === 0 ? "Language" : "Another language"}
+                onChange={(e) => {
+                  const next = [...languages];
+                  next[index] = e.target.value;
+                  setLanguages(next);
+                }}
+              />
+              {index > 0 && (
+                <button
+                  type="button"
+                  className="btn-ghost"
+                  onClick={() =>
+                    setLanguages(languages.filter((_, i) => i !== index))
+                  }
+                >
+                  Remove
+                </button>
+              )}
+            </span>
           ))}
           {languages.length < 6 && (
             <button

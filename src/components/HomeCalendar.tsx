@@ -185,7 +185,7 @@ export function HomeCalendar({
   }
 
   return (
-    <div className="home-cal panel">
+    <div id="home-cal" className="home-cal panel">
       <div className="home-cal__head">
         <button
           type="button"
