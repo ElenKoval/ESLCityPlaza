@@ -1815,11 +1815,141 @@ button.chat-msg__name {
   color: var(--plaza-deep);
 }
 
+.profile-page {
+  width: min(40rem, calc(100% - 2rem));
+}
+
+.section h1.profile-page__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 4vw, 2.35rem);
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.02em;
+  color: var(--plaza-deep);
+}
+
+.profile-page__title::after {
+  content: "";
+  display: block;
+  width: 2.1rem;
+  height: 3px;
+  flex-basis: 100%;
+  border-radius: 99px;
+  background: var(--plaza);
+}
+
+.profile-page .lead {
+  margin-bottom: 1.15rem;
+}
+
+.profile-page .panel {
+  border: 0;
+  background: rgba(255, 253, 250, 0.97);
+  box-shadow: 0 10px 28px rgba(196, 81, 12, 0.08);
+}
+
+.profile-form.panel {
+  border: 0;
+  background: rgba(255, 253, 250, 0.97);
+  box-shadow: 0 10px 28px rgba(196, 81, 12, 0.08);
+  padding: 1.2rem 1.25rem 1.3rem;
+}
+
+.profile-form__note {
+  margin: 0 0 0.35rem;
+  font-size: 0.88rem;
+  color: var(--ink-soft);
+}
+
+.profile-form__group {
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 1.15rem;
+  padding-top: 1.05rem;
+  border-top: 1px solid rgba(196, 81, 12, 0.1);
+}
+
+.profile-form__group:first-of-type {
+  margin-top: 0.65rem;
+}
+
+.section h2.profile-form__heading,
+.profile-form__heading {
+  margin: 0 0 0.15rem;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--plaza-deep);
+}
+
+.profile-form__pair {
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .profile-form__pair {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.profile-form .lang-row input {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.profile-form__remove-lang {
+  flex-shrink: 0;
+  padding: 0.25rem 0.45rem;
+  font-size: 0.8rem;
+}
+
+.profile-form__add-lang {
+  justify-self: start;
+  width: auto;
+  margin-top: 0.15rem;
+  padding: 0.3rem 0.15rem;
+  border: 0;
+  background: none;
+  color: var(--plaza-deep);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.profile-form__add-lang:hover {
+  color: var(--plaza);
+}
+
+.profile-form textarea {
+  min-height: 6.75rem;
+  resize: vertical;
+}
+
+.profile-form textarea::placeholder,
+.profile-form input::placeholder {
+  color: rgba(107, 83, 68, 0.5);
+}
+
+.profile-page .section h2.announce-form__heading {
+  font-size: 1.2rem;
+  margin: 0;
+  color: var(--plaza-deep);
+}
+
 .profile-setup__actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0.85rem;
+  margin-top: 1.2rem;
+  padding-top: 1.05rem;
+  border-top: 1px solid rgba(196, 81, 12, 0.1);
 }
 
 .profile-setup__actions .btn-ghost {
@@ -1872,18 +2002,24 @@ button.chat-msg__name {
 }
 
 .interest-chip {
-  border: 1px solid var(--line);
+  border: 1px solid rgba(196, 81, 12, 0.16);
   border-radius: 999px;
-  padding: 0.4rem 0.75rem;
-  background: white;
+  padding: 0.35rem 0.7rem;
+  background: rgba(255, 253, 250, 0.97);
   color: var(--ink);
-  font-size: 0.88rem;
+  font-size: 0.86rem;
+  cursor: pointer;
+}
+
+.interest-chip:hover {
+  border-color: rgba(196, 81, 12, 0.3);
+  background: rgba(255, 244, 230, 0.95);
 }
 
 .interest-chip.is-on {
-  background: var(--plaza);
-  border-color: var(--plaza);
-  color: white;
+  background: rgba(232, 106, 23, 0.14);
+  border-color: rgba(196, 81, 12, 0.28);
+  color: var(--plaza-deep);
 }
 
 .form-grid {

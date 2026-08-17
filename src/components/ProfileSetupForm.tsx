@@ -53,31 +53,38 @@ export function ProfileSetupForm({
 
   return (
     <div className="stack">
-      <form action={saveAction} className="panel form-grid">
-        <label>
-          Name
-          <input
-            name="display_name"
-            required
-            maxLength={60}
-            defaultValue={profile.display_name}
-            autoComplete="name"
-          />
-        </label>
+      <form action={saveAction} className="panel profile-form">
+        <p className="profile-form__note">
+          Everything except your name is optional.
+        </p>
 
-        <label>
-          Where are you from?
-          <input
-            name="hometown"
-            maxLength={80}
-            defaultValue={profile.hometown ?? ""}
-            placeholder="China"
-          />
-        </label>
-        <p className="field-hint">Optional</p>
+        <section className="profile-form__group">
+          <h2 className="profile-form__heading">About you</h2>
+          <div className="profile-form__pair">
+            <label>
+              Name
+              <input
+                name="display_name"
+                required
+                maxLength={60}
+                defaultValue={profile.display_name}
+                autoComplete="name"
+              />
+            </label>
+            <label>
+              Where are you from?
+              <input
+                name="hometown"
+                maxLength={80}
+                defaultValue={profile.hometown ?? ""}
+                placeholder="China"
+              />
+            </label>
+          </div>
+        </section>
 
-        <fieldset className="chip-fieldset">
-          <legend>Languages</legend>
+        <section className="profile-form__group">
+          <h2 className="profile-form__heading">Languages</h2>
           {languages.map((lang, index) => (
             <span className="lang-row" key={index}>
               <input
@@ -95,7 +102,7 @@ export function ProfileSetupForm({
               {index > 0 && (
                 <button
                   type="button"
-                  className="btn-ghost"
+                  className="btn-ghost profile-form__remove-lang"
                   onClick={() =>
                     setLanguages(languages.filter((_, i) => i !== index))
                   }
@@ -108,17 +115,16 @@ export function ProfileSetupForm({
           {languages.length < 6 && (
             <button
               type="button"
-              className="btn-secondary"
+              className="profile-form__add-lang"
               onClick={() => setLanguages([...languages, ""])}
             >
-              Add another language
+              + Add another language
             </button>
           )}
-          <p className="field-hint">Optional. You can add more than one.</p>
-        </fieldset>
+        </section>
 
-        <fieldset className="chip-fieldset">
-          <legend>Interests</legend>
+        <section className="profile-form__group">
+          <h2 className="profile-form__heading">Interests</h2>
           <div className="interest-chips">
             {INTEREST_CHIPS.map((chip) => {
               const on = interests.includes(chip);
@@ -138,20 +144,20 @@ export function ProfileSetupForm({
           {interests.map((chip) => (
             <input key={chip} type="hidden" name="interests" value={chip} />
           ))}
-          <p className="field-hint">Optional. Choose up to {MAX_INTERESTS}.</p>
-        </fieldset>
+          <p className="field-hint">Choose up to {MAX_INTERESTS}.</p>
+        </section>
 
-        <label>
-          About me
+        <section className="profile-form__group">
+          <h2 className="profile-form__heading">About me</h2>
           <textarea
             name="bio"
             maxLength={600}
             rows={4}
             defaultValue={profile.bio ?? ""}
             placeholder={BIO_EXAMPLE}
+            aria-label="About me"
           />
-        </label>
-        <p className="field-hint">Optional. A short note is enough.</p>
+        </section>
 
         {saveState?.error && <p className="error">{saveState.error}</p>}
         {mode === "edit" && saveState?.success && (

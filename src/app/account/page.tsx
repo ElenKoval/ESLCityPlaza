@@ -7,10 +7,10 @@ export default async function AccountPage() {
   const { profile } = await requireApproved();
 
   return (
-    <div className="page">
+    <div className="page profile-page">
       <section className="section stack">
         <div>
-          <h1>
+          <h1 className="profile-page__title">
             Your profile <RoleBadge role={profile.role} />
           </h1>
           <p className="lead">

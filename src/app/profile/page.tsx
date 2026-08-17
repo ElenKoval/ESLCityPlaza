@@ -11,9 +11,9 @@ export default async function ProfileSetupPage() {
   }
 
   return (
-    <div className="page">
+    <div className="page profile-page">
       <section className="section">
-        <h1 className="profile-setup__title">
+        <h1 className="profile-page__title">
           Complete your profile{" "}
           <RoleBadge role={profile.role} />
         </h1>
