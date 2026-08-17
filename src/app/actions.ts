@@ -548,8 +548,8 @@ export async function addMemberManually(
     }
     if (!canManageRoles(me.role)) {
       role = "student";
-    } else if (role !== "student" && role !== "teacher") {
-      return { error: "Choose Student or Teacher" };
+    } else if (!assignableRoles().includes(role)) {
+      return { error: "Choose Student, Teacher, or Admin" };
     }
     const members = await getDemoMembers();
     if (members.some((m) => m.email?.toLowerCase() === email)) {
@@ -589,8 +589,8 @@ export async function addMemberManually(
   }
   if (!canManageRoles(me.role)) {
     role = "student";
-  } else if (role !== "student" && role !== "teacher") {
-    return { error: "Choose Student or Teacher" };
+  } else if (!assignableRoles().includes(role)) {
+    return { error: "Choose Student, Teacher, or Admin" };
   }
 
   const exists = await authEmailExists(email);

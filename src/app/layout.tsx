@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   description: "English practice at the plaza — classes, community chat, and teachers",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RootLayout({
   children,
 }: Readonly<{

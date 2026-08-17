@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { ApprovalsNavLink, AnnouncementsNavLink, ChatNavLink, ClassTopicsNavLink, HomeNavLink, ProfileNavLink, ScheduleNavLink } from "./HomeNavLink";
+import { HeaderSessionGuard } from "./HeaderSessionGuard";
 import { RoleBadge } from "./RoleBadge";
 import { SignOutButton } from "./SignOutButton";
 import { canManageClasses, canReviewApplications } from "@/lib/roles";
@@ -12,6 +13,7 @@ export async function SiteHeader() {
 
   return (
     <header className="site-header">
+      <HeaderSessionGuard hasProfile={Boolean(profile)} />
       <div className="site-header__inner">
         <nav className="site-nav" aria-label="Main">
           <HomeNavLink />

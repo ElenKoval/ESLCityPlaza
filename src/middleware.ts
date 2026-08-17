@@ -66,6 +66,13 @@ function demoMemberStatus(
   }
 }
 
+function copyCookies(from: NextResponse, to: NextResponse) {
+  from.cookies.getAll().forEach((cookie) => {
+    to.cookies.set(cookie);
+  });
+  return to;
+}
+
 function statusHomePath(status: string | null | undefined) {
   if (status === "approved") return "/";
   if (status === "suspended") return "/suspended";
@@ -130,6 +137,23 @@ export async function middleware(request: NextRequest) {
 
   if (path.startsWith("/auth") || path.startsWith("/enter")) {
     return supabaseResponse;
+  }
+
+  if (user) {
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (!existing) {
+      await supabase.auth.signOut();
+      if (!isPublicPath(path)) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/";
+        return copyCookies(supabaseResponse, NextResponse.redirect(redirectUrl));
+      }
+      return supabaseResponse;
+    }
   }
 
   if (!user && !hasDemo && !isPublicPath(path)) {

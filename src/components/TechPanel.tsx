@@ -61,6 +61,7 @@ function AddMemberForm({ viewer }: { viewer: Profile }) {
           <select name="role" defaultValue="student">
             <option value="student">Student</option>
             <option value="teacher">Teacher</option>
+            <option value="admin">Admin</option>
           </select>
         </label>
       ) : (
