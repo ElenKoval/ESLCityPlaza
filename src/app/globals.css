@@ -17,6 +17,7 @@
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-body: var(--font-figtree), system-ui, sans-serif;
   --plaza-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 80 80' fill='none'%3E%3Cpath d='M20 64V22c0-4 4-8 8-8h24c4 0 8 4 8 8v42' stroke='%23c4510c' stroke-width='1.6' stroke-linecap='round'/%3E%3Cpath d='M31 32c-8 6-8 18 0 24' stroke='%23c4510c' stroke-width='1.7' stroke-linecap='round'/%3E%3Cpath d='M49 32c8 6 8 18 0 24' stroke='%23c4510c' stroke-width='1.7' stroke-linecap='round'/%3E%3Cpath d='M34 40h12' stroke='%23e86a17' stroke-width='2.4' stroke-linecap='round'/%3E%3C/svg%3E");
+  --chat-mark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120' fill='none' stroke='%23c4510c' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M42 20c0-7 6-13 14-13h36c8 0 14 6 14 13v26c0 7-6 13-14 13H74l-12 12v-12H56c-8 0-14-6-14-13V20z'/%3E%3Cpath d='M16 46c0-7 6-13 14-13h36c8 0 14 6 14 13v26c0 7-6 13-14 13H46l-14 14v-14H30c-8 0-14-6-14-13V46z'/%3E%3C/svg%3E");
 }
 
 @theme inline {
@@ -1050,14 +1051,14 @@ a.site-header__name:hover {
 .home-chat::before {
   content: "";
   position: absolute;
-  right: -10px;
-  bottom: -6px;
-  width: 148px;
-  height: 148px;
+  right: -8px;
+  bottom: -4px;
+  width: 168px;
+  height: 168px;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.08;
-  background: var(--plaza-mark) center / contain no-repeat;
+  opacity: 0.1;
+  background: var(--chat-mark) center / contain no-repeat;
 }
 
 .home-chat > * {
