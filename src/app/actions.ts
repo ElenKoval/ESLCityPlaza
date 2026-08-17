@@ -47,6 +47,12 @@ import {
   CHAT_IMAGE_PATH_RE,
   CHAT_IMAGE_SIGNED_TTL_SEC,
 } from "@/lib/chat-image";
+import {
+  CHAT_FILE_BUCKET,
+  CHAT_FILE_MAX_BYTES,
+  CHAT_FILE_PATH_RE,
+  sanitizeChatFileName,
+} from "@/lib/chat-file";
 import { DEFAULT_CLASS_LOCATION } from "@/lib/class-schedule";
 import { authConfirmUrl } from "@/lib/site-url";
 import type { AnnouncementRow, ClassTopicRow, Profile, Role } from "@/lib/types";
@@ -86,6 +92,9 @@ export type ActionState = {
     image_width?: number | null;
     image_height?: number | null;
     imageUrl?: string | null;
+    file_path?: string | null;
+    file_name?: string | null;
+    fileUrl?: string | null;
   };
 } | null;
 
@@ -1146,6 +1155,38 @@ export async function signChatImagePaths(
   return urls;
 }
 
+export async function signChatFilePaths(
+  paths: string[],
+): Promise<Record<string, string>> {
+  const unique = [...new Set(paths.filter((path) => CHAT_FILE_PATH_RE.test(path)))];
+  if (unique.length === 0) return {};
+
+  if (useLocalDemo() || (await hasDemoSession())) return {};
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return {};
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me || me.status !== "approved") return {};
+
+  const { data, error } = await supabase.storage
+    .from(CHAT_FILE_BUCKET)
+    .createSignedUrls(unique, CHAT_IMAGE_SIGNED_TTL_SEC);
+  if (error || !data) return {};
+
+  const urls: Record<string, string> = {};
+  for (const row of data) {
+    if (row.path && row.signedUrl) urls[row.path] = row.signedUrl;
+  }
+  return urls;
+}
+
 function looksLikeImage(bytes: Uint8Array, mime: string) {
   if (bytes.length < 12) return false;
   const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -1169,6 +1210,13 @@ function looksLikeImage(bytes: Uint8Array, mime: string) {
   return jpeg || png || webp;
 }
 
+function looksLikeTextFile(bytes: Uint8Array) {
+  if (bytes.length === 0) return false;
+  const sample = bytes.subarray(0, Math.min(bytes.length, 8192));
+  if (sample.includes(0)) return false;
+  return true;
+}
+
 export async function postChatMessage(
   _prev: ActionState,
   formData: FormData,
@@ -1176,11 +1224,17 @@ export async function postChatMessage(
   const body = String(formData.get("body") || "").trim();
   const asAnnounce = String(formData.get("announce") || "") === "true";
   const image = formData.get("image");
+  const textFile = formData.get("text_file");
   const hasImage = image instanceof File && image.size > 0;
+  const hasFile = textFile instanceof File && textFile.size > 0;
   const width = Number(formData.get("image_width") || 0);
   const height = Number(formData.get("image_height") || 0);
+  const fileName = sanitizeChatFileName(String(formData.get("file_name") || ""));
 
-  if (!body && !hasImage) return { error: "Write a message first" };
+  if (hasImage && hasFile) {
+    return { error: "Please send a photo or a text file, not both." };
+  }
+  if (!body && !hasImage && !hasFile) return { error: "Write a message first" };
   if (body.length > 2000) return { error: "Message is too long" };
 
   if (useLocalDemo() || (await hasDemoSession())) {
@@ -1209,6 +1263,8 @@ export async function postChatMessage(
   let imagePath: string | null = null;
   let imageWidth: number | null = null;
   let imageHeight: number | null = null;
+  let filePath: string | null = null;
+  let storedFileName: string | null = null;
 
   if (hasImage && image instanceof File) {
     if (image.size > CHAT_IMAGE_MAX_OUT_BYTES) {
@@ -1253,6 +1309,45 @@ export async function postChatMessage(
     imageHeight = Math.round(height);
   }
 
+  if (hasFile && textFile instanceof File) {
+    if (textFile.size > CHAT_FILE_MAX_BYTES) {
+      return { error: "That text file is too large to send." };
+    }
+    const mime = (textFile.type || "").toLowerCase();
+    if (
+      mime &&
+      mime !== "text/plain" &&
+      mime !== "text/markdown" &&
+      mime !== "application/octet-stream"
+    ) {
+      return { error: "Please choose a .txt file." };
+    }
+    const bytes = new Uint8Array(await textFile.arrayBuffer());
+    if (!looksLikeTextFile(bytes)) {
+      return { error: "That file does not look like a text file." };
+    }
+    if (!fileName) {
+      return { error: "That text file could not be prepared." };
+    }
+    filePath = `${user.id}/${crypto.randomUUID()}.txt`;
+    storedFileName = fileName;
+    const { error: uploadError } = await supabase.storage
+      .from(CHAT_FILE_BUCKET)
+      .upload(filePath, textFile, {
+        contentType: "text/plain",
+        upsert: false,
+      });
+    if (uploadError) {
+      const { data: again } = await supabase
+        .from("profiles")
+        .select("muted")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (again?.muted) return { error: CHAT_MUTE_MESSAGE };
+      return { error: "File could not be uploaded. Please try again." };
+    }
+  }
+
   const payload: Record<string, unknown> = {
     user_id: user.id,
     body,
@@ -1260,17 +1355,22 @@ export async function postChatMessage(
     image_path: imagePath,
     image_width: imageWidth,
     image_height: imageHeight,
+    file_path: filePath,
+    file_name: storedFileName,
   };
   const { data, error } = await supabase
     .from("messages")
     .insert(payload)
     .select(
-      "id, user_id, body, created_at, is_announcement, image_path, image_width, image_height",
+      "id, user_id, body, created_at, is_announcement, image_path, image_width, image_height, file_path, file_name",
     )
     .single();
   if (error) {
     if (imagePath) {
       await supabase.storage.from(CHAT_IMAGE_BUCKET).remove([imagePath]);
+    }
+    if (filePath) {
+      await supabase.storage.from(CHAT_FILE_BUCKET).remove([filePath]);
     }
     const { data: again } = await supabase
       .from("profiles")
@@ -1278,6 +1378,9 @@ export async function postChatMessage(
       .eq("id", user.id)
       .maybeSingle();
     if (again?.muted) return { error: CHAT_MUTE_MESSAGE };
+    if (/column .*file_path.* does not exist/i.test(error.message)) {
+      return { error: "Run supabase/chat-files-upgrade.sql in the Supabase SQL Editor, then try again." };
+    }
     return { error: "Could not send that message. Please try again." };
   }
 
@@ -1285,6 +1388,11 @@ export async function postChatMessage(
   if (data.image_path) {
     const signed = await signChatImagePaths([data.image_path]);
     imageUrl = signed[data.image_path] ?? null;
+  }
+  let fileUrl: string | null = null;
+  if (data.file_path) {
+    const signed = await signChatFilePaths([data.file_path]);
+    fileUrl = signed[data.file_path] ?? null;
   }
 
   return {
@@ -1299,6 +1407,9 @@ export async function postChatMessage(
       image_width: data.image_width,
       image_height: data.image_height,
       imageUrl,
+      file_path: data.file_path,
+      file_name: data.file_name,
+      fileUrl,
     },
   };
 }
@@ -1328,7 +1439,7 @@ export async function deleteChatMessage(
 
   const { data: row } = await supabase
     .from("messages")
-    .select("id, user_id, image_path")
+    .select("id, user_id, image_path, file_path")
     .eq("id", id)
     .maybeSingle();
   if (!row) return { error: "Message not found" };
@@ -1352,15 +1463,28 @@ export async function deleteChatMessage(
     typeof row.image_path === "string" && CHAT_IMAGE_PATH_RE.test(row.image_path)
       ? row.image_path
       : null;
+  const filePath =
+    typeof row.file_path === "string" && CHAT_FILE_PATH_RE.test(row.file_path)
+      ? row.file_path
+      : null;
+
+  const admin = createAdminClient();
+  const storage = admin ?? supabase;
 
   if (imagePath) {
-    const admin = createAdminClient();
-    const storage = admin ?? supabase;
     const { error: storageError } = await storage.storage
       .from(CHAT_IMAGE_BUCKET)
       .remove([imagePath]);
     if (storageError && !/not found|does not exist/i.test(storageError.message)) {
       return { error: "Could not delete that photo. Please try again." };
+    }
+  }
+  if (filePath) {
+    const { error: storageError } = await storage.storage
+      .from(CHAT_FILE_BUCKET)
+      .remove([filePath]);
+    if (storageError && !/not found|does not exist/i.test(storageError.message)) {
+      return { error: "Could not delete that file. Please try again." };
     }
   }
 

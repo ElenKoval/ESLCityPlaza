@@ -2,17 +2,19 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { prepareChatImage, isHeicType, isAllowedChatImageType } from "@/lib/chat-image";
+import { prepareChatFile, isChatTextFile } from "@/lib/chat-file";
 import {
   getPublicProfile,
   postChatMessage,
   deleteChatMessage,
   signChatImagePaths,
+  signChatFilePaths,
 } from "@/app/actions";
 import { canAnnounce, canDeleteChatMessage } from "@/lib/roles";
 import { RoleBadge } from "@/components/RoleBadge";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
 import { chatTimeLabel, type ChatMessage } from "@/lib/chat";
-import { prepareChatImage } from "@/lib/chat-image";
 import type { MessageRow, Role } from "@/lib/types";
 
 const DEMO_CHAT_KEY = "esl-demo-chat";
@@ -98,6 +100,20 @@ function MessageBody({ text }: { text: string }) {
   );
 }
 
+function CloseX() {
+  return (
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+      <path
+        d="M5 5l14 14M19 5L5 19"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="3.2"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function ChatLightbox({
   src,
   alt,
@@ -124,11 +140,84 @@ function ChatLightbox({
         aria-label={alt}
         onClick={(e) => e.stopPropagation()}
       >
-        <button type="button" className="btn-ghost chat-lightbox__close" onClick={onClose}>
-          Close
+        <button
+          type="button"
+          className="chat-x-btn chat-lightbox__close"
+          aria-label="Close"
+          onClick={onClose}
+        >
+          <CloseX />
         </button>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={src} alt={alt} className="chat-lightbox__img" />
+      </div>
+    </div>
+  );
+}
+
+function ChatTextFileModal({
+  name,
+  src,
+  onClose,
+}: {
+  name: string;
+  src: string;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setText(null);
+    setLoadError(null);
+    void fetch(src)
+      .then((res) => {
+        if (!res.ok) throw new Error("Could not open that file.");
+        return res.text();
+      })
+      .then((value) => {
+        if (!cancelled) setText(value);
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("Could not open that file.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [src]);
+
+  return (
+    <div className="chat-lightbox" role="presentation" onClick={onClose}>
+      <div
+        className="chat-file-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={name}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="chat-file-modal__top">
+          <p className="chat-file-modal__name">{name}</p>
+          <button
+            type="button"
+            className="chat-x-btn chat-file-modal__close"
+            aria-label="Close"
+            onClick={onClose}
+          >
+            <CloseX />
+          </button>
+        </div>
+        {loadError && <p className="error">{loadError}</p>}
+        {!loadError && text === null && <p>Opening file…</p>}
+        {text !== null && <pre className="chat-file-modal__body">{text}</pre>}
       </div>
     </div>
   );
@@ -197,6 +286,7 @@ function MessageRowView({
   onDelete,
   onOpenProfile,
   onOpenPhoto,
+  onOpenFile,
 }: {
   msg: ChatMessage;
   continued: boolean;
@@ -205,6 +295,7 @@ function MessageRowView({
   onDelete: (id: string) => void;
   onOpenProfile: (userId: string) => void;
   onOpenPhoto: (src: string, alt: string) => void;
+  onOpenFile: (src: string, name: string) => void;
 }) {
   const name = chatName(msg.display_name);
   const canOpen = msg.user_id !== "system";
@@ -212,57 +303,69 @@ function MessageRowView({
     ? msg.body.trim()
     : `Photo shared by ${name}`;
   const photo = msg.imageUrl;
+  const fileUrl = msg.fileUrl;
+  const fileName = msg.file_name || "note.txt";
 
   return (
     <article
       className={`chat-msg${msg.is_announcement ? " is-announce" : ""}${mine ? " is-mine" : ""}${continued ? " is-continued" : ""}`}
     >
-      {continued ? (
-        <span className="chat-avatar chat-avatar--spacer" aria-hidden="true" />
-      ) : canOpen ? (
-        <button
-          type="button"
-          className="chat-avatar"
-          style={{ background: letterColor(name) }}
-          onClick={() => onOpenProfile(msg.user_id)}
-          aria-label={`View ${name}'s profile`}
-        >
-          {firstLetter(name)}
-        </button>
-      ) : (
-        <span
-          className="chat-avatar"
-          style={{ background: letterColor(name) }}
-          aria-hidden="true"
-        >
-          {firstLetter(name)}
-        </span>
-      )}
+      {!mine &&
+        (continued ? (
+          <span className="chat-avatar chat-avatar--spacer" aria-hidden="true" />
+        ) : canOpen ? (
+          <button
+            type="button"
+            className="chat-avatar"
+            style={{ background: letterColor(name) }}
+            onClick={() => onOpenProfile(msg.user_id)}
+            aria-label={`View ${name}'s profile`}
+          >
+            {firstLetter(name)}
+          </button>
+        ) : (
+          <span
+            className="chat-avatar"
+            style={{ background: letterColor(name) }}
+            aria-hidden="true"
+          >
+            {firstLetter(name)}
+          </span>
+        ))}
       <div className="chat-msg__main">
-        {!continued && (
+        {mine ? (
           <p className="chat-msg__meta">
-            {canOpen ? (
-              <button
-                type="button"
-                className="chat-msg__name profile-link"
-                onClick={() => onOpenProfile(msg.user_id)}
-              >
-                {name}
-              </button>
-            ) : (
-              <span className="chat-msg__name">{name}</span>
-            )}
-            <RoleBadge role={msg.role} />
-            <span className="chat-msg__dot">·</span>
             <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
             {canDelete && <MessageMenu onDelete={() => onDelete(msg.id)} />}
           </p>
-        )}
-        {continued && canDelete && (
-          <div className="chat-msg__continued-actions">
-            <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
-            <MessageMenu onDelete={() => onDelete(msg.id)} />
-          </div>
+        ) : (
+          <>
+            {!continued && (
+              <p className="chat-msg__meta">
+                {canOpen ? (
+                  <button
+                    type="button"
+                    className="chat-msg__name profile-link"
+                    onClick={() => onOpenProfile(msg.user_id)}
+                  >
+                    {name}
+                  </button>
+                ) : (
+                  <span className="chat-msg__name">{name}</span>
+                )}
+                <RoleBadge role={msg.role} />
+                <span className="chat-msg__dot">·</span>
+                <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
+                {canDelete && <MessageMenu onDelete={() => onDelete(msg.id)} />}
+              </p>
+            )}
+            {continued && canDelete && (
+              <div className="chat-msg__continued-actions">
+                <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
+                <MessageMenu onDelete={() => onDelete(msg.id)} />
+              </div>
+            )}
+          </>
         )}
         {msg.is_announcement && (
           <p className="chat-msg__pin-label">Announcement</p>
@@ -281,6 +384,16 @@ function MessageRowView({
               height={msg.image_height || undefined}
               loading="lazy"
             />
+          </button>
+        )}
+        {fileUrl && (
+          <button
+            type="button"
+            className="chat-file"
+            onClick={() => onOpenFile(fileUrl, fileName)}
+          >
+            <span className="chat-file__badge">TXT</span>
+            <span className="chat-file__name">{fileName}</span>
           </button>
         )}
         <MessageBody text={msg.body} />
@@ -312,14 +425,22 @@ export function ChatRoom({
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
     null,
   );
-  const [preview, setPreview] = useState<{
-    url: string;
-    blob: Blob;
-    width: number;
-    height: number;
-    ext: "webp" | "jpg";
-    mime: "image/webp" | "image/jpeg";
-  } | null>(null);
+  const [fileView, setFileView] = useState<{ src: string; name: string } | null>(
+    null,
+  );
+  const [preview, setPreview] = useState<
+    | {
+        kind: "photo";
+        url: string;
+        blob: Blob;
+        width: number;
+        height: number;
+        ext: "webp" | "jpg";
+        mime: "image/webp" | "image/jpeg";
+      }
+    | { kind: "file"; name: string; blob: Blob }
+    | null
+  >(null);
   const [preparingPhoto, setPreparingPhoto] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
@@ -364,7 +485,7 @@ export function ChatRoom({
 
   useEffect(() => {
     return () => {
-      if (preview) URL.revokeObjectURL(preview.url);
+      if (preview?.kind === "photo") URL.revokeObjectURL(preview.url);
     };
   }, [preview]);
 
@@ -395,6 +516,11 @@ export function ChatRoom({
             const urls = await signChatImagePaths([row.image_path]);
             imageUrl = urls[row.image_path] ?? null;
           }
+          let fileUrl: string | null = null;
+          if (row.file_path) {
+            const urls = await signChatFilePaths([row.file_path]);
+            fileUrl = urls[row.file_path] ?? null;
+          }
 
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
@@ -412,6 +538,9 @@ export function ChatRoom({
                 image_width: row.image_width ?? null,
                 image_height: row.image_height ?? null,
                 imageUrl,
+                file_path: row.file_path ?? null,
+                file_name: row.file_name ?? null,
+                fileUrl,
               },
             ];
           });
@@ -435,22 +564,38 @@ export function ChatRoom({
 
   function clearPreview() {
     setPreview((current) => {
-      if (current) URL.revokeObjectURL(current.url);
+      if (current?.kind === "photo") URL.revokeObjectURL(current.url);
       return null;
     });
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  async function onPickPhoto(file: File | undefined) {
+  async function onPickAttachment(file: File | undefined) {
     if (!file) return;
     setError(null);
     setPreparingPhoto(true);
     try {
+      if (isChatTextFile(file)) {
+        const prepared = await prepareChatFile(file);
+        setPreview((current) => {
+          if (current?.kind === "photo") URL.revokeObjectURL(current.url);
+          return { kind: "file", name: prepared.name, blob: prepared.blob };
+        });
+        return;
+      }
+      const looksImage =
+        isHeicType(file) ||
+        isAllowedChatImageType(file.type) ||
+        /\.(jpe?g|png|webp)$/i.test(file.name);
+      if (!looksImage) {
+        throw new Error("Please choose a photo or a .txt file.");
+      }
       const prepared = await prepareChatImage(file);
       const url = URL.createObjectURL(prepared.blob);
       setPreview((current) => {
-        if (current) URL.revokeObjectURL(current.url);
+        if (current?.kind === "photo") URL.revokeObjectURL(current.url);
         return {
+          kind: "photo",
           url,
           blob: prepared.blob,
           width: prepared.width,
@@ -461,7 +606,7 @@ export function ChatRoom({
       });
     } catch (err) {
       clearPreview();
-      setError(err instanceof Error ? err.message : "Could not use that photo.");
+      setError(err instanceof Error ? err.message : "Could not use that file.");
     } finally {
       setPreparingPhoto(false);
     }
@@ -474,7 +619,8 @@ export function ChatRoom({
     sendingRef.current = true;
     setError(null);
     const asAnnounce = canPin && announce;
-    const photo = preview;
+    const photo = preview?.kind === "photo" ? preview : null;
+    const textFile = preview?.kind === "file" ? preview : null;
     stickRef.current = true;
     startTransition(async () => {
       try {
@@ -499,6 +645,9 @@ export function ChatRoom({
             image_width: photo?.width ?? null,
             image_height: photo?.height ?? null,
             imageUrl: photo?.url ?? null,
+            file_path: textFile ? `demo/${crypto.randomUUID()}.txt` : null,
+            file_name: textFile?.name ?? null,
+            fileUrl: textFile ? URL.createObjectURL(textFile.blob) : null,
           };
           const next = [...readDemoMessages(), msg];
           writeDemoMessages(next);
@@ -520,6 +669,13 @@ export function ChatRoom({
           );
           form.set("image_width", String(photo.width));
           form.set("image_height", String(photo.height));
+        }
+        if (textFile) {
+          form.set(
+            "text_file",
+            new File([textFile.blob], textFile.name, { type: "text/plain" }),
+          );
+          form.set("file_name", textFile.name);
         }
         const result = await postChatMessage(null, form);
         if (result?.error) {
@@ -544,6 +700,9 @@ export function ChatRoom({
                 image_width: sent.image_width ?? null,
                 image_height: sent.image_height ?? null,
                 imageUrl: sent.imageUrl ?? photo?.url ?? null,
+                file_path: sent.file_path ?? null,
+                file_name: sent.file_name ?? null,
+                fileUrl: sent.fileUrl ?? null,
               },
             ];
           });
@@ -605,6 +764,13 @@ export function ChatRoom({
           onClose={() => setLightbox(null)}
         />
       )}
+      {fileView && (
+        <ChatTextFileModal
+          src={fileView.src}
+          name={fileView.name}
+          onClose={() => setFileView(null)}
+        />
+      )}
       <header className="chat-app__header">
         <h1 className="chat-app__title">Community Chat</h1>
         <p className="chat-app__sub">
@@ -630,6 +796,21 @@ export function ChatRoom({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={pin.imageUrl} alt="" />
+            </button>
+          )}
+          {pin.fileUrl && (
+            <button
+              type="button"
+              className="chat-file"
+              onClick={() =>
+                setFileView({
+                  src: pin.fileUrl!,
+                  name: pin.file_name || "note.txt",
+                })
+              }
+            >
+              <span className="chat-file__badge">TXT</span>
+              <span className="chat-file__name">{pin.file_name || "note.txt"}</span>
             </button>
           )}
           <MessageBody text={pin.body} />
@@ -687,6 +868,7 @@ export function ChatRoom({
                 onDelete={remove}
                 onOpenProfile={openProfile}
                 onOpenPhoto={(src, alt) => setLightbox({ src, alt })}
+                onOpenFile={(src, name) => setFileView({ src, name })}
               />
             </div>
           );
@@ -701,35 +883,58 @@ export function ChatRoom({
           send();
         }}
       >
-        {preview && (
+        {preview?.kind === "photo" && (
           <div className="chat-preview">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={preview.url} alt="Selected photo preview" />
-            <button type="button" className="manage-text-btn" onClick={clearPreview}>
-              Remove
+            <button
+              type="button"
+              className="chat-x-btn chat-preview__remove"
+              aria-label="Remove photo"
+              onClick={clearPreview}
+            >
+              <CloseX />
+            </button>
+          </div>
+        )}
+        {preview?.kind === "file" && (
+          <div className="chat-preview chat-preview--file">
+            <span className="chat-file__badge">TXT</span>
+            <span className="chat-file__name">{preview.name}</span>
+            <button
+              type="button"
+              className="chat-x-btn chat-preview__remove"
+              aria-label="Remove file"
+              onClick={clearPreview}
+            >
+              <CloseX />
             </button>
           </div>
         )}
         <input
           ref={fileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.txt,text/plain"
           hidden
           onChange={(e) => {
-            void onPickPhoto(e.target.files?.[0]);
+            void onPickAttachment(e.target.files?.[0]);
           }}
         />
         <button
           type="button"
           className="chat-photo-btn"
-          aria-label="Add photo"
+          aria-label="Add photo or text file"
           onClick={() => fileRef.current?.click()}
           disabled={pending || preparingPhoto}
         >
-          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
-            <rect x="3" y="6" width="18" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="1.7" />
-            <circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
-            <path d="M8 6l1.2-2h5.6L16 6" fill="none" stroke="currentColor" strokeWidth="1.7" />
+          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+            <path
+              d="M12 4v16M4 12h16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3.2"
+              strokeLinecap="round"
+            />
           </svg>
         </button>
         <textarea

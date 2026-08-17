@@ -93,5 +93,7 @@ export type MessageRow = {
   image_path?: string | null;
   image_width?: number | null;
   image_height?: number | null;
+  file_path?: string | null;
+  file_name?: string | null;
   profiles?: Pick<Profile, "display_name" | "role"> | null;
 };

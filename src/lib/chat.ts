@@ -12,6 +12,9 @@ export type ChatMessage = {
   image_width?: number | null;
   image_height?: number | null;
   imageUrl?: string | null;
+  file_path?: string | null;
+  file_name?: string | null;
+  fileUrl?: string | null;
 };
 
 export function toChatMessages(
@@ -19,6 +22,7 @@ export function toChatMessages(
     MessageRow & { profiles?: { display_name: string; role: Role } | null }
   >,
   urls: Record<string, string> = {},
+  fileUrls: Record<string, string> = {},
 ): ChatMessage[] {
   return rows.map((row) => ({
     id: row.id,
@@ -32,6 +36,9 @@ export function toChatMessages(
     image_width: row.image_width ?? null,
     image_height: row.image_height ?? null,
     imageUrl: row.image_path ? urls[row.image_path] ?? null : null,
+    file_path: row.file_path ?? null,
+    file_name: row.file_name ?? null,
+    fileUrl: row.file_path ? fileUrls[row.file_path] ?? null : null,
   }));
 }
 

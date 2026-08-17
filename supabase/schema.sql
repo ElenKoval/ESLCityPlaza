@@ -53,10 +53,34 @@ create table public.messages (
     ),
   image_width integer,
   image_height integer,
+  file_path text
+    check (
+      file_path is null
+      or file_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}\.txt$'
+    ),
+  file_name text,
   created_at timestamptz not null default now(),
   check (
     char_length(btrim(body)) > 0
     or (image_path is not null and char_length(image_path) > 0)
+    or (file_path is not null and char_length(file_path) > 0)
+  ),
+  check (
+    not (
+      image_path is not null
+      and char_length(image_path) > 0
+      and file_path is not null
+      and char_length(file_path) > 0
+    )
+  ),
+  check (
+    (file_path is null and file_name is null)
+    or (
+      file_path is not null
+      and file_name is not null
+      and char_length(file_name) > 0
+      and char_length(file_name) <= 80
+    )
   ),
   check (
     (image_width is null and image_height is null)
@@ -580,6 +604,51 @@ create policy "chat_images_delete_staff"
   on storage.objects for delete to authenticated
   using (
     bucket_id = 'chat-images'
+    and public.has_role(array['teacher', 'tech'])
+  );
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'chat-files',
+  'chat-files',
+  false,
+  262144,
+  array['text/plain']
+)
+on conflict (id) do nothing;
+
+drop policy if exists "chat_files_select_approved" on storage.objects;
+create policy "chat_files_select_approved"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'chat-files'
+    and public.is_approved()
+  );
+
+drop policy if exists "chat_files_insert_own" on storage.objects;
+create policy "chat_files_insert_own"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'chat-files'
+    and public.is_approved()
+    and public.is_not_muted()
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists "chat_files_delete_own" on storage.objects;
+create policy "chat_files_delete_own"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'chat-files'
+    and public.is_approved()
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists "chat_files_delete_staff" on storage.objects;
+create policy "chat_files_delete_staff"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'chat-files'
     and public.has_role(array['teacher', 'tech'])
   );
 

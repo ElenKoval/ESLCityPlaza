@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ChatRoom } from "@/components/ChatRoom";
 import { toChatMessages } from "@/lib/chat";
 import { useLocalDemo } from "@/lib/demo";
-import { signChatImagePaths } from "@/app/actions";
+import { signChatImagePaths, signChatFilePaths } from "@/app/actions";
 import type { MessageRow, Role } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -20,11 +20,18 @@ export default async function ChatPage() {
 
   if (!useLocalDemo()) {
     const supabase = await createClient();
-    const withPhotos = await supabase
+    const withFiles = await supabase
       .from("messages")
-      .select("id, user_id, body, created_at, is_announcement, image_path, image_width, image_height, profiles(display_name, role)")
+      .select("id, user_id, body, created_at, is_announcement, image_path, image_width, image_height, file_path, file_name, profiles(display_name, role)")
       .order("created_at", { ascending: true })
       .limit(200);
+    const withPhotos = withFiles.error
+      ? await supabase
+          .from("messages")
+          .select("id, user_id, body, created_at, is_announcement, image_path, image_width, image_height, profiles(display_name, role)")
+          .order("created_at", { ascending: true })
+          .limit(200)
+      : withFiles;
     const fallback = withPhotos.error
       ? await supabase
           .from("messages")
@@ -51,6 +58,8 @@ export default async function ChatPage() {
         image_path: (row as { image_path?: string | null }).image_path ?? null,
         image_width: (row as { image_width?: number | null }).image_width ?? null,
         image_height: (row as { image_height?: number | null }).image_height ?? null,
+        file_path: (row as { file_path?: string | null }).file_path ?? null,
+        file_name: (row as { file_name?: string | null }).file_name ?? null,
         profiles: profileRow,
       };
     });
@@ -61,11 +70,16 @@ export default async function ChatPage() {
       .map((row) => row.image_path)
       .filter((path): path is string => Boolean(path)),
   );
+  const fileUrls = await signChatFilePaths(
+    rows
+      .map((row) => row.file_path)
+      .filter((path): path is string => Boolean(path)),
+  );
 
   return (
     <div className="chat-page">
       <ChatRoom
-        initialMessages={toChatMessages(rows, imageUrls)}
+        initialMessages={toChatMessages(rows, imageUrls, fileUrls)}
         userId={userId}
         displayName={profile.display_name}
         role={profile.role}
