@@ -44,9 +44,31 @@ create table public.enrollments (
 create table public.messages (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  body text not null check (char_length(body) > 0 and char_length(body) <= 2000),
+  body text not null default '' check (char_length(body) <= 2000),
   is_announcement boolean not null default false,
-  created_at timestamptz not null default now()
+  image_path text
+    check (
+      image_path is null
+      or image_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}\.(webp|jpg)$'
+    ),
+  image_width integer,
+  image_height integer,
+  created_at timestamptz not null default now(),
+  check (
+    char_length(btrim(body)) > 0
+    or (image_path is not null and char_length(image_path) > 0)
+  ),
+  check (
+    (image_width is null and image_height is null)
+    or (
+      image_width is not null
+      and image_height is not null
+      and image_width > 0
+      and image_height > 0
+      and image_width <= 4000
+      and image_height <= 4000
+    )
+  )
 );
 
 create index messages_created_at_idx on public.messages (created_at);
@@ -514,6 +536,52 @@ begin
 exception
   when duplicate_object then null;
 end $$;
+
+-- Private chat photos (approved members only; muted cannot upload)
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values (
+  'chat-images',
+  'chat-images',
+  false,
+  5242880,
+  array['image/jpeg', 'image/png', 'image/webp']
+)
+on conflict (id) do nothing;
+
+drop policy if exists "chat_images_select_approved" on storage.objects;
+create policy "chat_images_select_approved"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'chat-images'
+    and public.is_approved()
+  );
+
+drop policy if exists "chat_images_insert_own" on storage.objects;
+create policy "chat_images_insert_own"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'chat-images'
+    and public.is_approved()
+    and public.is_not_muted()
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists "chat_images_delete_own" on storage.objects;
+create policy "chat_images_delete_own"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'chat-images'
+    and public.is_approved()
+    and split_part(name, '/', 1) = auth.uid()::text
+  );
+
+drop policy if exists "chat_images_delete_staff" on storage.objects;
+create policy "chat_images_delete_staff"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'chat-images'
+    and public.has_role(array['teacher', 'tech'])
+  );
 
 -- Seed upcoming Mon/Fri sessions (1:00–3:00 PM America/Los_Angeles) for ~6 weeks
 insert into public.classes (title, description, starts_at, capacity)

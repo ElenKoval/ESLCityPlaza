@@ -41,6 +41,12 @@ import {
   canViewClassRoster,
   CHAT_MUTE_MESSAGE,
 } from "@/lib/roles";
+import {
+  CHAT_IMAGE_BUCKET,
+  CHAT_IMAGE_MAX_OUT_BYTES,
+  CHAT_IMAGE_PATH_RE,
+  CHAT_IMAGE_SIGNED_TTL_SEC,
+} from "@/lib/chat-image";
 import { DEFAULT_CLASS_LOCATION } from "@/lib/class-schedule";
 import { authConfirmUrl } from "@/lib/site-url";
 import type { AnnouncementRow, ClassTopicRow, Profile, Role } from "@/lib/types";
@@ -69,12 +75,17 @@ export type ActionState = {
   error?: string;
   success?: string;
   tempPassword?: string;
+  imageUrls?: Record<string, string>;
   message?: {
     id: string;
     user_id: string;
     body: string;
     created_at: string;
     is_announcement: boolean;
+    image_path?: string | null;
+    image_width?: number | null;
+    image_height?: number | null;
+    imageUrl?: string | null;
   };
 } | null;
 
@@ -1103,13 +1114,73 @@ export async function removeClassEnrollment(
   return { success: "Removed from this class" };
 }
 
+export async function signChatImagePaths(
+  paths: string[],
+): Promise<Record<string, string>> {
+  const unique = [...new Set(paths.filter((path) => CHAT_IMAGE_PATH_RE.test(path)))];
+  if (unique.length === 0) return {};
+
+  if (useLocalDemo() || (await hasDemoSession())) return {};
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return {};
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me || me.status !== "approved") return {};
+
+  const { data, error } = await supabase.storage
+    .from(CHAT_IMAGE_BUCKET)
+    .createSignedUrls(unique, CHAT_IMAGE_SIGNED_TTL_SEC);
+  if (error || !data) return {};
+
+  const urls: Record<string, string> = {};
+  for (const row of data) {
+    if (row.path && row.signedUrl) urls[row.path] = row.signedUrl;
+  }
+  return urls;
+}
+
+function looksLikeImage(bytes: Uint8Array, mime: string) {
+  if (bytes.length < 12) return false;
+  const jpeg = bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  const png =
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47;
+  const webp =
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50;
+  if (mime === "image/jpeg") return jpeg;
+  if (mime === "image/png") return png;
+  if (mime === "image/webp") return webp;
+  return jpeg || png || webp;
+}
+
 export async function postChatMessage(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const body = String(formData.get("body") || "").trim();
   const asAnnounce = String(formData.get("announce") || "") === "true";
-  if (!body) return { error: "Write a message first" };
+  const image = formData.get("image");
+  const hasImage = image instanceof File && image.size > 0;
+  const width = Number(formData.get("image_width") || 0);
+  const height = Number(formData.get("image_height") || 0);
+
+  if (!body && !hasImage) return { error: "Write a message first" };
   if (body.length > 2000) return { error: "Message is too long" };
 
   if (useLocalDemo() || (await hasDemoSession())) {
@@ -1135,17 +1206,72 @@ export async function postChatMessage(
   }
   if (me.muted) return { error: CHAT_MUTE_MESSAGE };
 
+  let imagePath: string | null = null;
+  let imageWidth: number | null = null;
+  let imageHeight: number | null = null;
+
+  if (hasImage && image instanceof File) {
+    if (image.size > CHAT_IMAGE_MAX_OUT_BYTES) {
+      return { error: "That photo is too large to send." };
+    }
+    const mime = image.type;
+    if (mime !== "image/jpeg" && mime !== "image/png" && mime !== "image/webp") {
+      return { error: "Please choose a JPEG, PNG, or WebP photo." };
+    }
+    const bytes = new Uint8Array(await image.arrayBuffer());
+    if (!looksLikeImage(bytes, mime)) {
+      return { error: "That file does not look like a photo." };
+    }
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width < 1 ||
+      height < 1 ||
+      width > 4000 ||
+      height > 4000
+    ) {
+      return { error: "That photo could not be prepared." };
+    }
+    const ext = mime === "image/webp" ? "webp" : "jpg";
+    imagePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+    const { error: uploadError } = await supabase.storage
+      .from(CHAT_IMAGE_BUCKET)
+      .upload(imagePath, image, {
+        contentType: mime,
+        upsert: false,
+      });
+    if (uploadError) {
+      const { data: again } = await supabase
+        .from("profiles")
+        .select("muted")
+        .eq("id", user.id)
+        .maybeSingle();
+      if (again?.muted) return { error: CHAT_MUTE_MESSAGE };
+      return { error: "Photo could not be uploaded. Please try again." };
+    }
+    imageWidth = Math.round(width);
+    imageHeight = Math.round(height);
+  }
+
   const payload: Record<string, unknown> = {
     user_id: user.id,
     body,
     is_announcement: asAnnounce,
+    image_path: imagePath,
+    image_width: imageWidth,
+    image_height: imageHeight,
   };
   const { data, error } = await supabase
     .from("messages")
     .insert(payload)
-    .select("id, user_id, body, created_at, is_announcement")
+    .select(
+      "id, user_id, body, created_at, is_announcement, image_path, image_width, image_height",
+    )
     .single();
   if (error) {
+    if (imagePath) {
+      await supabase.storage.from(CHAT_IMAGE_BUCKET).remove([imagePath]);
+    }
     const { data: again } = await supabase
       .from("profiles")
       .select("muted")
@@ -1154,6 +1280,13 @@ export async function postChatMessage(
     if (again?.muted) return { error: CHAT_MUTE_MESSAGE };
     return { error: "Could not send that message. Please try again." };
   }
+
+  let imageUrl: string | null = null;
+  if (data.image_path) {
+    const signed = await signChatImagePaths([data.image_path]);
+    imageUrl = signed[data.image_path] ?? null;
+  }
+
   return {
     success: "sent",
     message: {
@@ -1162,6 +1295,10 @@ export async function postChatMessage(
       body: data.body,
       created_at: data.created_at,
       is_announcement: Boolean(data.is_announcement),
+      image_path: data.image_path,
+      image_width: data.image_width,
+      image_height: data.image_height,
+      imageUrl,
     },
   };
 }
@@ -1191,7 +1328,7 @@ export async function deleteChatMessage(
 
   const { data: row } = await supabase
     .from("messages")
-    .select("id, user_id")
+    .select("id, user_id, image_path")
     .eq("id", id)
     .maybeSingle();
   if (!row) return { error: "Message not found" };
@@ -1209,6 +1346,22 @@ export async function deleteChatMessage(
     )
   ) {
     return { error: "You cannot delete this message" };
+  }
+
+  const imagePath =
+    typeof row.image_path === "string" && CHAT_IMAGE_PATH_RE.test(row.image_path)
+      ? row.image_path
+      : null;
+
+  if (imagePath) {
+    const admin = createAdminClient();
+    const storage = admin ?? supabase;
+    const { error: storageError } = await storage.storage
+      .from(CHAT_IMAGE_BUCKET)
+      .remove([imagePath]);
+    if (storageError && !/not found|does not exist/i.test(storageError.message)) {
+      return { error: "Could not delete that photo. Please try again." };
+    }
   }
 
   const { error } = await supabase.from("messages").delete().eq("id", id);

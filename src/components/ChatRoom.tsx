@@ -2,11 +2,17 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getPublicProfile, postChatMessage, deleteChatMessage } from "@/app/actions";
+import {
+  getPublicProfile,
+  postChatMessage,
+  deleteChatMessage,
+  signChatImagePaths,
+} from "@/app/actions";
 import { canAnnounce, canDeleteChatMessage } from "@/lib/roles";
 import { RoleBadge } from "@/components/RoleBadge";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
-import type { ChatMessage } from "@/lib/chat";
+import { chatTimeLabel, type ChatMessage } from "@/lib/chat";
+import { prepareChatImage } from "@/lib/chat-image";
 import type { MessageRow, Role } from "@/lib/types";
 
 const DEMO_CHAT_KEY = "esl-demo-chat";
@@ -46,18 +52,11 @@ function dayLabel(iso: string) {
 
   if (sameDay(d, today)) return "Today";
   if (sameDay(d, yesterday)) return "Yesterday";
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(undefined, {
     month: "long",
     day: "numeric",
     year: d.getFullYear() === today.getFullYear() ? undefined : "numeric",
   }).format(d);
-}
-
-function timeLabel(iso: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(iso));
 }
 
 function chatName(name: string) {
@@ -76,6 +75,7 @@ function letterColor(name: string) {
 }
 
 function MessageBody({ text }: { text: string }) {
+  if (!text) return null;
   const parts = text.split(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi);
   return (
     <p className="chat-msg__body">
@@ -98,24 +98,128 @@ function MessageBody({ text }: { text: string }) {
   );
 }
 
+function ChatLightbox({
+  src,
+  alt,
+  onClose,
+}: {
+  src: string;
+  alt: string;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="chat-lightbox" role="presentation" onClick={onClose}>
+      <div
+        className="chat-lightbox__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-label={alt}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button type="button" className="btn-ghost chat-lightbox__close" onClick={onClose}>
+          Close
+        </button>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt={alt} className="chat-lightbox__img" />
+      </div>
+    </div>
+  );
+}
+
+function MessageMenu({
+  onDelete,
+}: {
+  onDelete: () => void;
+}) {
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="chat-msg-menu" ref={wrapRef}>
+      <button
+        type="button"
+        className="chat-msg-menu__trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label="Message actions"
+        onClick={() => setOpen((v) => !v)}
+      >
+        •••
+      </button>
+      {open && (
+        <div className="chat-msg-menu__list" role="menu">
+          <button
+            type="button"
+            className="chat-msg-menu__item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onDelete();
+            }}
+          >
+            Delete message
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function MessageRowView({
   msg,
+  continued,
+  mine,
   canDelete,
   onDelete,
   onOpenProfile,
+  onOpenPhoto,
 }: {
   msg: ChatMessage;
+  continued: boolean;
+  mine: boolean;
   canDelete: boolean;
   onDelete: (id: string) => void;
   onOpenProfile: (userId: string) => void;
+  onOpenPhoto: (src: string, alt: string) => void;
 }) {
   const name = chatName(msg.display_name);
   const canOpen = msg.user_id !== "system";
+  const alt = msg.body.trim()
+    ? msg.body.trim()
+    : `Photo shared by ${name}`;
+  const photo = msg.imageUrl;
+
   return (
     <article
-      className={`chat-msg ${msg.is_announcement ? "is-announce" : ""}`}
+      className={`chat-msg${msg.is_announcement ? " is-announce" : ""}${mine ? " is-mine" : ""}${continued ? " is-continued" : ""}`}
     >
-      {canOpen ? (
+      {continued ? (
+        <span className="chat-avatar chat-avatar--spacer" aria-hidden="true" />
+      ) : canOpen ? (
         <button
           type="button"
           className="chat-avatar"
@@ -135,35 +239,51 @@ function MessageRowView({
         </span>
       )}
       <div className="chat-msg__main">
-        <p className="chat-msg__meta">
-          {canOpen ? (
-            <button
-              type="button"
-              className="chat-msg__name profile-link"
-              onClick={() => onOpenProfile(msg.user_id)}
-            >
-              {name}
-            </button>
-          ) : (
-            <span className="chat-msg__name">{name}</span>
-          )}
-          <RoleBadge role={msg.role} />
-          <span className="chat-msg__dot">·</span>
-          <span className="chat-msg__time">{timeLabel(msg.created_at)}</span>
-        </p>
+        {!continued && (
+          <p className="chat-msg__meta">
+            {canOpen ? (
+              <button
+                type="button"
+                className="chat-msg__name profile-link"
+                onClick={() => onOpenProfile(msg.user_id)}
+              >
+                {name}
+              </button>
+            ) : (
+              <span className="chat-msg__name">{name}</span>
+            )}
+            <RoleBadge role={msg.role} />
+            <span className="chat-msg__dot">·</span>
+            <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
+            {canDelete && <MessageMenu onDelete={() => onDelete(msg.id)} />}
+          </p>
+        )}
+        {continued && canDelete && (
+          <div className="chat-msg__continued-actions">
+            <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
+            <MessageMenu onDelete={() => onDelete(msg.id)} />
+          </div>
+        )}
         {msg.is_announcement && (
           <p className="chat-msg__pin-label">Announcement</p>
         )}
-        <MessageBody text={msg.body} />
-        {canDelete && (
+        {photo && (
           <button
             type="button"
-            className="chat-msg__delete"
-            onClick={() => onDelete(msg.id)}
+            className="chat-photo"
+            onClick={() => onOpenPhoto(photo, alt)}
           >
-            Delete
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={photo}
+              alt={alt}
+              width={msg.image_width || undefined}
+              height={msg.image_height || undefined}
+              loading="lazy"
+            />
           </button>
         )}
+        <MessageBody text={msg.body} />
       </div>
     </article>
   );
@@ -189,8 +309,25 @@ export function ChatRoom({
   const [viewing, setViewing] = useState<Awaited<
     ReturnType<typeof getPublicProfile>
   >>(null);
+  const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
+    null,
+  );
+  const [preview, setPreview] = useState<{
+    url: string;
+    blob: Blob;
+    width: number;
+    height: number;
+    ext: "webp" | "jpg";
+    mime: "image/webp" | "image/jpeg";
+  } | null>(null);
+  const [preparingPhoto, setPreparingPhoto] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const stickRef = useRef(true);
+  const didInit = useRef(false);
+  const sendingRef = useRef(false);
   const canPin = canAnnounce(role);
 
   useEffect(() => {
@@ -213,8 +350,23 @@ export function ChatRoom({
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length]);
+    const el = logRef.current;
+    if (!el) return;
+    if (!didInit.current) {
+      el.scrollTop = el.scrollHeight;
+      didInit.current = true;
+      return;
+    }
+    if (stickRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview.url);
+    };
+  }, [preview]);
 
   useEffect(() => {
     if (isLocalDemo) {
@@ -238,6 +390,11 @@ export function ChatRoom({
             .select("display_name, role")
             .eq("id", row.user_id)
             .maybeSingle();
+          let imageUrl: string | null = null;
+          if (row.image_path) {
+            const urls = await signChatImagePaths([row.image_path]);
+            imageUrl = urls[row.image_path] ?? null;
+          }
 
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
@@ -251,6 +408,10 @@ export function ChatRoom({
                 display_name: profile?.display_name ?? "Member",
                 role: (profile?.role as Role) ?? "student",
                 is_announcement: Boolean(row.is_announcement),
+                image_path: row.image_path ?? null,
+                image_width: row.image_width ?? null,
+                image_height: row.image_height ?? null,
+                imageUrl,
               },
             ];
           });
@@ -272,68 +433,128 @@ export function ChatRoom({
     };
   }, []);
 
+  function clearPreview() {
+    setPreview((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function onPickPhoto(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setPreparingPhoto(true);
+    try {
+      const prepared = await prepareChatImage(file);
+      const url = URL.createObjectURL(prepared.blob);
+      setPreview((current) => {
+        if (current) URL.revokeObjectURL(current.url);
+        return {
+          url,
+          blob: prepared.blob,
+          width: prepared.width,
+          height: prepared.height,
+          ext: prepared.ext,
+          mime: prepared.mime,
+        };
+      });
+    } catch (err) {
+      clearPreview();
+      setError(err instanceof Error ? err.message : "Could not use that photo.");
+    } finally {
+      setPreparingPhoto(false);
+    }
+  }
+
   function send() {
     const text = body.trim();
-    if (!text) return;
+    if (!text && !preview) return;
+    if (sendingRef.current || pending) return;
+    sendingRef.current = true;
     setError(null);
     const asAnnounce = canPin && announce;
+    const photo = preview;
+    stickRef.current = true;
     startTransition(async () => {
-      if (isLocalDemo) {
+      try {
+        if (isLocalDemo) {
+          const form = new FormData();
+          form.set("body", text);
+          form.set("announce", asAnnounce ? "true" : "false");
+          const result = await postChatMessage(null, form);
+          if (result?.error) {
+            setError(result.error);
+            return;
+          }
+          const msg: ChatMessage = {
+            id: crypto.randomUUID(),
+            user_id: userId,
+            body: text,
+            created_at: new Date().toISOString(),
+            display_name: displayName,
+            role,
+            is_announcement: asAnnounce,
+            image_path: photo ? `demo/${crypto.randomUUID()}.${photo.ext}` : null,
+            image_width: photo?.width ?? null,
+            image_height: photo?.height ?? null,
+            imageUrl: photo?.url ?? null,
+          };
+          const next = [...readDemoMessages(), msg];
+          writeDemoMessages(next);
+          setMessages(next);
+          setBody("");
+          setAnnounce(false);
+          if (photo) setPreview(null);
+          inputRef.current?.focus();
+          return;
+        }
+
         const form = new FormData();
         form.set("body", text);
         form.set("announce", asAnnounce ? "true" : "false");
+        if (photo) {
+          form.set(
+            "image",
+            new File([photo.blob], `photo.${photo.ext}`, { type: photo.mime }),
+          );
+          form.set("image_width", String(photo.width));
+          form.set("image_height", String(photo.height));
+        }
         const result = await postChatMessage(null, form);
         if (result?.error) {
           setError(result.error);
           return;
         }
-        const msg: ChatMessage = {
-          id: crypto.randomUUID(),
-          user_id: userId,
-          body: text,
-          created_at: new Date().toISOString(),
-          display_name: displayName,
-          role,
-          is_announcement: asAnnounce,
-        };
-        const next = [...readDemoMessages(), msg];
-        writeDemoMessages(next);
-        setMessages(next);
+        const sent = result?.message;
+        if (sent) {
+          setMessages((prev) => {
+            if (prev.some((m) => m.id === sent.id)) return prev;
+            return [
+              ...prev,
+              {
+                id: sent.id,
+                user_id: sent.user_id,
+                body: sent.body,
+                created_at: sent.created_at,
+                display_name: displayName,
+                role,
+                is_announcement: Boolean(sent.is_announcement),
+                image_path: sent.image_path ?? null,
+                image_width: sent.image_width ?? null,
+                image_height: sent.image_height ?? null,
+                imageUrl: sent.imageUrl ?? photo?.url ?? null,
+              },
+            ];
+          });
+        }
         setBody("");
         setAnnounce(false);
+        clearPreview();
         inputRef.current?.focus();
-        return;
+      } finally {
+        sendingRef.current = false;
       }
-
-      const form = new FormData();
-      form.set("body", text);
-      form.set("announce", asAnnounce ? "true" : "false");
-      const result = await postChatMessage(null, form);
-      if (result?.error) {
-        setError(result.error);
-        return;
-      }
-      const sent = result?.message;
-      if (sent) {
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === sent.id)) return prev;
-          return [
-            ...prev,
-            {
-              id: sent.id,
-              user_id: sent.user_id,
-              body: sent.body,
-              created_at: sent.created_at,
-              display_name: displayName,
-              role,
-              is_announcement: Boolean(sent.is_announcement),
-            },
-          ];
-        });
-      }
-      setBody("");
-      setAnnounce(false);
-      inputRef.current?.focus();
     });
   }
 
@@ -368,53 +589,104 @@ export function ChatRoom({
     });
   }
 
-  const pin = [...messages]
-    .reverse()
-    .find((m) => m.is_announcement);
+  const pin = [...messages].reverse().find((m) => m.is_announcement);
   let lastDay = "";
+  const canSend = !pending && !preparingPhoto && Boolean(body.trim() || preview);
 
   return (
     <div className="chat-app">
       {viewing && (
         <ProfileDialog profile={viewing} onClose={() => setViewing(null)} />
       )}
+      {lightbox && (
+        <ChatLightbox
+          src={lightbox.src}
+          alt={lightbox.alt}
+          onClose={() => setLightbox(null)}
+        />
+      )}
       <header className="chat-app__header">
-        <h1 className="chat-app__title">Community chat</h1>
+        <h1 className="chat-app__title">Community Chat</h1>
         <p className="chat-app__sub">
-          Talk with the group, ask questions, and share news.
+          Talk, ask questions, and stay in touch with the group.
         </p>
       </header>
 
       {pin && (
         <aside className="chat-pin">
           <p className="chat-pin__meta">
-            📌 {chatName(pin.display_name)} · Announcement
+            {chatName(pin.display_name)} · Announcement
           </p>
+          {pin.imageUrl && (
+            <button
+              type="button"
+              className="chat-photo"
+              onClick={() =>
+                setLightbox({
+                  src: pin.imageUrl!,
+                  alt: pin.body.trim() || `Photo shared by ${chatName(pin.display_name)}`,
+                })
+              }
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={pin.imageUrl} alt="" />
+            </button>
+          )}
           <MessageBody text={pin.body} />
         </aside>
       )}
 
       {error && <p className="error chat-app__error">{error}</p>}
 
-      <div className="chat-log">
+      <div
+        className="chat-log"
+        ref={logRef}
+        onScroll={() => {
+          const el = logRef.current;
+          if (!el) return;
+          stickRef.current =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+        }}
+      >
         {messages.length === 0 && (
-          <p className="chat-empty">It is quiet here — send the first message.</p>
+          <div className="chat-empty">
+            <svg
+              className="chat-empty__art"
+              viewBox="0 0 72 48"
+              aria-hidden="true"
+            >
+              <rect x="4" y="8" width="42" height="26" rx="10" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              <path d="M16 34v8l10-8" fill="none" stroke="currentColor" strokeWidth="1.6" />
+              <rect x="28" y="2" width="40" height="22" rx="10" fill="none" stroke="currentColor" strokeWidth="1.6" opacity="0.55" />
+            </svg>
+            <p>No messages yet.</p>
+            <p>Start the conversation!</p>
+          </div>
         )}
-        {messages.map((msg) => {
+        {messages.map((msg, index) => {
           const day = dayLabel(msg.created_at);
           const showDay = day !== lastDay;
           lastDay = day;
+          const prev = messages[index - 1];
+          const continued =
+            !showDay &&
+            !msg.is_announcement &&
+            !prev?.is_announcement &&
+            prev?.user_id === msg.user_id;
           return (
             <div key={msg.id}>
               {showDay && <div className="chat-day">{day}</div>}
               <MessageRowView
                 msg={msg}
+                continued={continued}
+                mine={msg.user_id === userId}
                 canDelete={canDeleteChatMessage(
                   { id: userId, role },
                   { user_id: msg.user_id, role: msg.role },
                 )}
                 onDelete={remove}
                 onOpenProfile={openProfile}
+                onOpenPhoto={(src, alt) => setLightbox({ src, alt })}
               />
             </div>
           );
@@ -429,6 +701,37 @@ export function ChatRoom({
           send();
         }}
       >
+        {preview && (
+          <div className="chat-preview">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={preview.url} alt="Selected photo preview" />
+            <button type="button" className="manage-text-btn" onClick={clearPreview}>
+              Remove
+            </button>
+          </div>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+          hidden
+          onChange={(e) => {
+            void onPickPhoto(e.target.files?.[0]);
+          }}
+        />
+        <button
+          type="button"
+          className="chat-photo-btn"
+          aria-label="Add photo"
+          onClick={() => fileRef.current?.click()}
+          disabled={pending || preparingPhoto}
+        >
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+            <rect x="3" y="6" width="18" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="1.7" />
+            <circle cx="12" cy="13" r="3.2" fill="none" stroke="currentColor" strokeWidth="1.7" />
+            <path d="M8 6l1.2-2h5.6L16 6" fill="none" stroke="currentColor" strokeWidth="1.7" />
+          </svg>
+        </button>
         <textarea
           ref={inputRef}
           value={body}
@@ -446,9 +749,9 @@ export function ChatRoom({
         <button
           className="btn-primary"
           type="submit"
-          disabled={pending || !body.trim()}
+          disabled={!canSend}
         >
-          Send
+          {pending ? "Sending…" : preparingPhoto ? "Preparing…" : "Send"}
         </button>
         {canPin && (
           <label className="chat-compose__announce">

@@ -90,5 +90,8 @@ export type MessageRow = {
   body: string;
   created_at: string;
   is_announcement?: boolean;
+  image_path?: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
   profiles?: Pick<Profile, "display_name" | "role"> | null;
 };
