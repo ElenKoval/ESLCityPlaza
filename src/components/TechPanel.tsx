@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addMemberManually,
@@ -24,11 +24,53 @@ import {
 } from "@/lib/roles";
 import type { Profile } from "@/lib/types";
 
-function useRefreshOnSuccess(state: ActionState) {
+function useRefreshOnSuccess(state: ActionState, onSuccess?: () => void) {
   const router = useRouter();
   useEffect(() => {
-    if (state?.success) router.refresh();
-  }, [state, router]);
+    if (!state?.success) return;
+    onSuccess?.();
+    router.refresh();
+  }, [state, router, onSuccess]);
+}
+
+function ManageDialog({
+  title,
+  onClose,
+  children,
+}: {
+  title: string;
+  onClose: () => void;
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="profile-dialog" role="presentation" onClick={onClose}>
+      <div
+        className="profile-dialog__panel panel manage-dialog__panel"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="manage-dialog-title"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="profile-dialog__top">
+          <h2 id="manage-dialog-title" className="profile-dialog__title">
+            {title}
+          </h2>
+          <button type="button" className="btn-ghost" onClick={onClose}>
+            Close
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function AddMemberForm({ viewer }: { viewer: Profile }) {
@@ -40,8 +82,7 @@ function AddMemberForm({ viewer }: { viewer: Profile }) {
   const pickRole = canManageRoles(viewer.role);
 
   return (
-    <form action={action} className="panel form-grid">
-      <h3 className="announce-form__heading">Add member manually</h3>
+    <form action={action} className="form-grid">
       <p className="field-hint" style={{ marginTop: 0 }}>
         Creates an approved account right away — no Apply form and no email
         confirmation. You will get a password to give them. They can keep using
@@ -90,53 +131,25 @@ function ReviewForm({ profile }: { profile: Profile }) {
   useRefreshOnSuccess(state);
 
   return (
-    <form action={action} className="stack">
+    <form action={action} className="manage-app__actions">
       <input type="hidden" name="user_id" value={profile.id} />
-      <div className="class-actions">
-        <button
-          className="btn-primary"
-          type="submit"
-          name="decision"
-          value="approve"
-          disabled={pending}
-        >
-          {pending ? "Saving…" : "Approve"}
-        </button>
-        <button
-          className="btn-danger"
-          type="submit"
-          name="decision"
-          value="reject"
-          disabled={pending}
-        >
-          Decline
-        </button>
-      </div>
-      {state?.error && <p className="error">{state.error}</p>}
-      {state?.success && <p className="success">{state.success}</p>}
-    </form>
-  );
-}
-
-function DeleteForm({ userId, label }: { userId: string; label: string }) {
-  const [state, action, pending] = useActionState<ActionState, FormData>(
-    deleteMember,
-    null,
-  );
-  useRefreshOnSuccess(state);
-
-  return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        if (!confirm(`Delete account “${label}”? This cannot be undone.`)) {
-          e.preventDefault();
-        }
-      }}
-    >
-      <input type="hidden" name="user_id" value={userId} />
-      <button className="btn-danger" type="submit" disabled={pending}>
-        {pending ? "Deleting…" : "Delete account"}
+      <button
+        className="btn-primary manage-approve"
+        type="submit"
+        name="decision"
+        value="approve"
+        disabled={pending}
+      >
+        {pending ? "Saving…" : "Approve"}
+      </button>
+      <button
+        className="manage-text-btn"
+        type="submit"
+        name="decision"
+        value="reject"
+        disabled={pending}
+      >
+        Decline
       </button>
       {state?.error && <p className="error">{state.error}</p>}
       {state?.success && <p className="success">{state.success}</p>}
@@ -144,108 +157,203 @@ function DeleteForm({ userId, label }: { userId: string; label: string }) {
   );
 }
 
-function MuteForm({ profile }: { profile: Profile }) {
-  const muted = Boolean(profile.muted);
-  const [state, action, pending] = useActionState<ActionState, FormData>(
-    setMemberMuted,
-    null,
-  );
-  useRefreshOnSuccess(state);
-
-  return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        if (muted) {
-          if (!confirm(`Allow ${profile.display_name} to post in Community Chat again?`)) {
-            e.preventDefault();
-          }
-          return;
-        }
-        if (
-          !confirm(
-            `Mute ${profile.display_name} in Community Chat?\n\nThis person will still be able to use the website and read the chat, but they won't be able to post new messages.`,
-          )
-        ) {
-          e.preventDefault();
-        }
-      }}
-    >
-      <input type="hidden" name="user_id" value={profile.id} />
-      <input type="hidden" name="muted" value={muted ? "false" : "true"} />
-      <button className="btn-secondary" type="submit" disabled={pending}>
-        {pending ? "Saving…" : muted ? "Unmute" : "Mute"}
-      </button>
-      {state?.error && <p className="error">{state.error}</p>}
-      {state?.success && <p className="success">{state.success}</p>}
-    </form>
-  );
-}
-
-function SuspendForm({ profile }: { profile: Profile }) {
-  const suspended = profile.status === "suspended";
-  const [state, action, pending] = useActionState<ActionState, FormData>(
-    setMemberSuspended,
-    null,
-  );
-  useRefreshOnSuccess(state);
-
-  return (
-    <form
-      action={action}
-      onSubmit={(e) => {
-        if (suspended) {
-          if (!confirm(`Restore access for ${profile.display_name}?`)) {
-            e.preventDefault();
-          }
-          return;
-        }
-        if (
-          !confirm(
-            `Suspend ${profile.display_name}?\n\nThis person will temporarily lose access to the members-only website.\nTheir account and data will not be deleted.`,
-          )
-        ) {
-          e.preventDefault();
-        }
-      }}
-    >
-      <input type="hidden" name="user_id" value={profile.id} />
-      <input type="hidden" name="suspend" value={suspended ? "false" : "true"} />
-      <button className="btn-secondary" type="submit" disabled={pending}>
-        {pending ? "Saving…" : suspended ? "Restore" : "Suspend"}
-      </button>
-      {state?.error && <p className="error">{state.error}</p>}
-      {state?.success && <p className="success">{state.success}</p>}
-    </form>
-  );
-}
-
-function RoleForm({ profile }: { profile: Profile }) {
+function RoleDialog({
+  profile,
+  onClose,
+}: {
+  profile: Profile;
+  onClose: () => void;
+}) {
   const [state, action, pending] = useActionState<ActionState, FormData>(
     setMemberRole,
     null,
   );
-  useRefreshOnSuccess(state);
+  useRefreshOnSuccess(state, onClose);
 
   return (
-    <form action={action} className="stack">
-      <input type="hidden" name="user_id" value={profile.id} />
-      <label>
-        Role
-        <select name="role" defaultValue={profile.role}>
-          {assignableRoles().map((role) => (
-            <option key={role} value={role}>
-              {ROLE_LABELS[role]}
-            </option>
-          ))}
-        </select>
-      </label>
-      <button className="btn-secondary" type="submit" disabled={pending}>
-        {pending ? "Saving…" : "Save role"}
+    <ManageDialog title={`Change role for ${profile.display_name}`} onClose={onClose}>
+      <form action={action} className="form-grid">
+        <input type="hidden" name="user_id" value={profile.id} />
+        <label>
+          Role
+          <select name="role" defaultValue={profile.role}>
+            {assignableRoles().map((role) => (
+              <option key={role} value={role}>
+                {ROLE_LABELS[role]}
+              </option>
+            ))}
+          </select>
+        </label>
+        {state?.error && <p className="error">{state.error}</p>}
+        <div className="manage-dialog__actions">
+          <button type="button" className="manage-text-btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn-primary manage-approve" type="submit" disabled={pending}>
+            {pending ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </form>
+    </ManageDialog>
+  );
+}
+
+function MemberMenu({
+  member,
+  viewer,
+  onView,
+  onChangeRole,
+}: {
+  member: Profile;
+  viewer: Profile;
+  onView: () => void;
+  onChangeRole: () => void;
+}) {
+  const router = useRouter();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const muted = Boolean(member.muted);
+  const suspended = member.status === "suspended";
+  const canModerate =
+    canModerateMembers(viewer.role) &&
+    canModerateAccount(viewer.role, member.role);
+  const canRole = canManageRoles(viewer.role) && member.role !== "tech";
+  const canDelete = canDeleteMember(viewer, member);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDoc(e: MouseEvent) {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDoc);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function run(
+    confirmText: string,
+    action: (prev: ActionState, formData: FormData) => Promise<ActionState>,
+    fields: Record<string, string>,
+  ) {
+    if (!confirm(confirmText)) return;
+    setOpen(false);
+    const formData = new FormData();
+    for (const [key, value] of Object.entries(fields)) {
+      formData.set(key, value);
+    }
+    startTransition(async () => {
+      const result = await action(null, formData);
+      if (result?.error) setError(result.error);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <div className="manage-menu" ref={wrapRef}>
+      <button
+        type="button"
+        className="manage-menu__trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Actions for ${member.display_name}`}
+        onClick={() => setOpen((v) => !v)}
+        disabled={pending}
+      >
+        •••
       </button>
-      {state?.error && <p className="error">{state.error}</p>}
-      {state?.success && <p className="success">{state.success}</p>}
-    </form>
+      {open && (
+        <div className="manage-menu__list" role="menu">
+          <button
+            type="button"
+            className="manage-menu__item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onView();
+            }}
+          >
+            View profile
+          </button>
+          {canModerate && (
+            <button
+              type="button"
+              className="manage-menu__item"
+              role="menuitem"
+              onClick={() =>
+                run(
+                  muted
+                    ? `Allow ${member.display_name} to post in Community Chat again?`
+                    : `Mute ${member.display_name} in Community Chat?\n\nThis person will still be able to use the website and read the chat, but they won't be able to post new messages.`,
+                  setMemberMuted,
+                  { user_id: member.id, muted: muted ? "false" : "true" },
+                )
+              }
+            >
+              {muted ? "Unmute" : "Mute in chat"}
+            </button>
+          )}
+          {canModerate && (
+            <button
+              type="button"
+              className="manage-menu__item"
+              role="menuitem"
+              onClick={() =>
+                run(
+                  suspended
+                    ? `Restore access for ${member.display_name}?`
+                    : `Suspend ${member.display_name}?\n\nThis person will temporarily lose access to the members-only website.\nTheir account and data will not be deleted.`,
+                  setMemberSuspended,
+                  { user_id: member.id, suspend: suspended ? "false" : "true" },
+                )
+              }
+            >
+              {suspended ? "Restore access" : "Suspend account"}
+            </button>
+          )}
+          {canRole && (
+            <button
+              type="button"
+              className="manage-menu__item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onChangeRole();
+              }}
+            >
+              Change role
+            </button>
+          )}
+          {canDelete && (
+            <>
+              <div className="manage-menu__rule" />
+              <button
+                type="button"
+                className="manage-menu__item manage-menu__item--danger"
+                role="menuitem"
+                onClick={() =>
+                  run(
+                    `Delete account “${member.display_name}”? This cannot be undone.`,
+                    deleteMember,
+                    { user_id: member.id },
+                  )
+                }
+              >
+                Delete account
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      {error && <p className="error manage-menu__error">{error}</p>}
+    </div>
   );
 }
 
@@ -253,7 +361,9 @@ function ModerationFlags({ profile, viewer }: { profile: Profile; viewer: Profil
   if (!canSeeModerationStatus(viewer.role)) return null;
   return (
     <>
-      {profile.muted && <span className="moderation-flag moderation-flag--muted">Muted</span>}
+      {profile.muted && (
+        <span className="moderation-flag moderation-flag--muted">Muted</span>
+      )}
       {profile.status === "suspended" && (
         <span className="moderation-flag moderation-flag--suspended">Suspended</span>
       )}
@@ -271,10 +381,12 @@ export function TechPanel({
   viewer: Profile;
 }) {
   const [viewing, setViewing] = useState<Profile | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [roleFor, setRoleFor] = useState<Profile | null>(null);
   const showEmail = viewer.role === "admin" || viewer.role === "tech";
 
   return (
-    <div className="stack">
+    <div className="manage-stack">
       {viewing && (
         <ProfileDialog
           profile={viewing}
@@ -282,124 +394,126 @@ export function TechPanel({
           onClose={() => setViewing(null)}
         />
       )}
-      <AddMemberForm viewer={viewer} />
-      <section className="panel stack">
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)" }}>
-          Pending applications
-        </h3>
-        <p className="lead" style={{ margin: 0 }}>
-          New people apply on the site. After they confirm their email, you
-          see their name, email, and date here. They stay locked out of chat
-          and lessons until you approve them. Approve always creates a student.
-        </p>
+      {adding && (
+        <ManageDialog title="Add member" onClose={() => setAdding(false)}>
+          <AddMemberForm viewer={viewer} />
+        </ManageDialog>
+      )}
+      {roleFor && (
+        <RoleDialog profile={roleFor} onClose={() => setRoleFor(null)} />
+      )}
+
+      <section className="manage-block">
+        <h3 className="manage-block__title">Pending applications</h3>
         {applications.length === 0 ? (
-          <p style={{ margin: 0 }}>No new applications.</p>
+          <p className="manage-empty">
+            <span aria-hidden="true">✓</span> No applications waiting
+          </p>
         ) : (
-          <div className="table-like">
+          <div className="panel manage-panel">
             {applications.map((app) => (
-              <div key={app.id} className="app-row">
-                <div>
+              <article key={app.id} className="manage-app">
+                <div className="manage-app__who">
                   <strong>{app.display_name}</strong>
-                  {app.email && (
-                    <div className="class-meta">
-                      <span>{app.email}</span>
-                    </div>
-                  )}
-                  {app.hometown?.trim() && (
-                    <div className="class-meta">
-                      From {app.hometown.trim()}
-                    </div>
-                  )}
+                  {app.email && <span>{app.email}</span>}
+                  {app.hometown?.trim() && <span>From {app.hometown.trim()}</span>}
                   {app.heard_from?.trim() && (
-                    <div className="class-meta">
-                      Heard about us: {app.heard_from.trim()}
-                    </div>
+                    <span>Heard about us: {app.heard_from.trim()}</span>
                   )}
                 </div>
-                <div className="class-meta">
-                  <span>
-                    {new Intl.DateTimeFormat("en-US", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(app.created_at))}
-                  </span>
-                </div>
-                <div className="stack">
+                <p className="manage-app__when">
+                  {new Intl.DateTimeFormat("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(app.created_at))}
+                </p>
+                <div className="manage-app__side">
                   <ReviewForm profile={app} />
                   {canDeleteMember(viewer, app) && (
-                    <DeleteForm userId={app.id} label={app.display_name} />
+                    <PendingDelete userId={app.id} label={app.display_name} />
                   )}
                 </div>
-              </div>
+              </article>
             ))}
           </div>
         )}
       </section>
 
-      <section className="panel stack">
-        <h3 style={{ margin: 0, fontFamily: "var(--font-display)" }}>
-          Members
-        </h3>
-        <p className="lead" style={{ margin: 0 }}>
-          Approved people in the group. Suspended accounts stay in the list
-          until restored.
-        </p>
-        <div className="table-like">
+      <section className="manage-block">
+        <div className="manage-block__head">
+          <h3 className="manage-block__title">Members</h3>
+          <button
+            type="button"
+            className="manage-add"
+            onClick={() => setAdding(true)}
+          >
+            + Add member
+          </button>
+        </div>
+        <div className="panel manage-panel">
           {members.map((m) => (
-            <div key={m.id} className="app-row">
-              <div>
-                <strong>
-                  <button
-                    type="button"
-                    className="profile-link"
-                    onClick={() => setViewing(m)}
-                  >
-                    {m.display_name}
-                  </button>
-                </strong>
-                <div className="class-meta">
-                  <RoleBadge role={m.role} />
-                  {m.status !== "approved" && m.status !== "suspended" && (
-                    <span>{m.status}</span>
-                  )}
-                  <ModerationFlags profile={m} viewer={viewer} />
-                </div>
+            <article key={m.id} className="manage-member">
+              <div className="manage-member__who">
+                <button
+                  type="button"
+                  className="profile-link manage-member__name"
+                  onClick={() => setViewing(m)}
+                >
+                  {m.display_name}
+                </button>
+                <RoleBadge role={m.role} />
+                {m.status !== "approved" && m.status !== "suspended" && (
+                  <span className="manage-member__status">{m.status}</span>
+                )}
+                <ModerationFlags profile={m} viewer={viewer} />
               </div>
-              <div className="class-meta">
-                <span>
-                  Joined{" "}
-                  {new Intl.DateTimeFormat("en-US", {
-                    dateStyle: "medium",
-                  }).format(new Date(m.created_at))}
-                </span>
-              </div>
-              <div className="stack">
+              <p className="manage-member__joined">
+                Joined{" "}
+                {new Intl.DateTimeFormat("en-US", {
+                  dateStyle: "medium",
+                }).format(new Date(m.created_at))}
+              </p>
+              <div className="manage-member__aside">
                 {m.id === viewer.id ? (
-                  <span className="class-meta">You</span>
-                ) : m.role === "tech" ? (
-                  <span className="class-meta">TECH</span>
+                  <span className="manage-you">You</span>
                 ) : (
-                  <>
-                    {canModerateMembers(viewer.role) &&
-                      canModerateAccount(viewer.role, m.role) && (
-                        <>
-                          <MuteForm profile={m} />
-                          <SuspendForm profile={m} />
-                        </>
-                      )}
-                    {canManageRoles(viewer.role) && (
-                      <RoleForm profile={m} />
-                    )}
-                    {canDeleteMember(viewer, m) && (
-                      <DeleteForm userId={m.id} label={m.display_name} />
-                    )}
-                  </>
+                  <MemberMenu
+                    member={m}
+                    viewer={viewer}
+                    onView={() => setViewing(m)}
+                    onChangeRole={() => setRoleFor(m)}
+                  />
                 )}
               </div>
-            </div>
+            </article>
           ))}
         </div>
       </section>
     </div>
+  );
+}
+
+function PendingDelete({ userId, label }: { userId: string; label: string }) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    deleteMember,
+    null,
+  );
+  useRefreshOnSuccess(state);
+
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!confirm(`Delete account “${label}”? This cannot be undone.`)) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="user_id" value={userId} />
+      <button className="manage-text-btn manage-text-btn--danger" type="submit" disabled={pending}>
+        {pending ? "Deleting…" : "Delete account"}
+      </button>
+      {state?.error && <p className="error">{state.error}</p>}
+    </form>
   );
 }

@@ -2339,3 +2339,291 @@ button.chat-msg__name {
     animation: none;
   }
 }
+
+.manage-page .lead {
+  max-width: 34rem;
+  margin-bottom: 1.25rem;
+}
+
+.manage-page {
+  overflow-x: hidden;
+}
+
+.manage-stack,
+.manage-block {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.manage-stack {
+  gap: 1.5rem;
+}
+
+.manage-block__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.manage-block__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  color: var(--plaza-deep);
+}
+
+.manage-empty {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+}
+
+.manage-panel {
+  padding: 0.15rem 1.1rem 0.35rem;
+}
+
+.manage-app,
+.manage-member {
+  display: grid;
+  gap: 0.2rem 0.85rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.manage-app:last-child,
+.manage-member:last-child {
+  border-bottom: none;
+}
+
+.manage-app__who,
+.manage-member__who {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+
+.manage-app__who {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.manage-app__who span,
+.manage-app__when,
+.manage-member__joined,
+.manage-member__status {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.manage-member__name {
+  font-weight: 650;
+  font-size: 0.98rem;
+}
+
+.manage-app__actions,
+.manage-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+}
+
+.manage-approve {
+  padding: 0.38rem 0.9rem;
+  font-size: 0.88rem;
+}
+
+.manage-text-btn,
+.manage-add {
+  background: none;
+  border: none;
+  padding: 0.2rem 0;
+  color: var(--plaza-deep);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.manage-add {
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.manage-text-btn:hover,
+.manage-add:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.manage-text-btn--danger {
+  color: #b42318;
+}
+
+.manage-you {
+  color: var(--ink-soft);
+  font-size: 0.82rem;
+}
+
+.manage-member {
+  grid-template-columns: 1fr auto;
+}
+
+.manage-member__who {
+  grid-column: 1;
+}
+
+.manage-member__joined {
+  grid-column: 1;
+  margin: 0;
+}
+
+.manage-member__aside {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+
+.manage-menu {
+  position: relative;
+  justify-self: end;
+}
+
+.manage-menu__trigger {
+  background: none;
+  border: none;
+  min-width: 2.2rem;
+  min-height: 2.2rem;
+  padding: 0;
+  letter-spacing: 0.08em;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.manage-menu__list {
+  position: absolute;
+  right: 0;
+  top: calc(100% - 0.15rem);
+  z-index: 24;
+  min-width: 12.75rem;
+  padding: 0.35rem 0;
+  background: #fffdf8;
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  box-shadow: 0 12px 30px rgba(196, 81, 12, 0.12);
+}
+
+.manage-menu__item {
+  display: block;
+  width: 100%;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 0.48rem 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.manage-menu__item:hover {
+  background: rgba(232, 106, 23, 0.08);
+}
+
+.manage-menu__item--danger {
+  color: #b42318;
+}
+
+.manage-menu__rule {
+  height: 1px;
+  margin: 0.3rem 0;
+  background: var(--line);
+}
+
+.manage-menu__error {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  width: max-content;
+  max-width: 14rem;
+  margin-top: 0.25rem;
+}
+
+.manage-fold {
+  margin-top: 1.15rem;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid var(--line);
+}
+
+.manage-fold--static {
+  display: grid;
+  gap: 0.15rem;
+}
+
+.manage-fold > summary {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.85rem;
+  cursor: pointer;
+}
+
+.manage-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.manage-fold > summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--ink-soft);
+}
+
+.manage-fold[open] > summary::after {
+  content: "▴";
+}
+
+.manage-fold__title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  color: var(--plaza-deep);
+}
+
+.manage-fold__hint,
+.manage-fold__copy {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.manage-fold__body {
+  display: grid;
+  gap: 0.85rem;
+  padding: 0.75rem 0 0.2rem;
+}
+
+.manage-dialog__panel {
+  width: min(26rem, 100%);
+}
+
+.manage-demo {
+  margin: -0.5rem 0 1rem;
+}
+
+@media (min-width: 720px) {
+  .manage-app {
+    grid-template-columns: minmax(0, 1.4fr) auto auto;
+    align-items: start;
+  }
+
+  .manage-app__when {
+    margin: 0;
+    padding-top: 0.15rem;
+  }
+}

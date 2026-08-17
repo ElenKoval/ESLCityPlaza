@@ -141,23 +141,15 @@ export default async function TechPage() {
   const noticeOk = Boolean(notice?.ready);
 
   return (
-    <div className="page">
+    <div className="page manage-page">
       <section className="section">
         <h2>Approvals</h2>
         <p className="lead">
-          How it works: someone applies → confirms email → you see their name,
-          email, and date here → Approve or Decline. Approved members get a
-          welcome email, then they can use chat and class sign-up.
+          Review new requests, then keep the group in order.
         </p>
-        {profile.role === "tech" && (
-          <div className={`mail-status ${noticeOk ? "is-ok" : "is-off"}`}>
-            <p>{noticeText}</p>
-            {noticeOk && <SendTestMailButton />}
-          </div>
-        )}
         {isDemo && (
-          <form action={resetDemoAction} style={{ marginBottom: "1rem" }}>
-            <button type="submit" className="btn-secondary">
+          <form action={resetDemoAction} className="manage-demo">
+            <button type="submit" className="manage-text-btn">
               Load sample applications
             </button>
           </form>
@@ -168,9 +160,18 @@ export default async function TechPage() {
           viewer={profile}
         />
         {canViewClassRoster(profile.role) && (
-          <div style={{ marginTop: "1.25rem" }}>
-            <ClassRosterPanel rosters={rosters} actorRole={profile.role} />
-          </div>
+          <ClassRosterPanel rosters={rosters} actorRole={profile.role} />
+        )}
+        {profile.role === "tech" && (
+          <details className="manage-fold">
+            <summary>
+              <span className="manage-fold__title">Email diagnostics</span>
+            </summary>
+            <div className="manage-fold__body">
+              <p className="manage-fold__copy">{noticeText}</p>
+              {noticeOk && <SendTestMailButton />}
+            </div>
+          </details>
         )}
       </section>
     </div>
