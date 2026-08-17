@@ -159,26 +159,36 @@ export function ProfileSetupForm({
         {mode === "edit" && saveState?.success && (
           <p className="success">Profile saved</p>
         )}
-        <button className="btn-primary" type="submit" disabled={busy}>
-          {mode === "setup" && leaving && saveState?.success
-            ? "Opening…"
-            : saving
-              ? "Saving…"
-              : "Save profile"}
-        </button>
+        {mode === "setup" && skipState?.error && (
+          <p className="error">{skipState.error}</p>
+        )}
+        <div className="profile-setup__actions">
+          <button className="btn-primary" type="submit" disabled={busy}>
+            {mode === "setup" && leaving && saveState?.success
+              ? "Opening…"
+              : saving
+                ? "Saving…"
+                : "Save profile"}
+          </button>
+          {mode === "setup" && (
+            <button
+              className="btn-ghost"
+              type="submit"
+              form="profile-skip-form"
+              disabled={busy}
+            >
+              {leaving && skipState?.success
+                ? "Opening…"
+                : skipping
+                  ? "…"
+                  : "Skip for now"}
+            </button>
+          )}
+        </div>
       </form>
 
       {mode === "setup" && (
-        <form action={skipAction}>
-          {skipState?.error && <p className="error">{skipState.error}</p>}
-          <button className="btn-ghost" type="submit" disabled={busy}>
-            {leaving && skipState?.success
-              ? "Opening…"
-              : skipping
-                ? "…"
-                : "Skip for now"}
-          </button>
-        </form>
+        <form id="profile-skip-form" action={skipAction} hidden></form>
       )}
     </div>
   );

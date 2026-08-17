@@ -1528,6 +1528,18 @@ button.chat-msg__name {
   color: var(--plaza-deep);
 }
 
+.profile-setup__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.85rem;
+}
+
+.profile-setup__actions .btn-ghost {
+  padding: 0.65rem 1.15rem;
+  color: var(--plaza-deep);
+}
+
 .legal-page h2 {
   font-family: var(--font-display);
   font-size: 1.15rem;

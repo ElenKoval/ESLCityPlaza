@@ -7,6 +7,7 @@ export const CLASS_TOPIC_CONTENT_MAX = 8000;
 
 export function formatClassDay(startsAt: string) {
   return new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
     weekday: "long",
     month: "long",
     day: "numeric",

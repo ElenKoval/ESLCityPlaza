@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
+import { RegisterConfirmedView } from "@/components/RegisterConfirmedView";
+import { getProfile } from "@/lib/auth";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Email confirmed — ESL on the Plaza",
 };
 
-export default function RegisterConfirmedPage() {
+export default async function RegisterConfirmedPage() {
+  const { profile } = await getProfile();
+
   return (
     <div className="page">
-      <section className="section panel stack">
-        <h2>Email confirmed</h2>
-        <p className="lead">
-          Your request to join ESL on the Plaza has been sent.
-        </p>
-        <p>Please wait for approval.</p>
-      </section>
+      <RegisterConfirmedView status={profile?.status ?? null} />
     </div>
   );
 }

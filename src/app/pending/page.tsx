@@ -1,4 +1,5 @@
 import { requireUser } from "@/lib/auth";
+import { PendingStatusPoller } from "@/components/PendingStatusPoller";
 import { useLocalDemo } from "@/lib/demo";
 import Link from "next/link";
 
@@ -23,6 +24,7 @@ export default async function PendingPage() {
 
   return (
     <div className="page">
+      <PendingStatusPoller status={profile?.status ?? "pending"} />
       <section className="section panel stack">
         {rejected ? (
           <>

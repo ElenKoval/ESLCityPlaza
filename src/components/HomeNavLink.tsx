@@ -57,3 +57,7 @@ export function ScheduleNavLink() {
 export function ApprovalsNavLink() {
   return <NavLink href="/tech">Approvals</NavLink>;
 }
+
+export function ProfileNavLink() {
+  return <NavLink href="/account">Profile</NavLink>;
+}

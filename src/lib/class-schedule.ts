@@ -13,6 +13,7 @@ export function formatClassHours(startsAt: string) {
   const start = new Date(startsAt);
   const end = new Date(start.getTime() + CLASS_DURATION_MS);
   const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
     hour: "numeric",
     minute: "2-digit",
   });

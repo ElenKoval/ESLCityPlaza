@@ -2,9 +2,7 @@ import Link from "next/link";
 import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
 import { MeetSpot } from "@/components/MeetSpot";
-import { redirect } from "next/navigation";
 import { getProfile } from "@/lib/auth";
-import { needsProfileSetup } from "@/lib/profile";
 import { createClient } from "@/lib/supabase/server";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import { useLocalDemo } from "@/lib/demo";
@@ -78,10 +76,6 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
 export default async function HomePage() {
   const { profile, userId } = await getProfile();
   const demoMode = useLocalDemo();
-
-  if (needsProfileSetup(profile)) {
-    redirect("/profile");
-  }
 
   const access =
     !profile

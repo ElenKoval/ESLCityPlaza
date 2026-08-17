@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
-import { ApprovalsNavLink, AnnouncementsNavLink, ChatNavLink, ClassTopicsNavLink, HomeNavLink, ScheduleNavLink } from "./HomeNavLink";
+import { ApprovalsNavLink, AnnouncementsNavLink, ChatNavLink, ClassTopicsNavLink, HomeNavLink, ProfileNavLink, ScheduleNavLink } from "./HomeNavLink";
 import { RoleBadge } from "./RoleBadge";
 import { SignOutButton } from "./SignOutButton";
 
@@ -17,6 +17,7 @@ export async function SiteHeader() {
           {profile?.status === "approved" && <ChatNavLink />}
           {profile?.status === "approved" && <ClassTopicsNavLink />}
           {profile?.status === "approved" && <AnnouncementsNavLink />}
+          {profile?.status === "approved" && <ProfileNavLink />}
           {profile?.status === "approved" &&
             (profile.role === "teacher" || profile.role === "tech") && (
               <>

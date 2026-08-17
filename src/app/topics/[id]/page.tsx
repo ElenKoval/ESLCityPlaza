@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireApproved } from "@/lib/auth";
 import { canManageClassTopics } from "@/lib/roles";
-import { formatClassHours } from "@/lib/class-schedule";
+import { classTopicWhenLabel } from "@/lib/class-topics";
 import { loadClassTopic } from "@/lib/load-class-topics";
 
 export async function generateMetadata({
@@ -37,21 +37,16 @@ export default async function ClassTopicPage({
       <section className="section topic-page">
         <h1>{topic.title}</h1>
         {topic.class_starts_at && (
-          <p className="lead">
-            {new Intl.DateTimeFormat("en-US", {
-              weekday: "long",
-              month: "long",
-              day: "numeric",
-            }).format(new Date(topic.class_starts_at))}
-            <br />
-            {formatClassHours(topic.class_starts_at)}
-          </p>
+          <p className="lead">{classTopicWhenLabel(topic.class_starts_at)}</p>
         )}
         {staff && (
-          <p className="class-meta">
-            {topic.is_published ? "Published" : "Draft"}
-            {" · "}
-            <Link href={`/topics/${topic.id}/edit`}>Edit</Link>
+          <p className="class-actions">
+            <span className="class-meta" style={{ alignSelf: "center" }}>
+              {topic.is_published ? "Published" : "Draft"}
+            </span>
+            <Link href={`/topics/${topic.id}/edit`} className="btn-primary">
+              Edit
+            </Link>
           </p>
         )}
         <div className="panel">
