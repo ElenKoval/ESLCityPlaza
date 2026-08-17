@@ -25,7 +25,12 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { emailForUserId, authEmailExists, createAdminClient } from "@/lib/auth-admin";
 import { sendApprovedWelcomeEmail, sendNewApplicationNotice } from "@/lib/mail";
-import { MAX_INTERESTS, INTEREST_CHIPS } from "@/lib/profile";
+import {
+  MAX_INTERESTS,
+  OTHER_INTEREST,
+  PRESET_INTERESTS,
+  normalizeCustomInterest,
+} from "@/lib/profile";
 import {
   assignableRoles,
   canDeleteChatMessage,
@@ -1774,7 +1779,38 @@ export async function unenrollClass(
   return { success: "Sign-up canceled" };
 }
 
-const ALLOWED_INTERESTS = new Set<string>(INTEREST_CHIPS);
+function collectProfileInterests(formData: FormData):
+  | { interests: string[] }
+  | { error: string } {
+  const preset = new Set<string>(PRESET_INTERESTS);
+  const selected = formData
+    .getAll("interests")
+    .map((value) => String(value).trim())
+    .filter((value) => preset.has(value));
+  const unique = [...new Set(selected)];
+  const otherSelected = String(formData.get("other_selected") || "") === "true";
+  const typed = normalizeCustomInterest(
+    String(formData.get("other_interest") || ""),
+  );
+
+  if (otherSelected && !typed) {
+    return { error: "Please type your other interest." };
+  }
+
+  const interests = unique.slice();
+  if (otherSelected && typed) {
+    const match = PRESET_INTERESTS.find(
+      (chip) => chip.toLowerCase() === typed.toLowerCase(),
+    );
+    if (match) {
+      if (!interests.includes(match)) interests.push(match);
+    } else if (typed !== OTHER_INTEREST) {
+      interests.push(typed);
+    }
+  }
+
+  return { interests: interests.slice(0, MAX_INTERESTS) };
+}
 
 export async function saveProfile(
   _prev: ActionState,
@@ -1788,11 +1824,9 @@ export async function saveProfile(
     .map((v) => String(v).trim())
     .filter(Boolean)
     .slice(0, 8);
-  const interests = formData
-    .getAll("interests")
-    .map((v) => String(v))
-    .filter((v) => ALLOWED_INTERESTS.has(v))
-    .slice(0, MAX_INTERESTS);
+  const parsedInterests = collectProfileInterests(formData);
+  if ("error" in parsedInterests) return parsedInterests;
+  const interests = parsedInterests.interests;
 
   if (!displayName) return { error: "Please enter your name" };
   if (bio.length > 600) return { error: "Please keep the intro a little shorter" };

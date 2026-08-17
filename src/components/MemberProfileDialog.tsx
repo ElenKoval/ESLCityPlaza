@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { RoleBadge } from "@/components/RoleBadge";
+import { OTHER_INTEREST } from "@/lib/profile";
 import type { Profile } from "@/lib/types";
 
 export type MemberPreview = Pick<
@@ -24,7 +25,9 @@ export function MemberProfileCard({
   showEmail?: boolean;
 }) {
   const languages = (profile.languages ?? []).filter(Boolean);
-  const interests = profile.interests ?? [];
+  const interests = (profile.interests ?? []).filter(
+    (chip) => chip && chip !== OTHER_INTEREST,
+  );
   const hometown = profile.hometown?.trim() ?? "";
   const bio = profile.bio?.trim() ?? "";
   const extra =

@@ -8,8 +8,12 @@ import {
 } from "@/app/actions";
 import {
   BIO_EXAMPLE,
+  CUSTOM_INTEREST_MAX,
   INTEREST_CHIPS,
   MAX_INTERESTS,
+  OTHER_INTEREST,
+  normalizeCustomInterest,
+  splitStoredInterests,
 } from "@/lib/profile";
 import type { Profile } from "@/lib/types";
 
@@ -38,12 +42,31 @@ export function ProfileSetupForm({
   const [languages, setLanguages] = useState(
     existingLangs.length ? existingLangs : [""],
   );
-  const [interests, setInterests] = useState<string[]>(profile.interests ?? []);
+  const storedInterests = splitStoredInterests(profile.interests ?? []);
+  const [interests, setInterests] = useState<string[]>(storedInterests.selected);
+  const [otherOn, setOtherOn] = useState(
+    Boolean(storedInterests.custom) ||
+      (profile.interests ?? []).includes(OTHER_INTEREST),
+  );
+  const [customInterest, setCustomInterest] = useState(storedInterests.custom);
+  const [interestError, setInterestError] = useState<string | null>(null);
 
   function toggleInterest(chip: string) {
+    setInterestError(null);
+    if (chip === OTHER_INTEREST) {
+      setOtherOn((prev) => {
+        if (prev) {
+          setCustomInterest("");
+          return false;
+        }
+        if (interests.length >= MAX_INTERESTS) return prev;
+        return true;
+      });
+      return;
+    }
     setInterests((prev) => {
       if (prev.includes(chip)) return prev.filter((item) => item !== chip);
-      if (prev.length >= MAX_INTERESTS) return prev;
+      if (prev.length + (otherOn ? 1 : 0) >= MAX_INTERESTS) return prev;
       return [...prev, chip];
     });
   }
@@ -53,7 +76,16 @@ export function ProfileSetupForm({
 
   return (
     <div className="stack">
-      <form action={saveAction} className="panel profile-form">
+      <form
+        action={saveAction}
+        className="panel profile-form"
+        onSubmit={(e) => {
+          if (otherOn && !normalizeCustomInterest(customInterest)) {
+            e.preventDefault();
+            setInterestError("Please type your other interest.");
+          }
+        }}
+      >
         <p className="profile-form__note">
           Everything except your name is optional.
         </p>
@@ -127,7 +159,8 @@ export function ProfileSetupForm({
           <h2 className="profile-form__heading">Interests</h2>
           <div className="interest-chips">
             {INTEREST_CHIPS.map((chip) => {
-              const on = interests.includes(chip);
+              const on =
+                chip === OTHER_INTEREST ? otherOn : interests.includes(chip);
               return (
                 <button
                   key={chip}
@@ -141,10 +174,33 @@ export function ProfileSetupForm({
               );
             })}
           </div>
+          {otherOn && (
+            <label className="interest-other">
+              <span className="interest-other__top">
+                Other interest
+                <span className="interest-other__count">
+                  {customInterest.length} / {CUSTOM_INTEREST_MAX}
+                </span>
+              </span>
+              <input
+                name="other_interest"
+                value={customInterest}
+                maxLength={CUSTOM_INTEREST_MAX}
+                placeholder="Type your interest..."
+                autoComplete="off"
+                onChange={(e) => {
+                  setInterestError(null);
+                  setCustomInterest(e.target.value.slice(0, CUSTOM_INTEREST_MAX));
+                }}
+              />
+            </label>
+          )}
           {interests.map((chip) => (
             <input key={chip} type="hidden" name="interests" value={chip} />
           ))}
+          {otherOn && <input type="hidden" name="other_selected" value="true" />}
           <p className="field-hint">Choose up to {MAX_INTERESTS}.</p>
+          {interestError && <p className="error">{interestError}</p>}
         </section>
 
         <section className="profile-form__group">
