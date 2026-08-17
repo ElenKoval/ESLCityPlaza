@@ -2,8 +2,8 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { getPublicProfile } from "@/app/actions";
-import { canAnnounce, canModerateChat } from "@/lib/roles";
+import { getPublicProfile, postChatMessage, deleteChatMessage } from "@/app/actions";
+import { canAnnounce, canDeleteChatMessage } from "@/lib/roles";
 import { RoleBadge } from "@/components/RoleBadge";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
 import type { ChatMessage } from "@/lib/chat";
@@ -192,7 +192,6 @@ export function ChatRoom({
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const canPin = canAnnounce(role);
-  const canModerate = canModerateChat(role);
 
   useEffect(() => {
     if (!isLocalDemo) return;
@@ -280,6 +279,14 @@ export function ChatRoom({
     const asAnnounce = canPin && announce;
     startTransition(async () => {
       if (isLocalDemo) {
+        const form = new FormData();
+        form.set("body", text);
+        form.set("announce", asAnnounce ? "true" : "false");
+        const result = await postChatMessage(null, form);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
         const msg: ChatMessage = {
           id: crypto.randomUUID(),
           user_id: userId,
@@ -298,34 +305,28 @@ export function ChatRoom({
         return;
       }
 
-      const supabase = createClient();
-      const payload: Record<string, unknown> = {
-        user_id: userId,
-        body: text,
-        is_announcement: asAnnounce,
-      };
-      const { data, error: insertError } = await supabase
-        .from("messages")
-        .insert(payload)
-        .select("id, user_id, body, created_at, is_announcement")
-        .single();
-      if (insertError) {
-        setError(insertError.message);
+      const form = new FormData();
+      form.set("body", text);
+      form.set("announce", asAnnounce ? "true" : "false");
+      const result = await postChatMessage(null, form);
+      if (result?.error) {
+        setError(result.error);
         return;
       }
-      if (data) {
+      const sent = result?.message;
+      if (sent) {
         setMessages((prev) => {
-          if (prev.some((m) => m.id === data.id)) return prev;
+          if (prev.some((m) => m.id === sent.id)) return prev;
           return [
             ...prev,
             {
-              id: data.id,
-              user_id: data.user_id,
-              body: data.body,
-              created_at: data.created_at,
+              id: sent.id,
+              user_id: sent.user_id,
+              body: sent.body,
+              created_at: sent.created_at,
               display_name: displayName,
               role,
-              is_announcement: Boolean(data.is_announcement),
+              is_announcement: Boolean(sent.is_announcement),
             },
           ];
         });
@@ -344,10 +345,11 @@ export function ChatRoom({
         setMessages(next);
         return;
       }
-      const supabase = createClient();
-      const { error: delError } = await supabase.from("messages").delete().eq("id", id);
-      if (delError) {
-        setError(delError.message);
+      const form = new FormData();
+      form.set("message_id", id);
+      const result = await deleteChatMessage(null, form);
+      if (result?.error) {
+        setError(result.error);
         return;
       }
       setMessages((prev) => prev.filter((m) => m.id !== id));
@@ -407,7 +409,10 @@ export function ChatRoom({
               {showDay && <div className="chat-day">{day}</div>}
               <MessageRowView
                 msg={msg}
-                canDelete={msg.user_id === userId || canModerate}
+                canDelete={canDeleteChatMessage(
+                  { id: userId, role },
+                  { user_id: msg.user_id, role: msg.role },
+                )}
                 onDelete={remove}
                 onOpenProfile={openProfile}
               />

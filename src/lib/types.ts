@@ -1,6 +1,7 @@
-export type Role = "student" | "teacher" | "tech";
-export type ProfileStatus = "pending" | "approved" | "rejected";
+export type Role = "student" | "teacher" | "admin" | "tech";
+export type ProfileStatus = "pending" | "approved" | "rejected" | "suspended";
 export type RequestedRole = "student" | "teacher";
+export type ModerationAction = "mute" | "unmute" | "suspend" | "unsuspend";
 
 export type Profile = {
   id: string;
@@ -13,11 +14,12 @@ export type Profile = {
   languages?: string[];
   interests?: string[];
   bio?: string;
+  muted?: boolean;
   onboarding_completed_at?: string | null;
   created_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
-  /** Filled for Tech on Approvals, and in local demo mode */
+  /** Filled for Approvals / member admin, and in local demo mode */
   email?: string;
 };
 
@@ -32,6 +34,20 @@ export type ClassRow = {
   created_at: string;
   enrollment_count?: number;
   enrolled?: boolean;
+};
+
+export type ClassRosterEntry = {
+  userId: string;
+  displayName: string;
+  role: Role;
+};
+
+export type ClassRoster = {
+  classId: string;
+  title: string;
+  startsAt: string;
+  location?: string;
+  people: ClassRosterEntry[];
 };
 
 export type ClassTopicRow = {

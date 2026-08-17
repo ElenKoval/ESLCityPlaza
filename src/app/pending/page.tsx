@@ -2,22 +2,16 @@ import { requireUser } from "@/lib/auth";
 import { PendingStatusPoller } from "@/components/PendingStatusPoller";
 import { useLocalDemo } from "@/lib/demo";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 export default async function PendingPage() {
   const { profile } = await requireUser();
 
   if (profile?.status === "approved") {
-    return (
-      <div className="page">
-        <section className="section panel">
-          <h2>You are in</h2>
-          <p className="lead">Classes and chat are ready for you.</p>
-          <Link href="/" className="btn-primary">
-            Go home
-          </Link>
-        </section>
-      </div>
-    );
+    redirect("/");
+  }
+  if (profile?.status === "suspended") {
+    redirect("/suspended");
   }
 
   const rejected = profile?.status === "rejected";

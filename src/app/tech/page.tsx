@@ -1,6 +1,7 @@
-import { requireStaff } from "@/lib/auth";
+import { requireApprover } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TechPanel } from "@/components/TechPanel";
+import { ClassRosterPanel } from "@/components/ClassRoster";
 import {
   DEMO_TECH_ID,
   getDemoMembers,
@@ -10,7 +11,8 @@ import {
 import { authContactsForUserIds } from "@/lib/auth-admin";
 import { getApplicationNoticeStatus } from "@/lib/mail";
 import { SendTestMailButton } from "@/components/SendTestMailButton";
-import type { Profile } from "@/lib/types";
+import { canViewClassRoster } from "@/lib/roles";
+import type { ClassRoster, Profile } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
 async function resetDemoAction() {
@@ -20,11 +22,12 @@ async function resetDemoAction() {
 }
 
 export default async function TechPage() {
-  const { userId, profile } = await requireStaff();
+  const { userId, profile } = await requireApprover();
   const isDemo = useLocalDemo() || userId === DEMO_TECH_ID;
 
   let applications: Profile[] = [];
   let members: Profile[] = [];
+  let rosters: ClassRoster[] = [];
 
   if (isDemo) {
     const all = await getDemoMembers();
@@ -63,6 +66,53 @@ export default async function TechPage() {
       ...p,
       email: contacts.get(p.id)?.email ?? p.email,
     }));
+    if (profile.role === "teacher") {
+      members = members.map((p) => ({ ...p, email: undefined }));
+    }
+
+    if (canViewClassRoster(profile.role)) {
+      const { data: classes } = await supabase
+        .from("classes")
+        .select("id, title, starts_at, location")
+        .gte("starts_at", new Date().toISOString())
+        .order("starts_at", { ascending: true })
+        .limit(12);
+      const classRows = classes ?? [];
+      if (classRows.length) {
+        const classIds = classRows.map((c) => c.id);
+        const { data: enrolled } = await supabase
+          .from("enrollments")
+          .select("class_id, user_id")
+          .in("class_id", classIds);
+        const userIds = [...new Set((enrolled ?? []).map((row) => row.user_id))];
+        const nameById = new Map<string, { displayName: string; role: Profile["role"] }>();
+        if (userIds.length) {
+          const { data: people } = await supabase
+            .from("profiles")
+            .select("id, display_name, role")
+            .in("id", userIds);
+          for (const person of people ?? []) {
+            nameById.set(person.id, {
+              displayName: person.display_name,
+              role: person.role,
+            });
+          }
+        }
+        rosters = classRows.map((item) => ({
+          classId: item.id,
+          title: item.title,
+          startsAt: item.starts_at,
+          location: item.location,
+          people: (enrolled ?? [])
+            .filter((row) => row.class_id === item.id)
+            .map((row) => ({
+              userId: row.user_id,
+              displayName: nameById.get(row.user_id)?.displayName ?? "Member",
+              role: nameById.get(row.user_id)?.role ?? "student",
+            })),
+        }));
+      }
+    }
   }
 
   let notice: Awaited<ReturnType<typeof getApplicationNoticeStatus>> | null =
@@ -117,6 +167,11 @@ export default async function TechPage() {
           members={members}
           viewer={profile}
         />
+        {canViewClassRoster(profile.role) && (
+          <div style={{ marginTop: "1.25rem" }}>
+            <ClassRosterPanel rosters={rosters} actorRole={profile.role} />
+          </div>
+        )}
       </section>
     </div>
   );

@@ -87,13 +87,6 @@ export function RegisterForm() {
         />
       </label>
       <label>
-        I want to join as
-        <select name="requested_role" defaultValue="student">
-          <option value="student">Student</option>
-          <option value="teacher">Teacher</option>
-        </select>
-      </label>
-      <label>
         Where are you from?
         <input
           name="hometown"

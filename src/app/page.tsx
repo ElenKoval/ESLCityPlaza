@@ -14,6 +14,7 @@ import { loadCurrentAnnouncements } from "@/lib/load-announcements";
 import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
 import { needsProfileSetup } from "@/lib/profile";
 import type { ClassRow } from "@/lib/types";
+import { redirect } from "next/navigation";
 
 function welcomeFirstName(displayName: string | null | undefined) {
   if (!displayName) return "there";
@@ -76,6 +77,9 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
 
 export default async function HomePage() {
   const { profile, userId } = await getProfile();
+  if (profile?.status === "suspended") {
+    redirect("/suspended");
+  }
   const demoMode = useLocalDemo();
 
   const access =

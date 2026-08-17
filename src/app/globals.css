@@ -1349,9 +1349,67 @@ textarea {
   color: #8a3a08;
 }
 
+.badge-admin {
+  background: rgba(47, 111, 78, 0.14);
+  color: #1f5c3d;
+}
+
 .badge-tech {
   background: rgba(42, 28, 18, 0.1);
   color: var(--ink);
+}
+
+.moderation-flag {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.16rem 0.5rem;
+  border-radius: 999px;
+}
+
+.moderation-flag--muted {
+  background: rgba(61, 90, 128, 0.12);
+  color: #3d5a80;
+}
+
+.moderation-flag--suspended {
+  background: rgba(42, 28, 18, 0.1);
+  color: var(--ink);
+}
+
+.roster-class {
+  display: grid;
+  gap: 0.5rem;
+  padding-bottom: 0.85rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.roster-class:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.roster-class__title {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.roster-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.roster-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .class-list {

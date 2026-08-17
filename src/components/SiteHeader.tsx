@@ -4,6 +4,7 @@ import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { ApprovalsNavLink, AnnouncementsNavLink, ChatNavLink, ClassTopicsNavLink, HomeNavLink, ProfileNavLink, ScheduleNavLink } from "./HomeNavLink";
 import { RoleBadge } from "./RoleBadge";
 import { SignOutButton } from "./SignOutButton";
+import { canManageClasses, canReviewApplications } from "@/lib/roles";
 
 export async function SiteHeader() {
   const { profile } = await getProfile();
@@ -19,12 +20,9 @@ export async function SiteHeader() {
           {profile?.status === "approved" && <AnnouncementsNavLink />}
           {profile?.status === "approved" && <ProfileNavLink />}
           {profile?.status === "approved" &&
-            (profile.role === "teacher" || profile.role === "tech") && (
-              <>
-                <ApprovalsNavLink />
-                <ScheduleNavLink />
-              </>
-            )}
+            canReviewApplications(profile.role) && <ApprovalsNavLink />}
+          {profile?.status === "approved" &&
+            canManageClasses(profile.role) && <ScheduleNavLink />}
         </nav>
         {profile && (
           <div className="site-header__user">

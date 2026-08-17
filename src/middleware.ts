@@ -10,10 +10,20 @@ const PUBLIC = new Set([
   "/privacy",
   "/terms",
   "/announcements",
+  "/suspended",
 ]);
 
 function isPublicPath(path: string) {
   return PUBLIC.has(path) || path.startsWith("/register/");
+}
+
+function isSuspendedAllowedPath(path: string) {
+  return (
+    path === "/suspended" ||
+    path === "/privacy" ||
+    path === "/terms" ||
+    path.startsWith("/auth")
+  );
 }
 
 function demoSessionUserId(request: NextRequest): string | null {
@@ -26,7 +36,7 @@ function demoSessionUserId(request: NextRequest): string | null {
 function demoMemberStatus(
   request: NextRequest,
   userId: string,
-): "pending" | "approved" | "rejected" | null {
+): "pending" | "approved" | "rejected" | "suspended" | null {
   if (userId === DEMO_TECH_ID) return "approved";
   const raw = request.cookies.get(DEMO_MEMBERS_COOKIE)?.value;
   if (!raw) {
@@ -45,7 +55,8 @@ function demoMemberStatus(
     if (
       match.status === "pending" ||
       match.status === "approved" ||
-      match.status === "rejected"
+      match.status === "rejected" ||
+      match.status === "suspended"
     ) {
       return match.status;
     }
@@ -53,6 +64,12 @@ function demoMemberStatus(
   } catch {
     return null;
   }
+}
+
+function statusHomePath(status: string | null | undefined) {
+  if (status === "approved") return "/";
+  if (status === "suspended") return "/suspended";
+  return "/pending";
 }
 
 export async function middleware(request: NextRequest) {
@@ -64,12 +81,20 @@ export async function middleware(request: NextRequest) {
 
   // Local demo (no Supabase yet)
   if (!url || !key) {
+    if (hasDemo && demoUserId) {
+      const status = demoMemberStatus(request, demoUserId);
+      if (status === "suspended" && !isSuspendedAllowedPath(path)) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/suspended";
+        return NextResponse.redirect(redirectUrl);
+      }
+    }
+
     if (isPublicPath(path) || path.startsWith("/auth")) {
       if (hasDemo && (path === "/login" || path === "/register" || path === "/enter")) {
         const status = demoMemberStatus(request, demoUserId!);
         const redirectUrl = request.nextUrl.clone();
-        redirectUrl.pathname =
-          status === "approved" ? "/" : "/pending";
+        redirectUrl.pathname = statusHomePath(status);
         return NextResponse.redirect(redirectUrl);
       }
       return NextResponse.next();
@@ -83,6 +108,11 @@ export async function middleware(request: NextRequest) {
     }
 
     const status = demoMemberStatus(request, demoUserId!);
+    if (status === "suspended" && !isSuspendedAllowedPath(path)) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = "/suspended";
+      return NextResponse.redirect(redirectUrl);
+    }
     if (status !== "approved" && path !== "/pending" && !isPublicPath(path)) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = "/pending";
@@ -113,7 +143,7 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     if (hasDemo && demoUserId) {
       const status = demoMemberStatus(request, demoUserId);
-      redirectUrl.pathname = status === "approved" ? "/" : "/pending";
+      redirectUrl.pathname = statusHomePath(status);
       return NextResponse.redirect(redirectUrl);
     }
     if (user) {
@@ -122,8 +152,7 @@ export async function middleware(request: NextRequest) {
         .select("status")
         .eq("id", user.id)
         .maybeSingle();
-      redirectUrl.pathname =
-        profile?.status === "approved" ? "/" : "/pending";
+      redirectUrl.pathname = statusHomePath(profile?.status);
       return NextResponse.redirect(redirectUrl);
     }
     redirectUrl.pathname = "/";
@@ -134,37 +163,49 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
-  if (user && !isPublicPath(path) && path !== "/pending") {
+  if (user) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("status, role")
       .eq("id", user.id)
       .maybeSingle();
 
-    if (!profile || profile.status !== "approved") {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/pending";
-      return NextResponse.redirect(redirectUrl);
+    if (profile?.status === "suspended") {
+      if (!isSuspendedAllowedPath(path)) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/suspended";
+        return NextResponse.redirect(redirectUrl);
+      }
+      return supabaseResponse;
     }
 
-    if (
-      path.startsWith("/tech") &&
-      profile.role !== "tech" &&
-      profile.role !== "teacher"
-    ) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/";
-      return NextResponse.redirect(redirectUrl);
-    }
+    if (!isPublicPath(path) && path !== "/pending") {
+      if (!profile || profile.status !== "approved") {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/pending";
+        return NextResponse.redirect(redirectUrl);
+      }
 
-    if (
-      path.startsWith("/admin") &&
-      profile.role !== "teacher" &&
-      profile.role !== "tech"
-    ) {
-      const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = "/";
-      return NextResponse.redirect(redirectUrl);
+      if (
+        path.startsWith("/tech") &&
+        profile.role !== "tech" &&
+        profile.role !== "teacher" &&
+        profile.role !== "admin"
+      ) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/";
+        return NextResponse.redirect(redirectUrl);
+      }
+
+      if (
+        path.startsWith("/admin") &&
+        profile.role !== "teacher" &&
+        profile.role !== "tech"
+      ) {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/";
+        return NextResponse.redirect(redirectUrl);
+      }
     }
   }
 

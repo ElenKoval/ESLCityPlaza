@@ -6,9 +6,9 @@ create table public.profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   display_name text not null,
   role text not null default 'student'
-    check (role in ('student', 'teacher', 'tech')),
+    check (role in ('student', 'teacher', 'admin', 'tech')),
   status text not null default 'pending'
-    check (status in ('pending', 'approved', 'rejected')),
+    check (status in ('pending', 'approved', 'rejected', 'suspended')),
   requested_role text
     check (requested_role in ('student', 'teacher')),
   hometown text not null default '',
@@ -16,6 +16,7 @@ create table public.profiles (
   languages text[] not null default '{}',
   interests text[] not null default '{}',
   bio text not null default '',
+  muted boolean not null default false,
   onboarding_completed_at timestamptz,
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
@@ -80,6 +81,21 @@ as $$
   );
 $$;
 
+create or replace function public.is_not_muted()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles
+    where id = auth.uid()
+      and status = 'approved'
+      and muted = false
+  );
+$$;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -87,23 +103,18 @@ security definer
 set search_path = public
 as $$
 declare
-  req text;
   name text;
   htown text;
   heard text;
 begin
-  req := coalesce(new.raw_user_meta_data->>'requested_role', 'student');
-  if req not in ('student', 'teacher') then
-    req := 'student';
-  end if;
   name := coalesce(nullif(trim(new.raw_user_meta_data->>'display_name'), ''), split_part(new.email, '@', 1));
   htown := coalesce(nullif(trim(new.raw_user_meta_data->>'hometown'), ''), '');
   heard := coalesce(nullif(trim(new.raw_user_meta_data->>'heard_from'), ''), '');
 
   insert into public.profiles (
-    id, display_name, role, status, requested_role, hometown, heard_from
+    id, display_name, role, status, requested_role, hometown, heard_from, muted
   )
-  values (new.id, name, req, 'pending', req, htown, heard);
+  values (new.id, name, 'student', 'pending', 'student', htown, heard, false);
   return new;
 end;
 $$;
@@ -146,8 +157,37 @@ begin
     or old.status is distinct from new.status
     or old.reviewed_at is distinct from new.reviewed_at
     or old.reviewed_by is distinct from new.reviewed_by
+    or old.muted is distinct from new.muted
   ) then
     raise exception 'Cannot change a tech account';
+  end if;
+
+  if auth.uid() = old.id then
+    if old.role is distinct from new.role
+       or old.status is distinct from new.status
+       or old.requested_role is distinct from new.requested_role
+       or old.muted is distinct from new.muted
+       or old.reviewed_at is distinct from new.reviewed_at
+       or old.reviewed_by is distinct from new.reviewed_by
+    then
+      raise exception 'Cannot change role, status, or moderation fields on your own account';
+    end if;
+    return new;
+  end if;
+
+  if old.requested_role is distinct from new.requested_role then
+    raise exception 'requested_role is immutable';
+  end if;
+
+  if old.muted is distinct from new.muted then
+    if not public.has_role(array['admin', 'tech']) then
+      raise exception 'Only admin or tech can change mute';
+    end if;
+    if public.has_role(array['admin']) and not public.has_role(array['tech']) then
+      if old.role <> 'student' then
+        raise exception 'Admin can only mute students';
+      end if;
+    end if;
   end if;
 
   if (old.role is distinct from new.role)
@@ -155,26 +195,67 @@ begin
      or (old.reviewed_at is distinct from new.reviewed_at)
      or (old.reviewed_by is distinct from new.reviewed_by)
   then
-    if not public.has_role(array['teacher', 'tech']) then
-      raise exception 'Only teacher or tech can change role or status';
+    if not public.has_role(array['teacher', 'admin', 'tech']) then
+      raise exception 'Not allowed to change role or status';
     end if;
 
-    if new.role not in ('student', 'teacher', 'tech') then
+    if new.role not in ('student', 'teacher', 'admin', 'tech') then
       raise exception 'Invalid role';
     end if;
 
-    if public.has_role(array['teacher']) and not public.has_role(array['tech']) then
-      if old.role = 'teacher' and old.status = 'approved' then
-        raise exception 'Teachers cannot change other teachers';
-      end if;
-      if new.role not in ('student', 'teacher') then
-        raise exception 'Invalid role';
+    if new.status not in ('pending', 'approved', 'rejected', 'suspended') then
+      raise exception 'Invalid status';
+    end if;
+
+    if old.role is distinct from new.role then
+      if old.status = 'pending'
+         and new.status = 'approved'
+         and new.role = 'student'
+         and public.has_role(array['teacher', 'admin', 'tech']) then
+        null;
+      elsif not public.has_role(array['tech']) then
+        raise exception 'Only tech can change roles';
+      elsif new.role = 'tech' then
+        raise exception 'Tech role cannot be assigned this way';
       end if;
     end if;
-  end if;
 
-  if old.requested_role is distinct from new.requested_role then
-    raise exception 'requested_role is immutable';
+    if public.has_role(array['teacher'])
+       and not public.has_role(array['admin'])
+       and not public.has_role(array['tech']) then
+      if old.status <> 'pending' then
+        raise exception 'Teachers can only review pending applications';
+      end if;
+      if new.status not in ('approved', 'rejected') then
+        raise exception 'Invalid review decision';
+      end if;
+      if new.status = 'approved' and new.role is distinct from 'student' then
+        raise exception 'Approval always creates a student';
+      end if;
+    end if;
+
+    if public.has_role(array['admin']) and not public.has_role(array['tech']) then
+      if old.status = 'pending' then
+        if new.status not in ('approved', 'rejected') then
+          raise exception 'Invalid review decision';
+        end if;
+        if new.status = 'approved' and new.role is distinct from 'student' then
+          raise exception 'Approval always creates a student';
+        end if;
+      elsif old.status = 'approved' and new.status = 'suspended' then
+        if old.role <> 'student' then
+          raise exception 'Admin can only suspend students';
+        end if;
+      elsif old.status = 'suspended' and new.status = 'approved' then
+        if old.role <> 'student' then
+          raise exception 'Admin can only restore students';
+        end if;
+      elsif old.status is not distinct from new.status then
+        null;
+      else
+        raise exception 'Admin cannot make this status change';
+      end if;
+    end if;
   end if;
 
   return new;
@@ -188,8 +269,14 @@ create trigger profiles_guard_updates
 
 create policy "profiles_update_authenticated"
   on public.profiles for update to authenticated
-  using (id = auth.uid() or public.has_role(array['teacher', 'tech']))
-  with check (id = auth.uid() or public.has_role(array['teacher', 'tech']));
+  using (
+    id = auth.uid()
+    or public.has_role(array['teacher', 'admin', 'tech'])
+  )
+  with check (
+    id = auth.uid()
+    or public.has_role(array['teacher', 'admin', 'tech'])
+  );
 
 -- classes: approved members can read; staff can write
 drop policy if exists "classes_select_approved" on public.classes;
@@ -222,7 +309,7 @@ create policy "enrollments_delete_own"
 drop policy if exists "enrollments_delete_staff" on public.enrollments;
 create policy "enrollments_delete_staff"
   on public.enrollments for delete to authenticated
-  using (public.has_role(array['teacher', 'tech']));
+  using (public.has_role(array['teacher', 'admin', 'tech']));
 
 -- messages
 drop policy if exists "messages_select_approved" on public.messages;
@@ -236,9 +323,10 @@ create policy "messages_insert_own"
   with check (
     user_id = auth.uid()
     and public.is_approved()
+    and public.is_not_muted()
     and (
       is_announcement = false
-      or public.has_role(array['teacher', 'tech'])
+      or public.has_role(array['teacher', 'admin', 'tech'])
     )
   );
 
@@ -251,6 +339,19 @@ drop policy if exists "messages_delete_staff" on public.messages;
 create policy "messages_delete_staff"
   on public.messages for delete to authenticated
   using (public.is_approved() and public.has_role(array['teacher', 'tech']));
+
+drop policy if exists "messages_delete_admin_student" on public.messages;
+create policy "messages_delete_admin_student"
+  on public.messages for delete to authenticated
+  using (
+    public.is_approved()
+    and public.has_role(array['admin'])
+    and exists (
+      select 1 from public.profiles p
+      where p.id = messages.user_id
+        and p.role = 'student'
+    )
+  );
 
 -- announcements (homepage)
 create table if not exists public.announcements (
@@ -281,26 +382,26 @@ create policy "announcements_select_public"
   );
 create policy "announcements_select_staff_all"
   on public.announcements for select to authenticated
-  using (public.has_role(array['teacher', 'tech']));
+  using (public.has_role(array['teacher', 'admin', 'tech']));
 
 drop policy if exists "announcements_insert_staff" on public.announcements;
 create policy "announcements_insert_staff"
   on public.announcements for insert to authenticated
   with check (
     created_by = auth.uid()
-    and public.has_role(array['teacher', 'tech'])
+    and public.has_role(array['teacher', 'admin', 'tech'])
   );
 
 drop policy if exists "announcements_update_staff" on public.announcements;
 create policy "announcements_update_staff"
   on public.announcements for update to authenticated
-  using (public.has_role(array['teacher', 'tech']))
-  with check (public.has_role(array['teacher', 'tech']));
+  using (public.has_role(array['teacher', 'admin', 'tech']))
+  with check (public.has_role(array['teacher', 'admin', 'tech']));
 
 drop policy if exists "announcements_delete_staff" on public.announcements;
 create policy "announcements_delete_staff"
   on public.announcements for delete to authenticated
-  using (public.has_role(array['teacher', 'tech']));
+  using (public.has_role(array['teacher', 'admin', 'tech']));
 
 -- class topics (one optional discussion topic per class)
 create table if not exists public.class_topics (
@@ -345,6 +446,61 @@ drop policy if exists "class_topics_delete_staff" on public.class_topics;
 create policy "class_topics_delete_staff"
   on public.class_topics for delete to authenticated
   using (public.has_role(array['teacher', 'tech']));
+
+-- moderation audit log (writes only via trigger; TECH can select)
+create table if not exists public.moderation_log (
+  id uuid primary key default gen_random_uuid(),
+  action text not null check (action in ('mute', 'unmute', 'suspend', 'unsuspend')),
+  target_user_id uuid not null references public.profiles (id) on delete cascade,
+  performed_by uuid references public.profiles (id) on delete set null,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists moderation_log_created_at_idx
+  on public.moderation_log (created_at desc);
+
+alter table public.moderation_log enable row level security;
+
+drop policy if exists "moderation_log_select_tech" on public.moderation_log;
+create policy "moderation_log_select_tech"
+  on public.moderation_log for select to authenticated
+  using (public.has_role(array['tech']));
+
+create or replace function public.log_moderation_changes()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if old.muted is distinct from new.muted then
+    insert into public.moderation_log (action, target_user_id, performed_by)
+    values (
+      case when new.muted then 'mute' else 'unmute' end,
+      new.id,
+      auth.uid()
+    );
+  end if;
+
+  if old.status is distinct from new.status then
+    if old.status = 'approved' and new.status = 'suspended' then
+      insert into public.moderation_log (action, target_user_id, performed_by)
+      values ('suspend', new.id, auth.uid());
+    elsif old.status = 'suspended' and new.status = 'approved' then
+      insert into public.moderation_log (action, target_user_id, performed_by)
+      values ('unsuspend', new.id, auth.uid());
+    end if;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_moderation_log on public.profiles;
+create trigger profiles_moderation_log
+  after update on public.profiles
+  for each row execute function public.log_moderation_changes();
 
 alter table public.messages
   add column if not exists is_announcement boolean not null default false;

@@ -6,6 +6,11 @@ import {
   isDemoModeEnabled,
   useLocalDemo,
 } from "./demo";
+import {
+  canManageClasses,
+  canManageClassTopics,
+  canReviewApplications,
+} from "./roles";
 import type { Profile } from "./types";
 
 function hasSupabaseEnv() {
@@ -66,7 +71,8 @@ export async function requireUser() {
 
 export async function requireApproved() {
   const { profile, userId } = await requireUser();
-  if (!profile || profile.status === "pending" || profile.status === "rejected") {
+  if (!profile || profile.status !== "approved") {
+    if (profile?.status === "suspended") redirect("/suspended");
     redirect("/pending");
   }
   return { profile, userId };
@@ -78,10 +84,18 @@ export async function requireTech() {
   return { profile, userId };
 }
 
+/** Teacher or Tech only — not ADMIN. Use for Schedule / Class Topics. */
 export async function requireStaff() {
   const { profile, userId } = await requireApproved();
-  if (profile.role !== "teacher" && profile.role !== "tech") {
+  if (!canManageClasses(profile.role) && !canManageClassTopics(profile.role)) {
     redirect("/");
   }
+  return { profile, userId };
+}
+
+/** Teacher, Admin, or Tech — Approvals and member moderation at /tech. */
+export async function requireApprover() {
+  const { profile, userId } = await requireApproved();
+  if (!canReviewApplications(profile.role)) redirect("/");
   return { profile, userId };
 }
