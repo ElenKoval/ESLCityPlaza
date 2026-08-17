@@ -25,7 +25,7 @@ import { createClient as createServiceClient } from "@supabase/supabase-js";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { emailForUserId, authEmailExists, createAdminClient } from "@/lib/auth-admin";
 import { sendApprovedWelcomeEmail, sendNewApplicationNotice } from "@/lib/mail";
-import { MAX_INTERESTS, INTEREST_CHIPS, needsProfileSetup } from "@/lib/profile";
+import { MAX_INTERESTS, INTEREST_CHIPS } from "@/lib/profile";
 import {
   assignableRoles,
   canDeleteMember,
@@ -145,9 +145,6 @@ export async function signIn(
     if (match.status !== "approved") {
       redirect("/pending");
     }
-    if (needsProfileSetup(match)) {
-      redirect("/profile");
-    }
     redirect(next.startsWith("/") ? next : "/");
   }
 
@@ -178,9 +175,6 @@ export async function signIn(
 
   if (profile?.status === "pending" || profile?.status === "rejected") {
     redirect("/pending");
-  }
-  if (profile && needsProfileSetup(profile)) {
-    redirect("/profile");
   }
 
   redirect(next.startsWith("/") ? next : "/");

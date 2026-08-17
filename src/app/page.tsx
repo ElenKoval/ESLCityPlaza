@@ -12,6 +12,7 @@ import { WelcomeLessons } from "@/components/WelcomeLessons";
 import { HomeAnnouncements } from "@/components/HomeAnnouncements";
 import { loadCurrentAnnouncements } from "@/lib/load-announcements";
 import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
+import { needsProfileSetup } from "@/lib/profile";
 import type { ClassRow } from "@/lib/types";
 
 function welcomeFirstName(displayName: string | null | undefined) {
@@ -108,6 +109,20 @@ export default async function HomePage() {
             <>
               <h1 className="hero-stage__brand">Welcome, {firstName}!</h1>
               <WelcomeLessons classes={classes} topics={topics} />
+              {needsProfileSetup(profile) && (
+                <aside className="home-profile-nudge">
+                  <h2 className="home-profile-nudge__title">
+                    Complete your profile
+                  </h2>
+                  <p className="home-profile-nudge__text">
+                    Tell the group a little about yourself — where you&apos;re
+                    from, languages you speak, and your interests.
+                  </p>
+                  <Link href="/profile" className="btn-primary" prefetch>
+                    Complete profile
+                  </Link>
+                </aside>
+              )}
             </>
           ) : (
             <>
