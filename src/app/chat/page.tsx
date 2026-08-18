@@ -2,17 +2,24 @@ import type { Metadata } from "next";
 import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ChatRoom } from "@/components/ChatRoom";
+import { ChatUnavailable } from "@/components/ChatUnavailable";
 import { toChatMessages } from "@/lib/chat";
 import { useLocalDemo } from "@/lib/demo";
 import { signChatImagePaths, signChatFilePaths } from "@/app/actions";
+import { canAccessCommunityChat } from "@/lib/roles";
 import type { MessageRow, Role } from "@/lib/types";
+import { sitePageTitle } from "@/lib/site-name";
 
 export const metadata: Metadata = {
-  title: "Community chat — ESL on the Plaza",
+  title: sitePageTitle("Community chat"),
 };
 
 export default async function ChatPage() {
   const { userId, profile } = await requireApproved();
+
+  if (!canAccessCommunityChat(profile)) {
+    return <ChatUnavailable />;
+  }
 
   let rows: Array<
     MessageRow & { profiles?: { display_name: string; role: Role } | null }
@@ -83,6 +90,7 @@ export default async function ChatPage() {
         userId={userId}
         displayName={profile.display_name}
         role={profile.role}
+        chatAllowed
       />
     </div>
   );

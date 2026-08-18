@@ -7,8 +7,10 @@ import {
   loadUpcomingClassesForTopics,
 } from "@/lib/load-class-topics";
 
+import { sitePageTitle } from "@/lib/site-name";
+
 export const metadata: Metadata = {
-  title: "Add class topic — ESL on the Plaza",
+  title: sitePageTitle("Add class topic"),
 };
 
 export default async function NewClassTopicPage({

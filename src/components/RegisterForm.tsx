@@ -5,6 +5,7 @@ import Link from "next/link";
 import { signUp, type ActionState } from "@/app/actions";
 import { PasswordField } from "@/components/PasswordField";
 import { MIN_PASSWORD_LENGTH, normalizeEmail, registrationEmailError } from "@/lib/email";
+import { SITE_NAME } from "@/lib/site-name";
 
 export function RegisterForm() {
   const [state, action, pending] = useActionState<ActionState, FormData>(
@@ -97,7 +98,7 @@ export function RegisterForm() {
       </label>
       <p className="field-hint">Optional</p>
       <label>
-        How did you hear about ESL on the Plaza?
+        How did you hear about {SITE_NAME}?
         <input
           name="heard_from"
           maxLength={160}

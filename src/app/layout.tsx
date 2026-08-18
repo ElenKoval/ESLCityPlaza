@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Figtree, Fraunces } from "next/font/google";
 import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
+import { SITE_NAME } from "@/lib/site-name";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -15,7 +16,7 @@ const figtree = Figtree({
 });
 
 export const metadata: Metadata = {
-  title: "ESL on the Plaza",
+  title: SITE_NAME,
   description: "English practice at the plaza — classes, community chat, and teachers",
 };
 

@@ -290,8 +290,8 @@ function MemberMenu({
               onClick={() =>
                 run(
                   muted
-                    ? `Allow ${member.display_name} to post in Community Chat again?`
-                    : `Mute ${member.display_name} in Community Chat?\n\nThis person will still be able to use the website and read the chat, but they won't be able to post new messages.`,
+                    ? `Restore Community Chat access for ${member.display_name}?`
+                    : `Block ${member.display_name} from Community Chat?\n\nThey will still have access to classes, topics, announcements, and their profile.`,
                   setMemberMuted,
                   { user_id: member.id, muted: muted ? "false" : "true" },
                 )

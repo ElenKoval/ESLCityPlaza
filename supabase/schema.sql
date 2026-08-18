@@ -361,7 +361,10 @@ create policy "enrollments_delete_staff"
 drop policy if exists "messages_select_approved" on public.messages;
 create policy "messages_select_approved"
   on public.messages for select to authenticated
-  using (public.is_approved());
+  using (
+    public.is_approved()
+    and public.is_not_muted()
+  );
 
 drop policy if exists "messages_insert_own" on public.messages;
 create policy "messages_insert_own"
@@ -379,7 +382,11 @@ create policy "messages_insert_own"
 drop policy if exists "messages_delete_own" on public.messages;
 create policy "messages_delete_own"
   on public.messages for delete to authenticated
-  using (user_id = auth.uid() and public.is_approved());
+  using (
+    user_id = auth.uid()
+    and public.is_approved()
+    and public.is_not_muted()
+  );
 
 drop policy if exists "messages_delete_staff" on public.messages;
 create policy "messages_delete_staff"
@@ -578,6 +585,7 @@ create policy "chat_images_select_approved"
   using (
     bucket_id = 'chat-images'
     and public.is_approved()
+    and public.is_not_muted()
   );
 
 drop policy if exists "chat_images_insert_own" on storage.objects;
@@ -623,6 +631,7 @@ create policy "chat_files_select_approved"
   using (
     bucket_id = 'chat-files'
     and public.is_approved()
+    and public.is_not_muted()
   );
 
 drop policy if exists "chat_files_insert_own" on storage.objects;

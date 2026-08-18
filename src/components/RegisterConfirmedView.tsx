@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { ProfileStatus } from "@/lib/types";
 import { PendingStatusPoller } from "./PendingStatusPoller";
+import { SITE_NAME } from "@/lib/site-name";
 
 export function RegisterConfirmedView({
   status,
@@ -23,7 +24,7 @@ function ConfirmedCopy({ status }: { status: ProfileStatus | null }) {
       <section className="section panel stack">
         <h2>Your account is approved</h2>
         <p className="lead">
-          You can now log in and join ESL on the Plaza.
+          You can now log in and join {SITE_NAME}.
         </p>
         <p>
           <Link href="/login" className="btn-primary">
@@ -39,7 +40,7 @@ function ConfirmedCopy({ status }: { status: ProfileStatus | null }) {
       <section className="section panel stack">
         <h2>Application declined</h2>
         <p className="lead">
-          Your request to join ESL on the Plaza was not approved.
+          Your request to join {SITE_NAME} was not approved.
         </p>
         <p>
           Community chat, class sign-up, and member pages stay closed. Contact
@@ -53,7 +54,7 @@ function ConfirmedCopy({ status }: { status: ProfileStatus | null }) {
     <section className="section panel stack">
       <h2>Email confirmed</h2>
       <p className="lead">
-        Your request to join ESL on the Plaza has been sent.
+        Your request to join {SITE_NAME} has been sent.
       </p>
       <p>Please wait for approval.</p>
       {!status && (

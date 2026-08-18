@@ -1,8 +1,9 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { sitePageTitle } from "@/lib/site-name";
 
 export const metadata: Metadata = {
-  title: "Link did not work — ESL on the Plaza",
+  title: sitePageTitle("Link did not work"),
 };
 
 export default function AuthErrorPage() {

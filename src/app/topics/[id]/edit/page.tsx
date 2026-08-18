@@ -12,8 +12,10 @@ import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import type { ClassRow } from "@/lib/types";
 
+import { sitePageTitle } from "@/lib/site-name";
+
 export const metadata: Metadata = {
-  title: "Edit class topic — ESL on the Plaza",
+  title: sitePageTitle("Edit class topic"),
 };
 
 export default async function EditClassTopicPage({

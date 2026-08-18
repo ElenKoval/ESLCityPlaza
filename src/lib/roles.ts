@@ -16,8 +16,17 @@ export const ROLE_BADGE_CLASS: Record<Role, string> = {
   tech: "badge-tech",
 };
 
-export const CHAT_MUTE_MESSAGE =
-  "You can't post messages in the Community Chat right now.";
+export const CHAT_UNAVAILABLE_TITLE = "Chat unavailable";
+
+export const CHAT_UNAVAILABLE_MESSAGE =
+  "You don't currently have access to the Community Chat.";
+
+/** Server-side denial when a muted member hits a chat action. */
+export const CHAT_ACCESS_DENIED = CHAT_UNAVAILABLE_MESSAGE;
+
+export function canAccessCommunityChat(profile: { muted?: boolean }) {
+  return !profile.muted;
+}
 
 /** Teacher or Tech — teaching/schedule staff. Do NOT include ADMIN. */
 export function isStaff(role: Role) {

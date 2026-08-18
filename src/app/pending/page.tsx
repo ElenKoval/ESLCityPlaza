@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { PendingStatusPoller } from "@/components/PendingStatusPoller";
 import { useLocalDemo } from "@/lib/demo";
+import { SITE_NAME } from "@/lib/site-name";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -24,7 +25,7 @@ export default async function PendingPage() {
           <>
             <h2>Application declined</h2>
             <p className="lead">
-              Your request to join ESL on the Plaza was not approved.
+              Your request to join {SITE_NAME} was not approved.
             </p>
             <p>
               You can log in, but community chat, class sign-up, and member
@@ -35,7 +36,7 @@ export default async function PendingPage() {
           <>
             <h2>Please wait for approval</h2>
             <p className="lead">
-              Your request to join ESL on the Plaza has been sent.
+              Your request to join {SITE_NAME} has been sent.
             </p>
             <p>
               You can log in, but community chat, class sign-up, and member

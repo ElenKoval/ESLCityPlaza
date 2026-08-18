@@ -13,6 +13,7 @@ import { HomeAnnouncements } from "@/components/HomeAnnouncements";
 import { loadCurrentAnnouncements } from "@/lib/load-announcements";
 import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
 import { needsProfileSetup } from "@/lib/profile";
+import { SITE_NAME } from "@/lib/site-name";
 import type { ClassRow } from "@/lib/types";
 import { redirect } from "next/navigation";
 
@@ -130,7 +131,7 @@ export default async function HomePage() {
             </>
           ) : (
             <>
-              <h1 className="hero-stage__brand">ESL on the Plaza</h1>
+              <h1 className="hero-stage__brand">{SITE_NAME}</h1>
               <p className="hero-stage__lead">
                 Practice English, meet new people, and enjoy the conversation.
               </p>

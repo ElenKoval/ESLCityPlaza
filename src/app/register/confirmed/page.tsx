@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
+import { sitePageTitle } from "@/lib/site-name";
 import { RegisterConfirmedView } from "@/components/RegisterConfirmedView";
 import { getProfile } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Email confirmed — ESL on the Plaza",
+  title: sitePageTitle("Email confirmed"),
 };
 
 export default async function RegisterConfirmedPage() {

@@ -10,23 +10,30 @@ import {
   deleteChatMessage,
   signChatImagePaths,
   signChatFilePaths,
+  checkChatAccess,
 } from "@/app/actions";
 import { canAnnounce, canDeleteChatMessage } from "@/lib/roles";
+import { SITE_NAME } from "@/lib/site-name";
 import { RoleBadge } from "@/components/RoleBadge";
+import { ChatUnavailable } from "@/components/ChatUnavailable";
+import {
+  ChatOnlineMobileBar,
+  ChatOnlineSheet,
+  ChatOnlineSidebar,
+} from "@/components/ChatOnlinePanel";
+import {
+  collectOnlineUsers,
+  displayChatName,
+  chatInitial,
+  chatInitialColor,
+  type ChatPresenceMeta,
+} from "@/lib/chat-presence";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
 import { chatTimeLabel, type ChatMessage } from "@/lib/chat";
 import type { MessageRow, Role } from "@/lib/types";
 
 const DEMO_CHAT_KEY = "esl-demo-chat";
 const isLocalDemo = !process.env.NEXT_PUBLIC_SUPABASE_URL;
-const LETTER_COLORS = [
-  "#c4510c",
-  "#2f6f4e",
-  "#3d5a80",
-  "#9a3412",
-  "#6b3fa0",
-  "#0f766e",
-];
 
 function readDemoMessages(): ChatMessage[] {
   try {
@@ -59,21 +66,6 @@ function dayLabel(iso: string) {
     day: "numeric",
     year: d.getFullYear() === today.getFullYear() ? undefined : "numeric",
   }).format(d);
-}
-
-function chatName(name: string) {
-  const cleaned = name.replace(/\s*\([^)]*\)\s*/g, "").trim();
-  return cleaned.split(/\s+/)[0] || "Member";
-}
-
-function firstLetter(name: string) {
-  return (chatName(name)[0] || "?").toUpperCase();
-}
-
-function letterColor(name: string) {
-  let n = 0;
-  for (const ch of name) n = (n + ch.charCodeAt(0)) % LETTER_COLORS.length;
-  return LETTER_COLORS[n];
 }
 
 function MessageBody({ text }: { text: string }) {
@@ -297,7 +289,7 @@ function MessageRowView({
   onOpenPhoto: (src: string, alt: string) => void;
   onOpenFile: (src: string, name: string) => void;
 }) {
-  const name = chatName(msg.display_name);
+  const name = displayChatName(msg.display_name);
   const canOpen = msg.user_id !== "system";
   const alt = msg.body.trim()
     ? msg.body.trim()
@@ -317,19 +309,19 @@ function MessageRowView({
           <button
             type="button"
             className="chat-avatar"
-            style={{ background: letterColor(name) }}
+            style={{ background: chatInitialColor(name) }}
             onClick={() => onOpenProfile(msg.user_id)}
             aria-label={`View ${name}'s profile`}
           >
-            {firstLetter(name)}
+            {chatInitial(name)}
           </button>
         ) : (
           <span
             className="chat-avatar"
-            style={{ background: letterColor(name) }}
+            style={{ background: chatInitialColor(name) }}
             aria-hidden="true"
           >
-            {firstLetter(name)}
+            {chatInitial(name)}
           </span>
         ))}
       <div className="chat-msg__main">
@@ -407,13 +399,16 @@ export function ChatRoom({
   userId,
   displayName = "Member",
   role = "student" as Role,
+  chatAllowed = true,
 }: {
   initialMessages: ChatMessage[];
   userId: string;
   displayName?: string;
   role?: Role;
+  chatAllowed?: boolean;
 }) {
   const [messages, setMessages] = useState(initialMessages);
+  const [allowed, setAllowed] = useState(chatAllowed);
   const [body, setBody] = useState("");
   const [announce, setAnnounce] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -442,6 +437,9 @@ export function ChatRoom({
     | null
   >(null);
   const [preparingPhoto, setPreparingPhoto] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState<ChatPresenceMeta[]>([]);
+  const [presenceReady, setPresenceReady] = useState(false);
+  const [onlineSheetOpen, setOnlineSheetOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const logRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -452,13 +450,47 @@ export function ChatRoom({
   const canPin = canAnnounce(role);
 
   useEffect(() => {
+    let cancelled = false;
+
+    async function verify() {
+      const { allowed: ok } = await checkChatAccess();
+      if (cancelled) return;
+      if (!ok) {
+        setAllowed(false);
+        setMessages([]);
+        setOnlineUsers([]);
+        setPresenceReady(false);
+        setOnlineSheetOpen(false);
+        setPreview((current) => {
+          if (current?.kind === "photo") URL.revokeObjectURL(current.url);
+          return null;
+        });
+        setError(null);
+      }
+    }
+
+    void verify();
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void verify();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    const timer = window.setInterval(() => void verify(), 15000);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!allowed) return;
     if (!isLocalDemo) return;
     const existing = readDemoMessages();
     if (existing.length === 0) {
       const welcome: ChatMessage = {
         id: "welcome",
         user_id: "system",
-        body: "Welcome to ESL on the Plaza chat! Practice English, ask questions, and say hi.",
+        body: `Welcome to ${SITE_NAME} chat! Practice English, ask questions, and say hi.`,
         created_at: new Date().toISOString(),
         display_name: "Plaza Bot",
         role: "teacher",
@@ -468,7 +500,7 @@ export function ChatRoom({
     } else {
       setMessages(existing);
     }
-  }, []);
+  }, [allowed]);
 
   useEffect(() => {
     const el = logRef.current;
@@ -490,17 +522,40 @@ export function ChatRoom({
   }, [preview]);
 
   useEffect(() => {
+    if (!allowed) return;
+
     if (isLocalDemo) {
+      setOnlineUsers([
+        { user_id: userId, display_name: displayName, role },
+      ]);
+      setPresenceReady(true);
+
       const onStorage = (e: StorageEvent) => {
         if (e.key === DEMO_CHAT_KEY) setMessages(readDemoMessages());
       };
       window.addEventListener("storage", onStorage);
-      return () => window.removeEventListener("storage", onStorage);
+      return () => {
+        window.removeEventListener("storage", onStorage);
+        setOnlineUsers([]);
+        setPresenceReady(false);
+      };
     }
 
     const supabase = createClient();
-    const channel = supabase
-      .channel("plaza-chat")
+    const channel = supabase.channel("plaza-chat", {
+      config: { presence: { key: userId } },
+    });
+
+    const syncOnline = () => {
+      const state = channel.presenceState<ChatPresenceMeta>();
+      setOnlineUsers(collectOnlineUsers(state));
+      setPresenceReady(true);
+    };
+
+    channel
+      .on("presence", { event: "sync" }, syncOnline)
+      .on("presence", { event: "join" }, syncOnline)
+      .on("presence", { event: "leave" }, syncOnline)
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages" },
@@ -555,12 +610,24 @@ export function ChatRoom({
           setMessages((prev) => prev.filter((m) => m.id !== row.id));
         },
       )
-      .subscribe();
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({
+            user_id: userId,
+            display_name: displayName,
+            role,
+          });
+          syncOnline();
+        }
+      });
 
     return () => {
+      void channel.untrack();
       void supabase.removeChannel(channel);
+      setOnlineUsers([]);
+      setPresenceReady(false);
     };
-  }, []);
+  }, [allowed, userId, displayName, role]);
 
   function clearPreview() {
     setPreview((current) => {
@@ -748,12 +815,18 @@ export function ChatRoom({
     });
   }
 
+  if (!allowed) {
+    return <ChatUnavailable />;
+  }
+
   const pin = [...messages].reverse().find((m) => m.is_announcement);
   let lastDay = "";
   const canSend = !pending && !preparingPhoto && Boolean(body.trim() || preview);
 
   return (
-    <div className="chat-app">
+    <div className="chat-layout">
+      <div className="chat-layout__main">
+        <div className="chat-app">
       {viewing && (
         <ProfileDialog profile={viewing} onClose={() => setViewing(null)} />
       )}
@@ -778,10 +851,16 @@ export function ChatRoom({
         </p>
       </header>
 
+      <ChatOnlineMobileBar
+        users={onlineUsers}
+        ready={presenceReady}
+        onOpen={() => setOnlineSheetOpen(true)}
+      />
+
       {pin && (
         <aside className="chat-pin">
           <p className="chat-pin__meta">
-            {chatName(pin.display_name)} · Announcement
+            {displayChatName(pin.display_name)} · Announcement
           </p>
           {pin.imageUrl && (
             <button
@@ -790,7 +869,7 @@ export function ChatRoom({
               onClick={() =>
                 setLightbox({
                   src: pin.imageUrl!,
-                  alt: pin.body.trim() || `Photo shared by ${chatName(pin.display_name)}`,
+                  alt: pin.body.trim() || `Photo shared by ${displayChatName(pin.display_name)}`,
                 })
               }
             >
@@ -969,6 +1048,15 @@ export function ChatRoom({
           </label>
         )}
       </form>
+        </div>
+      </div>
+      <ChatOnlineSidebar users={onlineUsers} ready={presenceReady} />
+      <ChatOnlineSheet
+        users={onlineUsers}
+        ready={presenceReady}
+        open={onlineSheetOpen}
+        onClose={() => setOnlineSheetOpen(false)}
+      />
     </div>
   );
 }

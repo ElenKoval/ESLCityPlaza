@@ -7,8 +7,10 @@ import { formatClassHours } from "@/lib/class-schedule";
 import { loadClassTopics } from "@/lib/load-class-topics";
 import type { ClassTopicRow } from "@/lib/types";
 
+import { sitePageTitle } from "@/lib/site-name";
+
 export const metadata: Metadata = {
-  title: "Class Topics — ESL on the Plaza",
+  title: sitePageTitle("Class Topics"),
 };
 
 function topicDateShort(startsAt: string) {

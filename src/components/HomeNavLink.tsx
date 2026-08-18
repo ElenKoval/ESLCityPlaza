@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SITE_NAME } from "@/lib/site-name";
 
 function NavLink({
   href,
@@ -33,7 +34,7 @@ function NavLink({
 export function HomeNavLink() {
   return (
     <NavLink href="/" className="site-nav__brand">
-      ESL on the Plaza
+      {SITE_NAME}
     </NavLink>
   );
 }

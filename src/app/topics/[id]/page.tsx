@@ -5,6 +5,7 @@ import { requireApproved } from "@/lib/auth";
 import { canManageClassTopics } from "@/lib/roles";
 import { classTopicWhenLabel } from "@/lib/class-topics";
 import { loadClassTopic } from "@/lib/load-class-topics";
+import { sitePageTitle } from "@/lib/site-name";
 
 export async function generateMetadata({
   params,
@@ -16,8 +17,8 @@ export async function generateMetadata({
   const topic = await loadClassTopic(id, profile.role);
   return {
     title: topic
-      ? `${topic.title} — ESL on the Plaza`
-      : "Class topic — ESL on the Plaza",
+      ? sitePageTitle(topic.title)
+      : sitePageTitle("Class topic"),
   };
 }
 

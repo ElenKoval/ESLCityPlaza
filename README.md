@@ -1,4 +1,4 @@
-# ESL on the Plaza
+# Conversations on the Plaza
 
 English practice community site: applications with roles, class sign-ups, and a shared chat.
 
@@ -85,7 +85,7 @@ Set these environment variables for Production (and Preview if you use preview d
 - `SMTP_PORT` = `587`
 - `SMTP_USER` = Gmail address used for approval emails
 - `SMTP_PASS` = Gmail App Password
-- `SMTP_FROM` (optional — `ESL on the Plaza <plazaenglishgroup@gmail.com>`)
+- `SMTP_FROM` (optional — `Conversations on the Plaza <plazaenglishgroup@gmail.com>`)
 
 After the first deploy, copy the Vercel URL into `NEXT_PUBLIC_SITE_URL` and into Supabase **Site URL** / **Redirect URLs**, then Redeploy. `NEXT_PUBLIC_*` values are baked in at build time.
 

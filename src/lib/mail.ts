@@ -4,10 +4,10 @@ import nodemailer from "nodemailer";
 import type SMTPTransport from "nodemailer/lib/smtp-transport";
 import { createAdminClient, emailsForUserIds } from "@/lib/auth-admin";
 import { publicSiteUrl } from "@/lib/site-url";
+import { SITE_NAME } from "@/lib/site-name";
 
-const SITE_NAME = "ESL on the Plaza";
 const TECH_NOTIFY_EMAIL = "plazaenglishgroup@gmail.com";
-const RESEND_TEST_FROM = "ESL on the Plaza <onboarding@resend.dev>";
+const RESEND_TEST_FROM = `${SITE_NAME} <onboarding@resend.dev>`;
 const PUBLIC_MAIL_HOSTS = new Set([
   "gmail.com",
   "googlemail.com",
@@ -174,7 +174,7 @@ async function sendSmtpEmail(input: {
   }
 
   const from =
-    process.env.SMTP_FROM?.trim() || `ESL on the Plaza <${user}>`;
+    process.env.SMTP_FROM?.trim() || `${SITE_NAME} <${user}>`;
 
   let connectHost = host;
   if (!isIP(host)) {
@@ -251,14 +251,14 @@ export async function sendApprovedWelcomeEmail(to: string, _name: string) {
 
   return sendSmtpEmail({
     to,
-    subject: "Your ESL on the Plaza account is approved",
+    subject: `Your ${SITE_NAME} account is approved`,
     html: `
-        <p><strong>Welcome to ESL on the Plaza!</strong></p>
+        <p><strong>Welcome to ${SITE_NAME}!</strong></p>
         <p>Your account has been approved.</p>
         <p>You can now log in, sign up for classes, use the community chat, and complete your profile.</p>
         <p><a href="${loginUrl}">Log in</a></p>
       `,
-    text: `Welcome to ESL on the Plaza!\n\nYour account has been approved.\n\nYou can now log in, sign up for classes, use the community chat, and complete your profile.\n\nLog in: ${loginUrl}\n`,
+    text: `Welcome to ${SITE_NAME}!\n\nYour account has been approved.\n\nYou can now log in, sign up for classes, use the community chat, and complete your profile.\n\nLog in: ${loginUrl}\n`,
   });
 }
 

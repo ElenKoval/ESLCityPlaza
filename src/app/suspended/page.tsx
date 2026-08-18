@@ -1,9 +1,10 @@
 import { requireUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
+import { SITE_NAME, sitePageTitle } from "@/lib/site-name";
 
 export const metadata: Metadata = {
-  title: "Account suspended — ESL on the Plaza",
+  title: sitePageTitle("Account suspended"),
 };
 
 export default async function SuspendedPage() {
@@ -16,7 +17,7 @@ export default async function SuspendedPage() {
       <section className="section panel stack">
         <h2>Account suspended</h2>
         <p className="lead">
-          Your access to ESL on the Plaza has been temporarily suspended.
+          Your access to {SITE_NAME} has been temporarily suspended.
         </p>
         <p>
           Please contact the group administrator if you have questions.

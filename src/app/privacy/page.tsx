@@ -1,3 +1,5 @@
+import { SITE_NAME } from "@/lib/site-name";
+
 export default function PrivacyPage() {
   return (
     <div className="page">
@@ -5,7 +7,7 @@ export default function PrivacyPage() {
         <h1>Privacy Policy</h1>
         <p className="sub">Last updated: August 2026</p>
         <p>
-          ESL on the Plaza is a small community website for members of our
+          {SITE_NAME} is a small community website for members of our
           English conversation group. We collect only the information needed to
           manage the group, organize meetings, and help members communicate with
           each other.
@@ -24,7 +26,7 @@ export default function PrivacyPage() {
           </li>
           <li>
             Optional details you share when you apply: where you are from, and
-            how you heard about ESL on the Plaza
+            how you heard about {SITE_NAME}
           </li>
           <li>
             Optional profile details: languages you speak, interests, and a
@@ -145,7 +147,7 @@ export default function PrivacyPage() {
 
         <h2>Adults Only</h2>
         <p>
-          ESL on the Plaza is intended for adults. The website is not intended
+          {SITE_NAME} is intended for adults. The website is not intended
           for children under 18.
         </p>
 

@@ -42,7 +42,7 @@ import {
   canRemoveFromClass,
   canReviewApplications,
   canViewClassRoster,
-  CHAT_MUTE_MESSAGE,
+  CHAT_ACCESS_DENIED,
 } from "@/lib/roles";
 import {
   CHAT_IMAGE_BUCKET,
@@ -58,6 +58,7 @@ import {
 } from "@/lib/chat-file";
 import { DEFAULT_CLASS_LOCATION } from "@/lib/class-schedule";
 import { authConfirmUrl } from "@/lib/site-url";
+import { SITE_NAME } from "@/lib/site-name";
 import type { AnnouncementRow, ClassTopicRow, Profile, Role } from "@/lib/types";
 import {
   getDemoAnnouncements,
@@ -538,7 +539,7 @@ export async function sendTestApplicationNotice(
     requestedRole: "student",
   });
   if (!mail.sent) return { error: mail.error || "Test email was not sent" };
-  return { success: "Test email sent. Check inbox (and spam) for ESL on the Plaza." };
+  return { success: `Test email sent. Check inbox (and spam) for ${SITE_NAME}.` };
 }
 
 function generateTempPassword() {
@@ -971,7 +972,7 @@ export async function setMemberMuted(
       members.map((m) => (m.id === userId ? { ...m, muted } : m)),
     );
     revalidateMemberPaths();
-    return { success: muted ? "Muted in Community Chat" : "Chat posting restored" };
+    return { success: muted ? "Community Chat access removed" : "Community Chat access restored" };
   }
 
   const supabase = await createClient();
@@ -1002,7 +1003,7 @@ export async function setMemberMuted(
     .eq("id", userId);
   if (error) return { error: error.message };
   revalidateMemberPaths();
-  return { success: muted ? "Muted in Community Chat" : "Chat posting restored" };
+  return { success: muted ? "Community Chat access removed" : "Community Chat access restored" };
 }
 
 export async function setMemberSuspended(
@@ -1126,6 +1127,31 @@ export async function removeClassEnrollment(
   return { success: "Removed from this class" };
 }
 
+export async function checkChatAccess(): Promise<{ allowed: boolean }> {
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    return {
+      allowed: Boolean(me && me.status === "approved" && !me.muted),
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { allowed: false };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("status, muted")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  return {
+    allowed: Boolean(me && me.status === "approved" && !me.muted),
+  };
+}
+
 export async function signChatImagePaths(
   paths: string[],
 ): Promise<Record<string, string>> {
@@ -1141,10 +1167,10 @@ export async function signChatImagePaths(
   if (!user) return {};
   const { data: me } = await supabase
     .from("profiles")
-    .select("status")
+    .select("status, muted")
     .eq("id", user.id)
     .maybeSingle();
-  if (!me || me.status !== "approved") return {};
+  if (!me || me.status !== "approved" || me.muted) return {};
 
   const { data, error } = await supabase.storage
     .from(CHAT_IMAGE_BUCKET)
@@ -1173,10 +1199,10 @@ export async function signChatFilePaths(
   if (!user) return {};
   const { data: me } = await supabase
     .from("profiles")
-    .select("status")
+    .select("status, muted")
     .eq("id", user.id)
     .maybeSingle();
-  if (!me || me.status !== "approved") return {};
+  if (!me || me.status !== "approved" || me.muted) return {};
 
   const { data, error } = await supabase.storage
     .from(CHAT_FILE_BUCKET)
@@ -1243,7 +1269,7 @@ export async function postChatMessage(
   if (useLocalDemo() || (await hasDemoSession())) {
     const me = await getDemoSessionProfile();
     if (!me || me.status !== "approved") return { error: "Please log in" };
-    if (me.muted) return { error: CHAT_MUTE_MESSAGE };
+    if (me.muted) return { error: CHAT_ACCESS_DENIED };
     return { success: "sent" };
   }
 
@@ -1261,7 +1287,7 @@ export async function postChatMessage(
   if (!me || me.status !== "approved") {
     return { error: "Please log in" };
   }
-  if (me.muted) return { error: CHAT_MUTE_MESSAGE };
+  if (me.muted) return { error: CHAT_ACCESS_DENIED };
 
   let imagePath: string | null = null;
   let imageWidth: number | null = null;
@@ -1305,7 +1331,7 @@ export async function postChatMessage(
         .select("muted")
         .eq("id", user.id)
         .maybeSingle();
-      if (again?.muted) return { error: CHAT_MUTE_MESSAGE };
+      if (again?.muted) return { error: CHAT_ACCESS_DENIED };
       return { error: "Photo could not be uploaded. Please try again." };
     }
     imageWidth = Math.round(width);
@@ -1346,7 +1372,7 @@ export async function postChatMessage(
         .select("muted")
         .eq("id", user.id)
         .maybeSingle();
-      if (again?.muted) return { error: CHAT_MUTE_MESSAGE };
+      if (again?.muted) return { error: CHAT_ACCESS_DENIED };
       return { error: "File could not be uploaded. Please try again." };
     }
   }
@@ -1380,7 +1406,7 @@ export async function postChatMessage(
       .select("muted")
       .eq("id", user.id)
       .maybeSingle();
-    if (again?.muted) return { error: CHAT_MUTE_MESSAGE };
+    if (again?.muted) return { error: CHAT_ACCESS_DENIED };
     if (/column .*file_path.* does not exist/i.test(error.message)) {
       return { error: "Run supabase/chat-files-upgrade.sql in the Supabase SQL Editor, then try again." };
     }
@@ -1435,10 +1461,11 @@ export async function deleteChatMessage(
   if (!user) return { error: "Please log in" };
   const { data: me } = await supabase
     .from("profiles")
-    .select("id, role, status")
+    .select("id, role, status, muted")
     .eq("id", user.id)
     .maybeSingle();
   if (!me || me.status !== "approved") return { error: "Please log in" };
+  if (me.muted) return { error: CHAT_ACCESS_DENIED };
 
   const { data: row } = await supabase
     .from("messages")

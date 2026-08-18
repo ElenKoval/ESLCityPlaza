@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_NAME, sitePageTitle } from "@/lib/site-name";
 import { getProfile } from "@/lib/auth";
 import { AnnouncementManager } from "@/components/AnnouncementManager";
 import { AnnouncementBoard } from "@/components/HomeAnnouncements";
@@ -9,7 +10,7 @@ import {
 import { canManageAnnouncements } from "@/lib/roles";
 
 export const metadata: Metadata = {
-  title: "Announcements — ESL on the Plaza",
+  title: sitePageTitle("Announcements"),
 };
 
 export default async function AnnouncementsPage() {
@@ -25,7 +26,7 @@ export default async function AnnouncementsPage() {
       <section className="section">
         <h1>Announcements</h1>
         <p className="lead">
-          Notes from teachers for the ESL on the Plaza group.
+          Notes from teachers for the {SITE_NAME} group.
         </p>
         <AnnouncementBoard items={current} className="announce-board" />
         {staff && (
