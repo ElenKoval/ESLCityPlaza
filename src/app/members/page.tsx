@@ -11,6 +11,7 @@ import {
 import { authContactsForUserIds } from "@/lib/auth-admin";
 import { getApplicationNoticeStatus } from "@/lib/mail";
 import { SendTestMailButton } from "@/components/SendTestMailButton";
+import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { canViewClassRoster } from "@/lib/roles";
 import type { ClassRoster, Profile } from "@/lib/types";
 import { revalidatePath } from "next/cache";
@@ -33,6 +34,30 @@ export default async function ManageMembersPage() {
     const all = await getDemoMembers();
     applications = all.filter((p) => p.status === "pending");
     members = all.filter((p) => p.status !== "pending");
+    if (canViewClassRoster(profile.role)) {
+      const demoClasses = await getDemoClassesWithEnrollments();
+      const now = Date.now();
+      const me = all.find((p) => p.id === userId);
+      rosters = demoClasses
+        .filter((item) => new Date(item.starts_at).getTime() >= now)
+        .map((item) => ({
+          classId: item.id,
+          title: item.title,
+          startsAt: item.starts_at,
+          location: item.location,
+          capacity: item.capacity,
+          people:
+            item.enrolled && me
+              ? [
+                  {
+                    userId: me.id,
+                    displayName: me.display_name,
+                    role: me.role,
+                  },
+                ]
+              : [],
+        }));
+    }
   } else {
     const supabase = await createClient();
     const { data: pending } = await supabase
@@ -73,7 +98,7 @@ export default async function ManageMembersPage() {
     if (canViewClassRoster(profile.role)) {
       const { data: classes } = await supabase
         .from("classes")
-        .select("id, title, starts_at, location")
+        .select("id, title, starts_at, location, capacity")
         .gte("starts_at", new Date().toISOString())
         .order("starts_at", { ascending: true })
         .limit(12);
@@ -103,13 +128,15 @@ export default async function ManageMembersPage() {
           title: item.title,
           startsAt: item.starts_at,
           location: item.location,
+          capacity: item.capacity,
           people: (enrolled ?? [])
             .filter((row) => row.class_id === item.id)
             .map((row) => ({
               userId: row.user_id,
               displayName: nameById.get(row.user_id)?.displayName ?? "Member",
               role: nameById.get(row.user_id)?.role ?? "student",
-            })),
+            }))
+            .sort((a, b) => a.displayName.localeCompare(b.displayName)),
         }));
       }
     }

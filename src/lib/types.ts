@@ -47,6 +47,7 @@ export type ClassRoster = {
   title: string;
   startsAt: string;
   location?: string;
+  capacity?: number;
   people: ClassRosterEntry[];
 };
 

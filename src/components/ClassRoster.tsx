@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { removeClassEnrollment, type ActionState } from "@/app/actions";
 import { canRemoveFromClass } from "@/lib/roles";
 import { classTopicWhenLabel } from "@/lib/class-topics";
+import { signedUpCountLabel } from "@/lib/enrollment";
 import type { ClassRoster, Role } from "@/lib/types";
 
 function useRefreshOnSuccess(state: ActionState) {
@@ -60,57 +61,59 @@ export function ClassRosterPanel({
   rosters: ClassRoster[];
   actorRole: Role;
 }) {
-  const filled = rosters.filter((item) => item.people.length > 0);
-  const total = filled.reduce((sum, item) => sum + item.people.length, 0);
-
-  if (filled.length === 0) {
+  if (rosters.length === 0) {
     return (
-      <section className="manage-fold manage-fold--static">
-        <p className="manage-fold__title">Class sign-ups</p>
-        <p className="manage-fold__hint">No upcoming registrations</p>
+      <section className="manage-block">
+        <h3 className="manage-block__title">Class sign-ups</h3>
+        <p className="manage-empty">
+          <span aria-hidden="true">✓</span> No upcoming classes
+        </p>
       </section>
     );
   }
 
-  const summary =
-    total === 1
-      ? `1 registration across ${filled.length} upcoming class${filled.length === 1 ? "" : "es"}`
-      : `${total} registrations across ${filled.length} upcoming class${filled.length === 1 ? "" : "es"}`;
-
   return (
-    <details className="manage-fold">
-      <summary>
-        <span className="manage-fold__title">Class sign-ups</span>
-        <span className="manage-fold__hint">{summary}</span>
-      </summary>
-      <div className="manage-fold__body">
-        {filled.map((item) => (
-          <article key={item.classId} className="roster-class">
-            <h4 className="roster-class__title">
-              {classTopicWhenLabel(item.startsAt)}
-            </h4>
-            <p className="class-meta">
-              <span>
-                {item.people.length} signed up
-              </span>
-            </p>
-            <ul className="roster-list">
-              {item.people.map((person) => (
-                <li key={person.userId} className="roster-list__row">
-                  <span>{person.displayName}</span>
-                  <RemoveSignupForm
-                    classId={item.classId}
-                    userId={person.userId}
-                    name={person.displayName}
-                    targetRole={person.role}
-                    actorRole={actorRole}
-                  />
-                </li>
-              ))}
-            </ul>
-          </article>
-        ))}
+    <section className="manage-block">
+      <h3 className="manage-block__title">Class sign-ups</h3>
+      <p className="manage-fold__hint" style={{ marginTop: 0 }}>
+        Open a class to see who signed up.
+      </p>
+      <div className="panel manage-panel">
+        {rosters.map((item) => {
+          const count = item.people.length;
+          const cap = item.capacity ?? 15;
+          return (
+            <details key={item.classId} className="roster-class">
+              <summary className="roster-class__summary">
+                <span className="roster-class__when">
+                  {classTopicWhenLabel(item.startsAt)}
+                </span>
+                <span className="roster-class__count">
+                  {signedUpCountLabel(count, cap)}
+                </span>
+              </summary>
+              {count === 0 ? (
+                <p className="roster-class__empty">No one signed up yet.</p>
+              ) : (
+                <ul className="roster-list">
+                  {item.people.map((person) => (
+                    <li key={person.userId} className="roster-list__row">
+                      <span>{person.displayName}</span>
+                      <RemoveSignupForm
+                        classId={item.classId}
+                        userId={person.userId}
+                        name={person.displayName}
+                        targetRole={person.role}
+                        actorRole={actorRole}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </details>
+          );
+        })}
       </div>
-    </details>
+    </section>
   );
 }

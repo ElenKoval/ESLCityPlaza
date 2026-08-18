@@ -5,7 +5,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { enrollClass } from "@/app/actions";
 import { CancelClassControl } from "@/components/CancelClassControl";
-import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
+import {
+  enrollStatus,
+  signedUpCountLabel,
+  spotsAvailableLabel,
+} from "@/lib/enrollment";
 import {
   classLocation,
   DEFAULT_CLASS_HOURS,
@@ -177,7 +181,13 @@ export function HomeCalendar({
       setMessage(null);
       setClasses((prev) =>
         prev.map((c) =>
-          c.id === classId ? { ...c, enrolled: true } : c,
+          c.id === classId
+            ? {
+                ...c,
+                enrolled: true,
+                enrollment_count: (c.enrollment_count ?? 0) + (c.enrolled ? 0 : 1),
+              }
+            : c,
         ),
       );
       router.refresh();
@@ -325,6 +335,9 @@ export function HomeCalendar({
                     {c.enrolled ? (
                       <div className="home-cal__signed">
                         <p className="home-cal__signed-ok">✓ You&apos;re signed up</p>
+                        <p className="home-cal__spots">
+                          {signedUpCountLabel(count, c.capacity)}
+                        </p>
                         <CancelClassControl classId={c.id} />
                       </div>
                     ) : (

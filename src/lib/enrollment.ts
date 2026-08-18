@@ -56,3 +56,10 @@ export function spotsAvailableLabel(taken: number, capacity: number) {
   if (left === 1) return "1 spot available";
   return `${left} spots available`;
 }
+
+export function signedUpCountLabel(taken: number, capacity: number) {
+  const n = Math.max(0, taken);
+  const cap = Math.max(0, capacity);
+  if (n === 1) return `1 of ${cap} signed up`;
+  return `${n} of ${cap} signed up`;
+}

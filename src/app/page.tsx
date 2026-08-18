@@ -44,26 +44,20 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
 
     if (!classes?.length) return [] as ClassRow[];
 
-    if (!canEnroll || !userId) {
-      return classes.map((c) => ({
-        ...c,
-        enrollment_count: 0,
-        enrolled: false,
-      })) as ClassRow[];
-    }
-
     const ids = classes.map((c) => c.id);
     const counts = new Map<string, number>();
     const mine = new Set<string>();
 
-    const { data: enrollments } = await supabase
-      .from("enrollments")
-      .select("class_id, user_id")
-      .in("class_id", ids);
+    if (canEnroll && userId) {
+      const { data: enrollments } = await supabase
+        .from("enrollments")
+        .select("class_id, user_id")
+        .in("class_id", ids);
 
-    for (const row of enrollments ?? []) {
-      counts.set(row.class_id, (counts.get(row.class_id) ?? 0) + 1);
-      if (row.user_id === userId) mine.add(row.class_id);
+      for (const row of enrollments ?? []) {
+        counts.set(row.class_id, (counts.get(row.class_id) ?? 0) + 1);
+        if (row.user_id === userId) mine.add(row.class_id);
+      }
     }
 
     return classes.map((c) => ({

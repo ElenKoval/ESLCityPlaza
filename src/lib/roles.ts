@@ -91,7 +91,7 @@ export function canManageRoles(role: Role) {
 }
 
 export function canViewClassRoster(role: Role) {
-  return role === "admin" || role === "tech";
+  return role === "teacher" || role === "admin" || role === "tech";
 }
 
 export function canRemoveFromClass(actorRole: Role, targetRole: Role) {
