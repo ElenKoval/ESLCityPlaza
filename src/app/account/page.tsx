@@ -1,7 +1,6 @@
 import { requireApproved } from "@/lib/auth";
+import { AccountProfileView } from "@/components/AccountProfileView";
 import { ChangePasswordForm } from "@/components/ChangePasswordForm";
-import { MemberProfileCard } from "@/components/MemberProfileDialog";
-import { ProfileSetupForm } from "@/components/ProfileSetupForm";
 import { RoleBadge } from "@/components/RoleBadge";
 
 export default async function AccountPage() {
@@ -16,13 +15,7 @@ export default async function AccountPage() {
           </h1>
           <p className="lead">This is how other members see you.</p>
         </div>
-        <div className="panel">
-          <MemberProfileCard profile={profile} self />
-        </div>
-        <div>
-          <h2 className="announce-form__heading">Edit profile</h2>
-          <ProfileSetupForm profile={profile} mode="edit" />
-        </div>
+        <AccountProfileView profile={profile} />
         <ChangePasswordForm />
       </section>
     </div>

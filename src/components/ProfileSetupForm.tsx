@@ -26,9 +26,13 @@ import type { Profile } from "@/lib/types";
 export function ProfileSetupForm({
   profile,
   mode = "setup",
+  onSaved,
+  onCancel,
 }: {
   profile: Profile;
   mode?: "setup" | "edit";
+  onSaved?: () => void;
+  onCancel?: () => void;
 }) {
   const [saveState, saveAction, saving] = useActionState<ActionState, FormData>(
     saveProfile,
@@ -48,8 +52,9 @@ export function ProfileSetupForm({
   useEffect(() => {
     if (mode === "edit" && saveState?.success) {
       router.refresh();
+      onSaved?.();
     }
-  }, [mode, saveState, router]);
+  }, [mode, saveState, router, onSaved]);
   const existingLangs = (profile.languages ?? []).filter(Boolean);
   const [languages, setLanguages] = useState(
     existingLangs.length ? existingLangs : [""],
@@ -350,6 +355,16 @@ export function ProfileSetupForm({
                 : skipping
                   ? "…"
                   : "Skip for now"}
+            </button>
+          )}
+          {mode === "edit" && onCancel && (
+            <button
+              className="btn-ghost"
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+            >
+              Cancel
             </button>
           )}
         </div>
