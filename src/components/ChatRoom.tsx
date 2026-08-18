@@ -815,6 +815,11 @@ export function ChatRoom({
     });
   }
 
+  function openOnlineProfile(id: string) {
+    setOnlineSheetOpen(false);
+    openProfile(id);
+  }
+
   if (!allowed) {
     return <ChatUnavailable />;
   }
@@ -1050,12 +1055,17 @@ export function ChatRoom({
       </form>
         </div>
       </div>
-      <ChatOnlineSidebar users={onlineUsers} ready={presenceReady} />
+      <ChatOnlineSidebar
+        users={onlineUsers}
+        ready={presenceReady}
+        onOpenProfile={openOnlineProfile}
+      />
       <ChatOnlineSheet
         users={onlineUsers}
         ready={presenceReady}
         open={onlineSheetOpen}
         onClose={() => setOnlineSheetOpen(false)}
+        onOpenProfile={openOnlineProfile}
       />
     </div>
   );

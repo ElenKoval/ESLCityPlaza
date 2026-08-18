@@ -10,22 +10,35 @@ import {
 } from "@/lib/chat-presence";
 import { RoleBadge } from "@/components/RoleBadge";
 
-function OnlineUserRow({ user }: { user: ChatPresenceMeta }) {
+function OnlineUserRow({
+  user,
+  onOpenProfile,
+}: {
+  user: ChatPresenceMeta;
+  onOpenProfile: (userId: string) => void;
+}) {
   const name = displayChatName(user.display_name);
   return (
-    <li className="chat-online__user">
-      <span
-        className="chat-online__avatar"
-        style={{ background: chatInitialColor(name) }}
-        aria-hidden="true"
+    <li>
+      <button
+        type="button"
+        className="chat-online__user"
+        onClick={() => onOpenProfile(user.user_id)}
+        aria-label={`View ${name}'s profile`}
       >
-        {chatInitial(name)}
-      </span>
-      <span className="chat-online__dot" aria-hidden="true" />
-      <span className="chat-online__name">{name}</span>
-      {showOnlineRoleBadge(user.role) && (
-        <RoleBadge role={user.role} />
-      )}
+        <span
+          className="chat-online__avatar"
+          style={{ background: chatInitialColor(name) }}
+          aria-hidden="true"
+        >
+          {chatInitial(name)}
+        </span>
+        <span className="chat-online__dot" aria-hidden="true" />
+        <span className="chat-online__name">{name}</span>
+        {showOnlineRoleBadge(user.role) && (
+          <RoleBadge role={user.role} />
+        )}
+      </button>
     </li>
   );
 }
@@ -48,9 +61,11 @@ function OnlineHeading({
 function OnlineUserList({
   users,
   ready,
+  onOpenProfile,
 }: {
   users: ChatPresenceMeta[];
   ready: boolean;
+  onOpenProfile: (userId: string) => void;
 }) {
   if (!ready) return null;
   if (users.length === 0) return null;
@@ -58,7 +73,11 @@ function OnlineUserList({
   return (
     <ul className="chat-online__list">
       {users.map((user) => (
-        <OnlineUserRow key={user.user_id} user={user} />
+        <OnlineUserRow
+          key={user.user_id}
+          user={user}
+          onOpenProfile={onOpenProfile}
+        />
       ))}
     </ul>
   );
@@ -67,14 +86,20 @@ function OnlineUserList({
 export function ChatOnlineSidebar({
   users,
   ready,
+  onOpenProfile,
 }: {
   users: ChatPresenceMeta[];
   ready: boolean;
+  onOpenProfile: (userId: string) => void;
 }) {
   return (
     <aside className="chat-online chat-online--sidebar" aria-label="Online now">
       <OnlineHeading count={users.length} ready={ready} />
-      <OnlineUserList users={users} ready={ready} />
+      <OnlineUserList
+        users={users}
+        ready={ready}
+        onOpenProfile={onOpenProfile}
+      />
     </aside>
   );
 }
@@ -107,11 +132,13 @@ export function ChatOnlineSheet({
   ready,
   open,
   onClose,
+  onOpenProfile,
 }: {
   users: ChatPresenceMeta[];
   ready: boolean;
   open: boolean;
   onClose: () => void;
+  onOpenProfile: (userId: string) => void;
 }) {
   const titleId = useId();
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -159,7 +186,11 @@ export function ChatOnlineSheet({
         {ready && users.length > 0 ? (
           <ul className="chat-online__list chat-online__list--sheet">
             {users.map((user) => (
-              <OnlineUserRow key={user.user_id} user={user} />
+              <OnlineUserRow
+                key={user.user_id}
+                user={user}
+                onOpenProfile={onOpenProfile}
+              />
             ))}
           </ul>
         ) : (
