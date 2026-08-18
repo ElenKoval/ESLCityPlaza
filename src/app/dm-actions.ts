@@ -168,25 +168,24 @@ export async function markDirectConversationRead(conversationId: string) {
   if (!conversationId) return;
   const auth = await requireApprovedUser();
   if ("error" in auth) return;
-  const { supabase, userId } = auth;
-  await supabase.from("direct_reads").upsert(
-    {
-      conversation_id: conversationId,
-      user_id: userId,
-      last_read_at: new Date().toISOString(),
-    },
-    { onConflict: "conversation_id,user_id" },
+  const { persistDirectConversationRead } = await import(
+    "@/lib/load-direct-messages"
   );
+  await persistDirectConversationRead(auth.userId, conversationId);
   revalidatePath("/messages");
   revalidatePath(`/messages/${conversationId}`);
 }
 
-export async function getDirectUnreadCount(): Promise<number> {
+export async function getDirectUnreadCount(
+  openedConversationId?: string | null,
+): Promise<number> {
   const auth = await requireApprovedUser();
   if ("error" in auth) return 0;
   const { loadDirectConversationList } = await import("@/lib/load-direct-messages");
   const { items } = await loadDirectConversationList(auth.userId);
-  return items.filter((item) => item.unread).length;
+  return items.filter(
+    (item) => item.unread && item.id !== openedConversationId,
+  ).length;
 }
 
 export async function signDirectImagePaths(

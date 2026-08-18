@@ -4,6 +4,7 @@ import { requireApproved } from "@/lib/auth";
 import {
   loadDirectConversationList,
   loadDirectThread,
+  persistDirectConversationRead,
 } from "@/lib/load-direct-messages";
 import { signDirectImagePaths } from "@/app/dm-actions";
 import { DirectMessagesApp } from "@/components/DirectMessagesApp";
@@ -20,11 +21,12 @@ export default async function DirectMessageThreadPage({
 }) {
   const { id } = await params;
   const { userId } = await requireApproved();
-  const [{ items, setupNeeded }, { thread, setupNeeded: threadSetup, error }] =
-    await Promise.all([
-      loadDirectConversationList(userId),
-      loadDirectThread(id, userId),
-    ]);
+  const { thread, setupNeeded: threadSetup, error } =
+    await loadDirectThread(id, userId);
+  if (thread) {
+    await persistDirectConversationRead(userId, id);
+  }
+  const { items, setupNeeded } = await loadDirectConversationList(userId);
 
   if (!thread) {
     if (setupNeeded || threadSetup) {

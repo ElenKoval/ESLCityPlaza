@@ -13,7 +13,11 @@ import {
   signDirectImagePaths,
   unblockDirectMember,
 } from "@/app/dm-actions";
-import { DM_BLOCKED_SEND, dmListTimeLabel } from "@/lib/direct-messages";
+import {
+  DM_BLOCKED_SEND,
+  dispatchDmUnreadRefresh,
+  dmListTimeLabel,
+} from "@/lib/direct-messages";
 import {
   chatInitial,
   chatInitialColor,
@@ -167,7 +171,14 @@ export function DirectMessagesApp({
 
   useEffect(() => {
     if (!activeId) return;
-    void markDirectConversationRead(activeId);
+    setConversations((prev) =>
+      prev.map((item) =>
+        item.id === activeId ? { ...item, unread: false } : item,
+      ),
+    );
+    void markDirectConversationRead(activeId).then(() => {
+      dispatchDmUnreadRefresh();
+    });
   }, [activeId]);
 
   useEffect(() => {
@@ -221,7 +232,9 @@ export function DirectMessagesApp({
                 },
               ];
             });
-            void markDirectConversationRead(activeId);
+            void markDirectConversationRead(activeId).then(() => {
+              dispatchDmUnreadRefresh();
+            });
           },
         )
         .on(
@@ -309,6 +322,7 @@ export function DirectMessagesApp({
             : [...prev, result.message!],
         );
       }
+      dispatchDmUnreadRefresh();
       router.refresh();
     });
   }
@@ -383,7 +397,7 @@ export function DirectMessagesApp({
                         {showOnlineRoleBadge(item.otherRole) && (
                           <RoleBadge role={item.otherRole} />
                         )}
-                        {item.unread && (
+                        {item.unread && item.id !== activeId && (
                           <span className="dm-unread" aria-label="Unread" />
                         )}
                         <span className="dm-convo__time">

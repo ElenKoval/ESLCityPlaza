@@ -11,6 +11,12 @@ export const DM_BLOCKED_SEND =
 export const DM_SETUP_MESSAGE =
   "Run supabase/direct-messages-upgrade.sql in the Supabase SQL Editor, then try again.";
 
+export const DM_UNREAD_REFRESH_EVENT = "plaza-dm-unread-refresh";
+
+export function dispatchDmUnreadRefresh() {
+  window.dispatchEvent(new Event(DM_UNREAD_REFRESH_EVENT));
+}
+
 export function dmSortedPair(a: string, b: string): [string, string] {
   return a < b ? [a, b] : [b, a];
 }

@@ -36,6 +36,25 @@ function setupOrNull(message: string) {
   return false;
 }
 
+export async function persistDirectConversationRead(
+  userId: string,
+  conversationId: string,
+) {
+  if (!userId || !conversationId) return;
+  const supabase = await createClient();
+  const { error } = await supabase.from("direct_reads").upsert(
+    {
+      conversation_id: conversationId,
+      user_id: userId,
+      last_read_at: new Date().toISOString(),
+    },
+    { onConflict: "conversation_id,user_id" },
+  );
+  if (error && !dmTableMissing(error.message)) {
+    console.error("[dm]", error.message);
+  }
+}
+
 export async function loadDirectConversationList(
   userId: string,
 ): Promise<{ items: DirectConversationListItem[]; setupNeeded: boolean }> {
