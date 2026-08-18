@@ -7,10 +7,10 @@ export default function PrivacyPage() {
         <h1>Privacy Policy</h1>
         <p className="sub">Last updated: August 2026</p>
         <p>
-          {SITE_NAME} is a small community website for members of our
-          English conversation group. We collect only the information needed to
-          manage the group, organize meetings, and help members communicate with
-          each other.
+          {SITE_NAME} is a small community website for members of our English
+          conversation group. We collect only the information needed to manage
+          the group, organize meetings, and help members communicate with each
+          other.
         </p>
 
         <h2>Information We Collect</h2>
@@ -21,19 +21,26 @@ export default function PrivacyPage() {
           <li>Your name</li>
           <li>Your email address</li>
           <li>
-            Your role in the group, such as Student or Teacher, and whether
-            your application is pending, approved, or declined
+            Your role in the group, such as Student, Teacher, Admin, or Tech
           </li>
           <li>
-            Optional details you share when you apply: where you are from, and
-            how you heard about {SITE_NAME}
+            Your account status, such as pending, approved, declined, or
+            suspended
           </li>
           <li>
-            Optional profile details: languages you speak, interests, and a
-            short “About me”
+            Optional details you share when you apply, such as where you are
+            from and how you heard about {SITE_NAME}
+          </li>
+          <li>
+            Optional profile details, including languages you speak, interests,
+            and a short “About me”
           </li>
           <li>Your class registrations</li>
-          <li>Messages you post in the Community Chat</li>
+          <li>Messages and photos you share in the Community Chat</li>
+          <li>
+            Limited moderation information when necessary to manage the
+            community
+          </li>
         </ul>
         <p>
           Some profile information is optional. You can skip it and fill it in
@@ -46,13 +53,14 @@ export default function PrivacyPage() {
           <li>Create and manage your account</li>
           <li>Review membership requests</li>
           <li>Organize classes and class sign-ups</li>
-          <li>Provide the Community Chat</li>
+          <li>Provide and moderate the Community Chat</li>
           <li>Show member profiles to other approved members</li>
           <li>
             Send necessary account emails, including email confirmation and
             approval notices
           </li>
           <li>Notify organizers when someone asks to join</li>
+          <li>Help keep the community safe and respectful</li>
         </ul>
         <p>
           We do not sell your personal information and we do not use it for
@@ -61,32 +69,50 @@ export default function PrivacyPage() {
 
         <h2>What Other Members Can See</h2>
         <p>
-          Only approved members can use member-only areas such as Community
-          Chat, class sign-up, and member profiles.
+          Only approved members with appropriate access can use member-only
+          areas such as Community Chat, class sign-up, and member profiles.
         </p>
         <p>Other approved members may see:</p>
         <ul>
           <li>Your name</li>
           <li>Your role</li>
           <li>The profile information you choose to provide</li>
-          <li>Messages you post in the Community Chat</li>
+          <li>Messages and photos you share in the Community Chat</li>
         </ul>
         <p>Other students cannot see your email address.</p>
         <p>
           Other students also cannot see which classes you have signed up for.
         </p>
         <p>
-          Teachers and website administrators may see additional information
-          needed to manage accounts, membership requests, classes, and the
-          website. This includes email addresses for pending applications.
+          Teachers, administrators, and the website Tech may see additional
+          information needed to manage accounts, membership requests, classes,
+          moderation, and the website. This may include email addresses and
+          account or moderation status.
         </p>
         <p>
           Announcements on the homepage may be visible to visitors, not only to
           members.
         </p>
 
+        <h2>Community Chat and Photos</h2>
+        <p>
+          Messages and photos shared in the Community Chat are available only to
+          members who have access to the Chat.
+        </p>
+        <p>
+          Photos are stored privately and are not intended to be publicly
+          accessible. Please do not share photos or personal information about
+          other people unless you have permission to do so.
+        </p>
+        <p>
+          Access to the Community Chat may be restricted when necessary to
+          manage the community.
+        </p>
+
         <h2>Emails We Send</h2>
-        <p>We send only account-related emails, for example:</p>
+        <p>
+          We send only account-related or group-management emails, for example:
+        </p>
         <ul>
           <li>A confirmation link when you apply</li>
           <li>A notice if your account is approved</li>
@@ -98,8 +124,8 @@ export default function PrivacyPage() {
         <p>The website uses third-party services to operate:</p>
         <ul>
           <li>
-            <strong>Supabase</strong> for accounts, authentication, and
-            database services
+            <strong>Supabase</strong> for accounts, authentication, database
+            services, real-time features, and private photo storage
           </li>
           <li>
             <strong>Vercel</strong> for website hosting
@@ -130,13 +156,13 @@ export default function PrivacyPage() {
         <h2>Data Retention and Account Deletion</h2>
         <p>
           Your information is kept while your account is active, or as needed
-          to operate the group. A declined application may remain until it is
-          removed.
+          to operate and manage the group. A declined or suspended account may
+          remain until it is removed.
         </p>
         <p>
           You may ask us to delete your account and associated personal
           information. Organizers may also remove an account when needed, for
-          example if it is spam or unsafe.
+          example if it is spam, unsafe, or disruptive.
         </p>
         <p>
           To request deletion, contact:{" "}
@@ -147,8 +173,8 @@ export default function PrivacyPage() {
 
         <h2>Adults Only</h2>
         <p>
-          {SITE_NAME} is intended for adults. The website is not intended
-          for children under 18.
+          {SITE_NAME} is intended for adults. The website is not intended for
+          children under 18.
         </p>
 
         <h2>Security</h2>
