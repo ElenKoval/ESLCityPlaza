@@ -10,6 +10,7 @@ import {
   ManageMembersNavLink,
   ScheduleNavLink,
 } from "./HomeNavLink";
+import { DirectMessagesNavLink } from "./DirectMessagesNavLink";
 import { HeaderSessionGuard } from "./HeaderSessionGuard";
 import { SiteActivityTracker } from "./SiteActivityTracker";
 import { RoleBadge } from "./RoleBadge";
@@ -28,6 +29,7 @@ export async function SiteHeader() {
         <nav className="site-nav" aria-label="Main">
           <HomeNavLink />
           {profile?.status === "approved" && <ChatNavLink />}
+          {profile?.status === "approved" && <DirectMessagesNavLink />}
           {profile?.status === "approved" && <ClassTopicsNavLink />}
           {profile?.status === "approved" && <AnnouncementsNavLink />}
           {profile?.status === "approved" &&

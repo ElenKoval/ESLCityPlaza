@@ -702,7 +702,8 @@ create table if not exists public.site_activity (
         'Schedule',
         'Profile',
         'Announcements',
-        'Activity'
+        'Activity',
+        'Direct Messages'
       )
     )
 );
@@ -742,3 +743,6 @@ create policy "site_activity_update_own"
 
 grant select, insert, update on public.site_activity to authenticated;
 grant all on public.site_activity to service_role;
+
+-- Direct Messages (1:1, private). Apply supabase/direct-messages-upgrade.sql
+-- for tables, RLS, the private photo bucket, and Realtime publication.

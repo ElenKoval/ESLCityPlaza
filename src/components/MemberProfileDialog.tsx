@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { RoleBadge } from "@/components/RoleBadge";
 import { OTHER_INTEREST } from "@/lib/profile";
+import { openDirectConversation } from "@/app/dm-actions";
 import type { Profile } from "@/lib/types";
 
 export type MemberPreview = Pick<
@@ -86,12 +88,19 @@ export function MemberProfileCard({
 export function ProfileDialog({
   profile,
   showEmail = false,
+  viewerId,
   onClose,
 }: {
   profile: MemberPreview;
   showEmail?: boolean;
+  viewerId?: string;
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const canMessage = Boolean(viewerId && viewerId !== profile.id);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") onClose();
@@ -118,6 +127,31 @@ export function ProfileDialog({
           </button>
         </div>
         <MemberProfileCard profile={profile} showEmail={showEmail} />
+        {canMessage && (
+          <div className="profile-dialog__message">
+            {error && <p className="error">{error}</p>}
+            <button
+              type="button"
+              className="btn-primary"
+              disabled={pending}
+              onClick={() => {
+                startTransition(async () => {
+                  const result = await openDirectConversation(profile.id);
+                  if (result?.error) {
+                    setError(result.error);
+                    return;
+                  }
+                  if (result?.conversationId) {
+                    onClose();
+                    router.push(`/messages/${result.conversationId}`);
+                  }
+                });
+              }}
+            >
+              {pending ? "Opening…" : "Message"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

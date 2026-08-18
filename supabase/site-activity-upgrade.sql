@@ -15,7 +15,8 @@ create table if not exists public.site_activity (
         'Schedule',
         'Profile',
         'Announcements',
-        'Activity'
+        'Activity',
+        'Direct Messages'
       )
     )
 );

@@ -833,7 +833,11 @@ export function ChatRoom({
       <div className="chat-layout__main">
         <div className="chat-app">
       {viewing && (
-        <ProfileDialog profile={viewing} onClose={() => setViewing(null)} />
+        <ProfileDialog
+          profile={viewing}
+          viewerId={userId}
+          onClose={() => setViewing(null)}
+        />
       )}
       {lightbox && (
         <ChatLightbox

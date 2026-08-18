@@ -98,3 +98,48 @@ export type MessageRow = {
   file_name?: string | null;
   profiles?: Pick<Profile, "display_name" | "role"> | null;
 };
+
+export type DirectConversationRow = {
+  id: string;
+  user_low: string;
+  user_high: string;
+  created_by: string;
+  created_at: string;
+  last_message_at: string | null;
+  last_sender_id?: string | null;
+  last_preview: string;
+};
+
+export type DirectMessageRow = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  image_path?: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
+};
+
+export type DirectConversationListItem = {
+  id: string;
+  otherId: string;
+  otherName: string;
+  otherRole: Role;
+  lastPreview: string;
+  lastMessageAt: string | null;
+  unread: boolean;
+  blockedByMe: boolean;
+  blockedEitherWay: boolean;
+};
+
+export type DirectThreadMessage = {
+  id: string;
+  sender_id: string;
+  body: string;
+  created_at: string;
+  image_path?: string | null;
+  image_width?: number | null;
+  image_height?: number | null;
+  imageUrl?: string | null;
+};

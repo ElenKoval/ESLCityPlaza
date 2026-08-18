@@ -434,6 +434,7 @@ export function TechPanel({
         <ProfileDialog
           profile={viewing}
           showEmail={showEmail}
+          viewerId={viewer.id}
           onClose={() => setViewing(null)}
         />
       )}

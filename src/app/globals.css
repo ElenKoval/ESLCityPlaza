@@ -1568,20 +1568,25 @@ textarea {
 }
 
 html:has(.chat-page),
-html:has(.chat-page) body {
+html:has(.chat-page) body,
+html:has(.dm-page),
+html:has(.dm-page) body {
   height: 100dvh;
   overflow: hidden;
 }
 
-body:has(.chat-page) .site-footer {
+body:has(.chat-page) .site-footer,
+body:has(.dm-page) .site-footer {
   display: none;
 }
 
-body:has(.chat-page) .site-header__inner {
+body:has(.chat-page) .site-header__inner,
+body:has(.dm-page) .site-header__inner {
   padding: 0.45rem 0.9rem;
 }
 
-body:has(.chat-page) main {
+body:has(.chat-page) main,
+body:has(.dm-page) main {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -1848,6 +1853,12 @@ button.chat-msg__name {
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.15rem;
+}
+
+.profile-dialog__message {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.55rem;
 }
 
 .member-card__name {
@@ -3703,5 +3714,213 @@ button.chat-msg__name {
 
   .activity-row__meta {
     justify-self: end;
+  }
+}
+
+.dm-page {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dm-shell {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+  overflow: hidden;
+  background: rgba(255, 252, 247, 0.96);
+}
+
+.dm-list {
+  flex: 0 0 min(22rem, 38vw);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  background: var(--paper);
+}
+
+.dm-list__title {
+  margin: 0;
+  padding: 0.95rem 1.1rem 0.8rem;
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  color: var(--plaza-deep);
+  border-bottom: 1px solid var(--line);
+}
+
+.dm-empty,
+.dm-pick {
+  margin: 1.25rem 1.1rem;
+  color: var(--ink-soft);
+}
+
+.dm-convos {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.dm-convo {
+  display: flex;
+  gap: 0.7rem;
+  align-items: center;
+  padding: 0.7rem 1rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.dm-convo:hover {
+  background: rgba(232, 106, 23, 0.06);
+}
+
+.dm-convo.is-active {
+  background: rgba(232, 106, 23, 0.12);
+}
+
+.dm-convo__text {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.dm-convo__top {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.dm-convo__top strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-convo__time {
+  margin-left: auto;
+  flex-shrink: 0;
+  color: var(--ink-soft);
+  font-size: 0.78rem;
+}
+
+.dm-convo__preview {
+  color: var(--ink-soft);
+  font-size: 0.86rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dm-unread {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--plaza);
+  flex-shrink: 0;
+}
+
+.dm-thread {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 252, 247, 0.96);
+}
+
+.dm-thread__head {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.55rem 0.85rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.dm-back {
+  font-size: 0.9rem;
+  color: var(--plaza-deep);
+  text-decoration: none;
+}
+
+.dm-back:hover {
+  text-decoration: underline;
+}
+
+.dm-thread__who {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 650;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.dm-blocked {
+  margin: 0;
+  padding: 0.9rem 1.1rem 1.1rem;
+  color: var(--ink-soft);
+  border-top: 1px solid var(--line);
+  background: #fff6e8;
+}
+
+.dm-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dm-nav__badge {
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.28rem;
+  border-radius: 999px;
+  background: var(--plaza);
+  color: #fff8f1;
+  font-size: 0.7rem;
+  font-weight: 700;
+  line-height: 1.15rem;
+  text-align: center;
+}
+
+@media (max-width: 839px) {
+  .dm-list {
+    flex: 1;
+    border-right: 0;
+  }
+
+  .dm-shell--list .dm-thread {
+    display: none;
+  }
+
+  .dm-shell--thread .dm-list {
+    display: none;
+  }
+
+  .dm-thread__who {
+    display: none;
+  }
+}
+
+@media (min-width: 840px) {
+  .dm-back {
+    display: none;
   }
 }

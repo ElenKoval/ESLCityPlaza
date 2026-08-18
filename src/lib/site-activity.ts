@@ -11,6 +11,7 @@ export const ACTIVITY_SECTIONS = [
   "Profile",
   "Announcements",
   "Activity",
+  "Direct Messages",
 ] as const;
 
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
@@ -28,6 +29,7 @@ export function sectionFromPath(pathname: string): ActivitySection | null {
   }
   if (pathname.startsWith("/announcements")) return "Announcements";
   if (pathname.startsWith("/activity")) return "Activity";
+  if (pathname.startsWith("/messages")) return "Direct Messages";
   return null;
 }
 
