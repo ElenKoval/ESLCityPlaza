@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { RoleBadge } from "@/components/RoleBadge";
 import { OTHER_INTEREST } from "@/lib/profile";
 import { openDirectConversation } from "@/app/dm-actions";
+import { chatInitial, chatInitialColor } from "@/lib/chat-presence";
 import type { Profile } from "@/lib/types";
 
 export type MemberPreview = Pick<
@@ -17,6 +18,7 @@ export type MemberPreview = Pick<
   | "interests"
   | "bio"
   | "email"
+  | "avatar_color"
 >;
 
 export function MemberProfileCard({
@@ -38,6 +40,13 @@ export function MemberProfileCard({
   return (
     <div className="member-card">
       <p className="member-card__name">
+        <span
+          className="chat-avatar"
+          style={{ background: chatInitialColor(profile.avatar_color) }}
+          aria-hidden="true"
+        >
+          {chatInitial(profile.display_name)}
+        </span>
         {profile.display_name} <RoleBadge role={profile.role} />
       </p>
       {showEmail && profile.email && (

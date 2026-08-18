@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { avatarColumnMissing, normalizeAvatarColor } from "@/lib/avatar-color";
 import { dmOtherId, dmTableMissing } from "@/lib/direct-messages";
 import type {
   DirectConversationListItem,
@@ -13,6 +14,7 @@ export type DirectThread = {
   otherId: string;
   otherName: string;
   otherRole: Role;
+  otherAvatarColor?: string | null;
   blockedByMe: boolean;
   blockedEitherWay: boolean;
   messages: DirectThreadMessage[];
@@ -34,6 +36,27 @@ function setupOrNull(message: string) {
   if (dmTableMissing(message)) return true;
   console.error("[dm]", message);
   return false;
+}
+
+async function loadProfileBasics(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  ids: string[],
+) {
+  if (ids.length === 0) return [];
+  const withColor = await supabase
+    .from("profiles")
+    .select("id, display_name, role, status, avatar_color")
+    .in("id", ids);
+  if (!withColor.error) return withColor.data ?? [];
+  if (!avatarColumnMissing(withColor.error.message)) {
+    console.error("[dm]", withColor.error.message);
+    return [];
+  }
+  const fallback = await supabase
+    .from("profiles")
+    .select("id, display_name, role, status")
+    .in("id", ids);
+  return fallback.data ?? [];
 }
 
 export async function persistDirectConversationRead(
@@ -79,9 +102,9 @@ export async function loadDirectConversationList(
   const otherIds = rows.map((row) => dmOtherId(userId, row.user_low, row.user_high));
   const convIds = rows.map((row) => row.id);
 
-  const [{ data: people }, { data: reads }, { data: myBlocks }, { data: blockedIds }] =
+  const [{ data: peopleRows }, { data: reads }, { data: myBlocks }, { data: blockedIds }] =
     await Promise.all([
-      supabase.from("profiles").select("id, display_name, role, status").in("id", otherIds),
+      loadProfileBasics(supabase, otherIds).then((data) => ({ data })),
       supabase
         .from("direct_reads")
         .select("conversation_id, last_read_at")
@@ -94,6 +117,7 @@ export async function loadDirectConversationList(
         .in("blocked_id", otherIds),
       supabase.rpc("dm_blocked_conversation_ids"),
     ]);
+  const people = peopleRows;
 
   const nameById = new Map(
     (people ?? []).map((p) => [
@@ -102,6 +126,9 @@ export async function loadDirectConversationList(
         name: p.display_name as string,
         role: p.role as Role,
         status: p.status as string,
+        avatarColor: normalizeAvatarColor(
+          (p as { avatar_color?: string | null }).avatar_color,
+        ),
       },
     ]),
   );
@@ -126,6 +153,7 @@ export async function loadDirectConversationList(
       otherId,
       otherName: person?.name ?? "Member",
       otherRole: person?.role ?? "student",
+      otherAvatarColor: person?.avatarColor,
       lastPreview: row.last_preview || "",
       lastMessageAt: row.last_message_at,
       unread,
@@ -171,13 +199,9 @@ export async function loadDirectThread(
   }
 
   const otherId = dmOtherId(userId, row.user_low, row.user_high);
-  const [{ data: person }, { data: myBlock }, { data: pairBlocked }, { data: messages }] =
+  const [{ data: personRows }, { data: myBlock }, { data: pairBlocked }, { data: messages }] =
     await Promise.all([
-      supabase
-        .from("profiles")
-        .select("id, display_name, role, status")
-        .eq("id", otherId)
-        .maybeSingle(),
+      loadProfileBasics(supabase, [otherId]).then((data) => ({ data })),
       supabase
         .from("direct_blocks")
         .select("blocked_id")
@@ -192,6 +216,7 @@ export async function loadDirectThread(
         .order("created_at", { ascending: true })
         .limit(200),
     ]);
+  const person = personRows[0];
 
   const blockedByMe = Boolean(myBlock);
   const blockedEitherWay = Boolean(pairBlocked) || blockedByMe;
@@ -202,6 +227,9 @@ export async function loadDirectThread(
       otherId,
       otherName: person?.display_name ?? "Member",
       otherRole: (person?.role as Role) ?? "student",
+      otherAvatarColor: normalizeAvatarColor(
+        (person as { avatar_color?: string | null } | undefined)?.avatar_color,
+      ),
       blockedByMe,
       blockedEitherWay,
       messages: ((messages ?? []) as DirectMessageRow[]).map((m) => ({

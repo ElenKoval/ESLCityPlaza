@@ -15,7 +15,12 @@ import {
   dmSortedPair,
   dmTableMissing,
 } from "@/lib/direct-messages";
-import type { DirectThreadMessage, Role } from "@/lib/types";
+import { avatarColumnMissing } from "@/lib/avatar-color";
+import type {
+  DirectConversationListItem,
+  DirectThreadMessage,
+  Role,
+} from "@/lib/types";
 
 export type DmActionState = {
   error?: string;
@@ -144,23 +149,36 @@ export type DmMemberOption = {
   id: string;
   display_name: string;
   role: Role;
+  avatar_color?: string | null;
 };
 
 export async function listApprovedMembersForDm(): Promise<DmMemberOption[]> {
   const auth = await requireApprovedUser();
   if ("error" in auth) return [];
   const { supabase, userId } = auth;
-  const { data, error } = await supabase
+  const withColor = await supabase
     .from("profiles")
-    .select("id, display_name, role")
+    .select("id, display_name, role, avatar_color")
     .eq("status", "approved")
     .neq("id", userId)
     .order("display_name", { ascending: true });
+  const fallbackNeeded = Boolean(
+    withColor.error && avatarColumnMissing(withColor.error.message),
+  );
+  const { data, error } = fallbackNeeded
+    ? await supabase
+        .from("profiles")
+        .select("id, display_name, role")
+        .eq("status", "approved")
+        .neq("id", userId)
+        .order("display_name", { ascending: true })
+    : withColor;
   if (error || !data) return [];
   return data.map((row) => ({
     id: row.id as string,
     display_name: row.display_name as string,
     role: row.role as Role,
+    avatar_color: (row as { avatar_color?: string | null }).avatar_color ?? null,
   }));
 }
 
@@ -186,6 +204,18 @@ export async function getDirectUnreadCount(
   return items.filter(
     (item) => item.unread && item.id !== openedConversationId,
   ).length;
+}
+
+export async function getDirectConversationList(): Promise<
+  DirectConversationListItem[] | null
+> {
+  const auth = await requireApprovedUser();
+  if ("error" in auth) return null;
+  const { loadDirectConversationList } = await import(
+    "@/lib/load-direct-messages"
+  );
+  const { items } = await loadDirectConversationList(auth.userId);
+  return items;
 }
 
 export async function signDirectImagePaths(

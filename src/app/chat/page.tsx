@@ -6,6 +6,8 @@ import { ChatUnavailable } from "@/components/ChatUnavailable";
 import { toChatMessages } from "@/lib/chat";
 import { useLocalDemo } from "@/lib/demo";
 import { signChatImagePaths, signChatFilePaths } from "@/app/actions";
+import { markChatRead } from "@/app/chat-actions";
+import { normalizeAvatarColor } from "@/lib/avatar-color";
 import { canAccessCommunityChat } from "@/lib/roles";
 import type { MessageRow, Role } from "@/lib/types";
 import { sitePageTitle } from "@/lib/site-name";
@@ -20,6 +22,8 @@ export default async function ChatPage() {
   if (!canAccessCommunityChat(profile)) {
     return <ChatUnavailable />;
   }
+
+  await markChatRead();
 
   let rows: Array<
     MessageRow & { profiles?: { display_name: string; role: Role } | null }
@@ -70,6 +74,33 @@ export default async function ChatPage() {
         profiles: profileRow,
       };
     });
+
+    const userIds = [...new Set(rows.map((row) => row.user_id))];
+    if (userIds.length > 0) {
+      const { data: colors } = await supabase
+        .from("profiles")
+        .select("id, avatar_color")
+        .in("id", userIds);
+      if (colors) {
+        const colorById = new Map(
+          colors.map((row) => [
+            row.id as string,
+            normalizeAvatarColor(
+              (row as { avatar_color?: string | null }).avatar_color,
+            ),
+          ]),
+        );
+        rows = rows.map((row) => ({
+          ...row,
+          profiles: row.profiles
+            ? {
+                ...row.profiles,
+                avatar_color: colorById.get(row.user_id) ?? null,
+              }
+            : row.profiles,
+        }));
+      }
+    }
   }
 
   const imageUrls = await signChatImagePaths(
@@ -90,6 +121,7 @@ export default async function ChatPage() {
         userId={userId}
         displayName={profile.display_name}
         role={profile.role}
+        avatarColor={profile.avatar_color}
         chatAllowed
       />
     </div>

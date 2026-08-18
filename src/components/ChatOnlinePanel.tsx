@@ -28,7 +28,7 @@ function OnlineUserRow({
       >
         <span
           className="chat-online__avatar"
-          style={{ background: chatInitialColor(name) }}
+          style={{ background: chatInitialColor(user.avatar_color) }}
           aria-hidden="true"
         >
           {chatInitial(name)}

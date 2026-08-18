@@ -30,6 +30,10 @@ import {
   splitStoredInterests,
 } from "@/lib/profile";
 import {
+  avatarColumnMissing,
+  normalizeAvatarColor,
+} from "@/lib/avatar-color";
+import {
   assignableRoles,
   canDeleteChatMessage,
   canDeleteMember,
@@ -1854,6 +1858,9 @@ export async function saveProfile(
     languages,
     interests,
     bio,
+    avatar_color: normalizeAvatarColor(
+      String(formData.get("avatar_color") || ""),
+    ),
     onboarding_completed_at: now,
   };
 
@@ -1883,18 +1890,31 @@ export async function saveProfile(
     .maybeSingle();
   if (!me || me.status !== "approved") return { error: "Please log in" };
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("profiles")
     .update(payload)
     .eq("id", user.id)
     .select("id")
     .maybeSingle();
+  if (error && avatarColumnMissing(error.message)) {
+    const { avatar_color: _color, ...rest } = payload;
+    const retry = await supabase
+      .from("profiles")
+      .update(rest)
+      .eq("id", user.id)
+      .select("id")
+      .maybeSingle();
+    data = retry.data;
+    error = retry.error;
+  }
   if (error) return { error: error.message };
   if (!data) return { error: "Could not save your profile. Please try again." };
 
   revalidatePath("/", "layout");
   revalidatePath("/profile");
   revalidatePath("/account");
+  revalidatePath("/chat");
+  revalidatePath("/messages");
   return { success: "saved" };
 }
 
@@ -2001,7 +2021,14 @@ export async function getPublicProfile(
   userId: string,
 ): Promise<Pick<
   Profile,
-  "id" | "display_name" | "role" | "hometown" | "languages" | "interests" | "bio"
+  | "id"
+  | "display_name"
+  | "role"
+  | "hometown"
+  | "languages"
+  | "interests"
+  | "bio"
+  | "avatar_color"
 > | null> {
   if (!userId || userId === "system") return null;
 
@@ -2019,6 +2046,7 @@ export async function getPublicProfile(
       languages: match.languages ?? [],
       interests: match.interests ?? [],
       bio: match.bio ?? "",
+      avatar_color: normalizeAvatarColor(match.avatar_color),
     };
   }
 
@@ -2035,11 +2063,19 @@ export async function getPublicProfile(
     .maybeSingle();
   if (!me || me.status !== "approved") return null;
 
-  const { data } = await supabase
+  const withColor = await supabase
     .from("profiles")
-    .select("id, display_name, role, status, hometown, languages, interests, bio")
+    .select("id, display_name, role, status, hometown, languages, interests, bio, avatar_color")
     .eq("id", userId)
     .maybeSingle();
+  const { data } =
+    withColor.error && avatarColumnMissing(withColor.error.message)
+      ? await supabase
+          .from("profiles")
+          .select("id, display_name, role, status, hometown, languages, interests, bio")
+          .eq("id", userId)
+          .maybeSingle()
+      : withColor;
 
   if (!data || data.status !== "approved") return null;
   return {
@@ -2050,6 +2086,9 @@ export async function getPublicProfile(
     languages: data.languages ?? [],
     interests: data.interests ?? [],
     bio: data.bio ?? "",
+    avatar_color: normalizeAvatarColor(
+      (data as { avatar_color?: string | null }).avatar_color,
+    ),
   };
 }
 

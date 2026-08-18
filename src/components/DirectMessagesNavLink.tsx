@@ -60,7 +60,7 @@ export function DirectMessagesNavLink() {
   return (
     <Link
       href="/messages"
-      prefetch
+      prefetch={false}
       className="dm-nav"
       aria-current={active ? "page" : undefined}
     >

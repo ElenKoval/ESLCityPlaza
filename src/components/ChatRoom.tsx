@@ -12,6 +12,8 @@ import {
   signChatFilePaths,
   checkChatAccess,
 } from "@/app/actions";
+import { markChatRead } from "@/app/chat-actions";
+import { dispatchChatUnreadRefresh } from "@/lib/chat-unread";
 import { canAnnounce, canDeleteChatMessage } from "@/lib/roles";
 import { SITE_NAME } from "@/lib/site-name";
 import { RoleBadge } from "@/components/RoleBadge";
@@ -309,7 +311,7 @@ function MessageRowView({
           <button
             type="button"
             className="chat-avatar"
-            style={{ background: chatInitialColor(name) }}
+            style={{ background: chatInitialColor(msg.avatar_color) }}
             onClick={() => onOpenProfile(msg.user_id)}
             aria-label={`View ${name}'s profile`}
           >
@@ -318,7 +320,7 @@ function MessageRowView({
         ) : (
           <span
             className="chat-avatar"
-            style={{ background: chatInitialColor(name) }}
+            style={{ background: chatInitialColor(msg.avatar_color) }}
             aria-hidden="true"
           >
             {chatInitial(name)}
@@ -399,12 +401,14 @@ export function ChatRoom({
   userId,
   displayName = "Member",
   role = "student" as Role,
+  avatarColor,
   chatAllowed = true,
 }: {
   initialMessages: ChatMessage[];
   userId: string;
   displayName?: string;
   role?: Role;
+  avatarColor?: string | null;
   chatAllowed?: boolean;
 }) {
   const [messages, setMessages] = useState(initialMessages);
@@ -503,6 +507,13 @@ export function ChatRoom({
   }, [allowed]);
 
   useEffect(() => {
+    if (!allowed) return;
+    void markChatRead().then(() => {
+      dispatchChatUnreadRefresh();
+    });
+  }, [allowed]);
+
+  useEffect(() => {
     const el = logRef.current;
     if (!el) return;
     if (!didInit.current) {
@@ -526,7 +537,7 @@ export function ChatRoom({
 
     if (isLocalDemo) {
       setOnlineUsers([
-        { user_id: userId, display_name: displayName, role },
+        { user_id: userId, display_name: displayName, role, avatar_color: avatarColor },
       ]);
       setPresenceReady(true);
 
@@ -561,11 +572,18 @@ export function ChatRoom({
         { event: "INSERT", schema: "public", table: "messages" },
         async (payload) => {
           const row = payload.new as MessageRow;
-          const { data: profile } = await supabase
+          const withColor = await supabase
             .from("profiles")
-            .select("display_name, role")
+            .select("display_name, role, avatar_color")
             .eq("id", row.user_id)
             .maybeSingle();
+          const { data: profile } = withColor.error
+            ? await supabase
+                .from("profiles")
+                .select("display_name, role")
+                .eq("id", row.user_id)
+                .maybeSingle()
+            : withColor;
           let imageUrl: string | null = null;
           if (row.image_path) {
             const urls = await signChatImagePaths([row.image_path]);
@@ -588,6 +606,9 @@ export function ChatRoom({
                 created_at: row.created_at,
                 display_name: profile?.display_name ?? "Member",
                 role: (profile?.role as Role) ?? "student",
+                avatar_color:
+                  (profile as { avatar_color?: string | null } | null)
+                    ?.avatar_color ?? null,
                 is_announcement: Boolean(row.is_announcement),
                 image_path: row.image_path ?? null,
                 image_width: row.image_width ?? null,
@@ -598,6 +619,9 @@ export function ChatRoom({
                 fileUrl,
               },
             ];
+          });
+          void markChatRead().then(() => {
+            dispatchChatUnreadRefresh();
           });
         },
       )
@@ -616,6 +640,7 @@ export function ChatRoom({
             user_id: userId,
             display_name: displayName,
             role,
+            avatar_color: avatarColor,
           });
           syncOnline();
         }
@@ -627,7 +652,7 @@ export function ChatRoom({
       setOnlineUsers([]);
       setPresenceReady(false);
     };
-  }, [allowed, userId, displayName, role]);
+  }, [allowed, userId, displayName, role, avatarColor]);
 
   function clearPreview() {
     setPreview((current) => {

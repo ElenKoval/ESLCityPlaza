@@ -17,6 +17,17 @@ create table public.profiles (
   interests text[] not null default '{}',
   bio text not null default '',
   muted boolean not null default false,
+  avatar_color text not null default '#c4510c'
+    check (
+      avatar_color in (
+        '#c4510c',
+        '#2f6f4e',
+        '#3d5a80',
+        '#9a3412',
+        '#6b3fa0',
+        '#0f766e'
+      )
+    ),
   onboarding_completed_at timestamptz,
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
@@ -746,3 +757,39 @@ grant all on public.site_activity to service_role;
 
 -- Direct Messages (1:1, private). Apply supabase/direct-messages-upgrade.sql
 -- for tables, RLS, the private photo bucket, and Realtime publication.
+
+-- Community Chat unread. Apply supabase/chat-reads-upgrade.sql on existing DBs.
+create table if not exists public.chat_reads (
+  user_id uuid primary key references public.profiles (id) on delete cascade,
+  last_read_at timestamptz not null default now()
+);
+
+alter table public.chat_reads enable row level security;
+
+drop policy if exists "chat_reads_select_own" on public.chat_reads;
+create policy "chat_reads_select_own"
+  on public.chat_reads for select to authenticated
+  using (user_id = auth.uid());
+
+drop policy if exists "chat_reads_insert_own" on public.chat_reads;
+create policy "chat_reads_insert_own"
+  on public.chat_reads for insert to authenticated
+  with check (
+    user_id = auth.uid()
+    and public.is_approved()
+  );
+
+drop policy if exists "chat_reads_update_own" on public.chat_reads;
+create policy "chat_reads_update_own"
+  on public.chat_reads for update to authenticated
+  using (
+    user_id = auth.uid()
+    and public.is_approved()
+  )
+  with check (
+    user_id = auth.uid()
+    and public.is_approved()
+  );
+
+grant select, insert, update on public.chat_reads to authenticated;
+grant all on public.chat_reads to service_role;

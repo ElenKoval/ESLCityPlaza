@@ -4,12 +4,12 @@ import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import {
   ActivityNavLink,
   AnnouncementsNavLink,
-  ChatNavLink,
   ClassTopicsNavLink,
   HomeNavLink,
   ManageMembersNavLink,
   ScheduleNavLink,
 } from "./HomeNavLink";
+import { ChatNavLink } from "./ChatNavLink";
 import { DirectMessagesNavLink } from "./DirectMessagesNavLink";
 import { HeaderSessionGuard } from "./HeaderSessionGuard";
 import { SiteActivityTracker } from "./SiteActivityTracker";

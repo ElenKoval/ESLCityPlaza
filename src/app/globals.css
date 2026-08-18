@@ -2672,6 +2672,38 @@ button.chat-msg__name {
   resize: vertical;
 }
 
+.profile-color {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile-color-picks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-color-pick {
+  width: 1.7rem;
+  height: 1.7rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  box-shadow: 0 0 0 1px rgba(28, 25, 23, 0.18);
+  cursor: pointer;
+}
+
+.profile-color-pick:hover {
+  transform: scale(1.06);
+}
+
+.profile-color-pick.is-selected {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--plaza);
+}
+
 .profile-form textarea::placeholder,
 .profile-form input::placeholder {
   color: rgba(107, 83, 68, 0.5);
@@ -3919,12 +3951,22 @@ button.chat-msg__name {
   white-space: nowrap;
 }
 
+.dm-convo.is-unread .dm-convo__top strong {
+  font-weight: 800;
+}
+
+.dm-convo.is-unread .dm-convo__preview {
+  color: var(--ink);
+  font-weight: 600;
+}
+
 .dm-unread {
-  width: 0.55rem;
-  height: 0.55rem;
+  width: 0.65rem;
+  height: 0.65rem;
   border-radius: 50%;
   background: var(--plaza);
   flex-shrink: 0;
+  margin-left: 0.15rem;
 }
 
 .dm-thread {
@@ -3981,6 +4023,14 @@ button.chat-msg__name {
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+.site-nav__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 50%;
+  background: var(--plaza);
+  flex-shrink: 0;
 }
 
 .dm-nav__badge {

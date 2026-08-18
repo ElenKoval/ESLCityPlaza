@@ -15,6 +15,7 @@ export type Profile = {
   interests?: string[];
   bio?: string;
   muted?: boolean;
+  avatar_color?: string | null;
   onboarding_completed_at?: string | null;
   created_at: string;
   reviewed_at: string | null;
@@ -126,6 +127,7 @@ export type DirectConversationListItem = {
   otherId: string;
   otherName: string;
   otherRole: Role;
+  otherAvatarColor?: string | null;
   lastPreview: string;
   lastMessageAt: string | null;
   unread: boolean;

@@ -59,6 +59,7 @@ export default async function DirectMessageThreadPage({
         otherName={thread.otherName}
         otherId={thread.otherId}
         otherRole={thread.otherRole}
+        otherAvatarColor={thread.otherAvatarColor}
         blockedByMe={thread.blockedByMe}
         blockedEitherWay={thread.blockedEitherWay}
         messages={thread.messages.map((msg) => ({

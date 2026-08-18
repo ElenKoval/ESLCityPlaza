@@ -113,7 +113,7 @@ export function DmMemberPicker({ onClose }: { onClose: () => void }) {
               >
                 <span
                   className="chat-avatar"
-                  style={{ background: chatInitialColor(member.display_name) }}
+                  style={{ background: chatInitialColor(member.avatar_color) }}
                   aria-hidden="true"
                 >
                   {chatInitial(member.display_name)}

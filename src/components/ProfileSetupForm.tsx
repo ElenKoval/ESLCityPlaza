@@ -15,6 +15,11 @@ import {
   normalizeCustomInterest,
   splitStoredInterests,
 } from "@/lib/profile";
+import {
+  AVATAR_COLORS,
+  normalizeAvatarColor,
+} from "@/lib/avatar-color";
+import { chatInitial } from "@/lib/chat-presence";
 import type { Profile } from "@/lib/types";
 
 export function ProfileSetupForm({
@@ -48,6 +53,9 @@ export function ProfileSetupForm({
   const [otherOn, setOtherOn] = useState(false);
   const [otherDraft, setOtherDraft] = useState("");
   const [interestError, setInterestError] = useState<string | null>(null);
+  const [avatarColor, setAvatarColor] = useState(
+    normalizeAvatarColor(profile.avatar_color),
+  );
 
   const interestUsed = interests.length + (customChip ? 1 : 0);
 
@@ -130,6 +138,43 @@ export function ProfileSetupForm({
                 placeholder="China"
               />
             </label>
+          </div>
+        </section>
+
+        <section className="profile-form__group">
+          <h2 className="profile-form__heading">Profile color</h2>
+          <p className="field-hint">
+            This color is used for your letter avatar in chat and messages.
+          </p>
+          <input type="hidden" name="avatar_color" value={avatarColor} />
+          <div className="profile-color">
+            <span
+              className="chat-avatar"
+              style={{ background: avatarColor }}
+              aria-hidden="true"
+            >
+              {chatInitial(profile.display_name)}
+            </span>
+            <div
+              className="profile-color-picks"
+              role="radiogroup"
+              aria-label="Profile color"
+            >
+              {AVATAR_COLORS.map((color) => {
+                const selected = color === avatarColor;
+                return (
+                  <button
+                    key={color}
+                    type="button"
+                    className={`profile-color-pick${selected ? " is-selected" : ""}`}
+                    style={{ background: color }}
+                    aria-label={color}
+                    aria-pressed={selected}
+                    onClick={() => setAvatarColor(color)}
+                  />
+                );
+              })}
+            </div>
           </div>
         </section>
 

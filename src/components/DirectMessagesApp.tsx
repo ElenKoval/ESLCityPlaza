@@ -8,6 +8,7 @@ import { prepareChatImage, isHeicType, isAllowedChatImageType } from "@/lib/chat
 import {
   blockDirectMember,
   deleteDirectMessage,
+  getDirectConversationList,
   markDirectConversationRead,
   sendDirectMessage,
   signDirectImagePaths,
@@ -113,6 +114,7 @@ export function DirectMessagesApp({
   otherName,
   otherId,
   otherRole,
+  otherAvatarColor,
   blockedByMe: initialBlockedByMe,
   blockedEitherWay: initialBlocked,
   messages: initialMessages,
@@ -124,6 +126,7 @@ export function DirectMessagesApp({
   otherName?: string;
   otherId?: string;
   otherRole?: Role;
+  otherAvatarColor?: string | null;
   blockedByMe?: boolean;
   blockedEitherWay?: boolean;
   messages?: DirectThreadMessage[];
@@ -160,9 +163,14 @@ export function DirectMessagesApp({
   const fileRef = useRef<HTMLInputElement>(null);
   const stickRef = useRef(true);
 
-  useEffect(() => {
-    setConversations(initialConversations);
-  }, [initialConversations]);
+  function applyConversationList(items: DirectConversationListItem[]) {
+    setConversations(
+      items.map((item) =>
+        item.id === activeId ? { ...item, unread: false } : item,
+      ),
+    );
+  }
+
   useEffect(() => {
     setMessages(initialMessages ?? []);
     setBlockedByMe(Boolean(initialBlockedByMe));
@@ -187,7 +195,18 @@ export function DirectMessagesApp({
   }, [messages, activeId]);
 
   useEffect(() => {
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) return;
+    let cancelled = false;
+    async function loadList() {
+      const items = await getDirectConversationList();
+      if (!cancelled && items) applyConversationList(items);
+    }
+    void loadList();
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return () => {
+        cancelled = true;
+      };
+    }
     const supabase = createClient();
     const channel = supabase.channel(`dm-${userId}`);
 
@@ -195,6 +214,7 @@ export function DirectMessagesApp({
       "postgres_changes",
       { event: "*", schema: "public", table: "direct_conversations" },
       () => {
+        void loadList();
         router.refresh();
       },
     );
@@ -257,6 +277,7 @@ export function DirectMessagesApp({
 
     channel.subscribe();
     return () => {
+      cancelled = true;
       void supabase.removeChannel(channel);
     };
   }, [userId, activeId, router]);
@@ -377,16 +398,17 @@ export function DirectMessagesApp({
           <ul className="dm-convos">
             {conversations.map((item) => {
               const name = displayChatName(item.otherName);
+              const unread = item.unread && item.id !== activeId;
               return (
                 <li key={item.id}>
                   <Link
                     href={`/messages/${item.id}`}
-                    className={`dm-convo${item.id === activeId ? " is-active" : ""}`}
-                    prefetch
+                    className={`dm-convo${item.id === activeId ? " is-active" : ""}${unread ? " is-unread" : ""}`}
+                    prefetch={false}
                   >
                     <span
                       className="chat-avatar"
-                      style={{ background: chatInitialColor(name) }}
+                      style={{ background: chatInitialColor(item.otherAvatarColor) }}
                       aria-hidden="true"
                     >
                       {chatInitial(name)}
@@ -397,9 +419,6 @@ export function DirectMessagesApp({
                         {showOnlineRoleBadge(item.otherRole) && (
                           <RoleBadge role={item.otherRole} />
                         )}
-                        {item.unread && item.id !== activeId && (
-                          <span className="dm-unread" aria-label="Unread" />
-                        )}
                         <span className="dm-convo__time">
                           {dmListTimeLabel(item.lastMessageAt)}
                         </span>
@@ -408,6 +427,9 @@ export function DirectMessagesApp({
                         {item.lastPreview || "No messages yet"}
                       </span>
                     </span>
+                    {unread && (
+                      <span className="dm-unread" aria-label="Unread" />
+                    )}
                   </Link>
                 </li>
               );
@@ -529,7 +551,7 @@ export function DirectMessagesApp({
                         ) : (
                           <span
                             className="chat-avatar"
-                            style={{ background: chatInitialColor(name) }}
+                            style={{ background: chatInitialColor(otherAvatarColor) }}
                             aria-hidden="true"
                           >
                             {chatInitial(name)}

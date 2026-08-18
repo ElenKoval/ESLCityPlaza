@@ -7,6 +7,7 @@ export type ChatMessage = {
   created_at: string;
   display_name: string;
   role: Role;
+  avatar_color?: string | null;
   is_announcement?: boolean;
   image_path?: string | null;
   image_width?: number | null;
@@ -19,7 +20,13 @@ export type ChatMessage = {
 
 export function toChatMessages(
   rows: Array<
-    MessageRow & { profiles?: { display_name: string; role: Role } | null }
+    MessageRow & {
+      profiles?: {
+        display_name: string;
+        role: Role;
+        avatar_color?: string | null;
+      } | null;
+    }
   >,
   urls: Record<string, string> = {},
   fileUrls: Record<string, string> = {},
@@ -31,6 +38,7 @@ export function toChatMessages(
     created_at: row.created_at,
     display_name: row.profiles?.display_name ?? "Member",
     role: row.profiles?.role ?? "student",
+    avatar_color: row.profiles?.avatar_color ?? null,
     is_announcement: Boolean(row.is_announcement),
     image_path: row.image_path ?? null,
     image_width: row.image_width ?? null,
