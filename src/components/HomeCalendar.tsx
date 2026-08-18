@@ -263,7 +263,9 @@ export function HomeCalendar({
 
       <p className="home-cal__note">
         Classes usually meet Mondays and Fridays, {DEFAULT_CLASS_HOURS}.
-        Check the calendar for each meeting’s location.
+        {access === "approved"
+          ? " Check the calendar for each meeting’s location."
+          : null}
       </p>
 
       <div className="home-cal__detail">
@@ -280,7 +282,9 @@ export function HomeCalendar({
         {isUpcomingClassDate(selected) && (
           <>
             <p className="home-cal__when">{selectedHours}</p>
-            <p className="home-cal__where">{selectedPlace}</p>
+            {access === "approved" && (
+              <p className="home-cal__where">{selectedPlace}</p>
+            )}
             {access === "approved" &&
               dayClasses.map((c) => (
                 <ClassTopicChip key={c.id} topic={topics?.[c.id]} />
