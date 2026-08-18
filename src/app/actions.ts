@@ -1130,6 +1130,7 @@ export async function removeClassEnrollment(
     .eq("user_id", userId);
   if (error) return { error: error.message };
   revalidatePath("/members");
+  revalidatePath("/admin");
   revalidatePath("/");
   revalidatePath("/classes");
   revalidatePath("/my");

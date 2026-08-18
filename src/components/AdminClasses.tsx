@@ -12,8 +12,9 @@ import {
   classLocation,
   DEFAULT_CLASS_LOCATION,
 } from "@/lib/class-schedule";
+import { ClassSignupList } from "@/components/ClassRoster";
 import { canEditClassSchedule, type Role } from "@/lib/roles";
-import type { ClassRow } from "@/lib/types";
+import type { ClassRoster, ClassRow } from "@/lib/types";
 
 function toDatetimeLocalValue(iso: string) {
   const d = new Date(iso);
@@ -168,35 +169,54 @@ function EditClassForm({ item, role }: { item: ClassRow; role: Role }) {
 export function AdminClasses({
   classes,
   role,
+  rosters,
 }: {
   classes: ClassRow[];
   role: Role;
+  rosters: ClassRoster[];
 }) {
+  const peopleByClass = new Map(rosters.map((item) => [item.classId, item]));
+
   return (
     <div className="stack">
       <CreateClassForm />
       <div className="panel class-list">
         {classes.length === 0 && <p>Nothing yet — create the first class.</p>}
-        {classes.map((item) => (
-          <article key={item.id} className="class-item">
-            <h3>{item.title}</h3>
-            <div className="class-meta">
-              <span>
-                {new Intl.DateTimeFormat("en-US", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                }).format(new Date(item.starts_at))}
-              </span>
-              <span>{classLocation(item.location)}</span>
-              <span>Capacity: {item.capacity}</span>
-              <span>Signed up: {item.enrollment_count ?? 0}</span>
-            </div>
-            <div className="class-actions">
-              <EditClassForm item={item} role={role} />
-              <DeleteButton id={item.id} />
-            </div>
-          </article>
-        ))}
+        {classes.map((item) => {
+          const roster = peopleByClass.get(item.id);
+          const people = roster?.people ?? [];
+          return (
+            <article key={item.id} className="class-item">
+              <h3>{item.title}</h3>
+              <div className="class-meta">
+                <span>
+                  {new Intl.DateTimeFormat("en-US", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(item.starts_at))}
+                </span>
+                <span>{classLocation(item.location)}</span>
+                <span>Capacity: {item.capacity}</span>
+                <span>Signed up: {item.enrollment_count ?? 0}</span>
+              </div>
+              <details className="class-signups">
+                <summary>
+                  Who signed up
+                  {people.length > 0 ? ` (${people.length})` : ""}
+                </summary>
+                <ClassSignupList
+                  classId={item.id}
+                  people={people}
+                  actorRole={role}
+                />
+              </details>
+              <div className="class-actions">
+                <EditClassForm item={item} role={role} />
+                <DeleteButton id={item.id} />
+              </div>
+            </article>
+          );
+        })}
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { authContactsForUserIds } from "@/lib/auth-admin";
 import { getApplicationNoticeStatus } from "@/lib/mail";
 import { SendTestMailButton } from "@/components/SendTestMailButton";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
+import { loadUpcomingClassRosters } from "@/lib/load-class-rosters";
 import { canViewClassRoster } from "@/lib/roles";
 import type { ClassRoster, Profile } from "@/lib/types";
 import { revalidatePath } from "next/cache";
@@ -96,49 +97,7 @@ export default async function ManageMembersPage() {
     }
 
     if (canViewClassRoster(profile.role)) {
-      const { data: classes } = await supabase
-        .from("classes")
-        .select("id, title, starts_at, location, capacity")
-        .gte("starts_at", new Date().toISOString())
-        .order("starts_at", { ascending: true })
-        .limit(12);
-      const classRows = classes ?? [];
-      if (classRows.length) {
-        const classIds = classRows.map((c) => c.id);
-        const { data: enrolled } = await supabase
-          .from("enrollments")
-          .select("class_id, user_id")
-          .in("class_id", classIds);
-        const userIds = [...new Set((enrolled ?? []).map((row) => row.user_id))];
-        const nameById = new Map<string, { displayName: string; role: Profile["role"] }>();
-        if (userIds.length) {
-          const { data: people } = await supabase
-            .from("profiles")
-            .select("id, display_name, role")
-            .in("id", userIds);
-          for (const person of people ?? []) {
-            nameById.set(person.id, {
-              displayName: person.display_name,
-              role: person.role,
-            });
-          }
-        }
-        rosters = classRows.map((item) => ({
-          classId: item.id,
-          title: item.title,
-          startsAt: item.starts_at,
-          location: item.location,
-          capacity: item.capacity,
-          people: (enrolled ?? [])
-            .filter((row) => row.class_id === item.id)
-            .map((row) => ({
-              userId: row.user_id,
-              displayName: nameById.get(row.user_id)?.displayName ?? "Member",
-              role: nameById.get(row.user_id)?.role ?? "student",
-            }))
-            .sort((a, b) => a.displayName.localeCompare(b.displayName)),
-        }));
-      }
+      rosters = await loadUpcomingClassRosters(supabase);
     }
   }
 
@@ -181,14 +140,14 @@ export default async function ManageMembersPage() {
             </button>
           </form>
         )}
+        {canViewClassRoster(profile.role) && (
+          <ClassRosterPanel rosters={rosters} actorRole={profile.role} />
+        )}
         <TechPanel
           applications={applications}
           members={members}
           viewer={profile}
         />
-        {canViewClassRoster(profile.role) && (
-          <ClassRosterPanel rosters={rosters} actorRole={profile.role} />
-        )}
         {profile.role === "tech" && (
           <details className="manage-fold">
             <summary>

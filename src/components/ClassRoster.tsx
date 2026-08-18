@@ -54,6 +54,37 @@ function RemoveSignupForm({
   );
 }
 
+export function ClassSignupList({
+  classId,
+  people,
+  actorRole,
+}: {
+  classId: string;
+  people: ClassRoster["people"];
+  actorRole: Role;
+}) {
+  if (people.length === 0) {
+    return <p className="roster-class__empty">No one signed up yet.</p>;
+  }
+
+  return (
+    <ul className="roster-list">
+      {people.map((person) => (
+        <li key={person.userId} className="roster-list__row">
+          <span>{person.displayName}</span>
+          <RemoveSignupForm
+            classId={classId}
+            userId={person.userId}
+            name={person.displayName}
+            targetRole={person.role}
+            actorRole={actorRole}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 export function ClassRosterPanel({
   rosters,
   actorRole,
@@ -64,19 +95,17 @@ export function ClassRosterPanel({
   if (rosters.length === 0) {
     return (
       <section className="manage-block">
-        <h3 className="manage-block__title">Class sign-ups</h3>
-        <p className="manage-empty">
-          <span aria-hidden="true">✓</span> No upcoming classes
-        </p>
+        <h3 className="manage-block__title">Who signed up</h3>
+        <p className="manage-empty">No upcoming classes</p>
       </section>
     );
   }
 
   return (
     <section className="manage-block">
-      <h3 className="manage-block__title">Class sign-ups</h3>
+      <h3 className="manage-block__title">Who signed up</h3>
       <p className="manage-fold__hint" style={{ marginTop: 0 }}>
-        Open a class to see who signed up.
+        Open a class to see the names.
       </p>
       <div className="panel manage-panel">
         {rosters.map((item) => {
@@ -92,24 +121,11 @@ export function ClassRosterPanel({
                   {signedUpCountLabel(count, cap)}
                 </span>
               </summary>
-              {count === 0 ? (
-                <p className="roster-class__empty">No one signed up yet.</p>
-              ) : (
-                <ul className="roster-list">
-                  {item.people.map((person) => (
-                    <li key={person.userId} className="roster-list__row">
-                      <span>{person.displayName}</span>
-                      <RemoveSignupForm
-                        classId={item.classId}
-                        userId={person.userId}
-                        name={person.displayName}
-                        targetRole={person.role}
-                        actorRole={actorRole}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <ClassSignupList
+                classId={item.classId}
+                people={item.people}
+                actorRole={actorRole}
+              />
             </details>
           );
         })}
