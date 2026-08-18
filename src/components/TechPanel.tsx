@@ -503,7 +503,16 @@ export function TechPanel({
   const [studentsOpen, setStudentsOpen] = useState(false);
   const previewLimit = useStudentPreviewLimit();
   const showEmail = viewer.role === "admin" || viewer.role === "tech";
-  const staff = members.filter((m) => isStaffRole(m.role));
+  const staffRank: Record<Profile["role"], number> = {
+    teacher: 0,
+    admin: 1,
+    tech: 2,
+    student: 3,
+  };
+  const staff = members
+    .filter((m) => isStaffRole(m.role))
+    .slice()
+    .sort((a, b) => staffRank[a.role] - staffRank[b.role]);
   const students = members.filter((m) => m.role === "student");
   const needle = studentQuery.trim().toLowerCase();
   const matchingStudents = needle
