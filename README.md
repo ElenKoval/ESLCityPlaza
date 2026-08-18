@@ -6,7 +6,7 @@ English practice community site: applications with roles, class sign-ups, and a 
 
 - Next.js (App Router) + TypeScript + Tailwind
 - Supabase (Auth, Postgres, Realtime) — free tier
-- Hosting: **Render** (Web Service, free)
+- Hosting: **Vercel**
 
 ## Hero photo
 
@@ -32,15 +32,15 @@ Also works: `hero.jpeg`, `hero.png`, or `hero.webp`. Refresh the homepage after 
    - [`supabase/class-topics-upgrade.sql`](supabase/class-topics-upgrade.sql) (optional Class Topics for a session)
 3. **Authentication → Providers → Email**: enable Email. Turn **Confirm email ON** (the join flow needs the confirmation link).
 4. **Authentication → URL configuration**:
-   - Site URL: your Render URL, e.g. `https://esl-citi-plaza.onrender.com`
+   - Site URL: your Vercel URL, e.g. `https://YOUR-APP.vercel.app`
    - Redirect URLs (add both):
-     - `https://esl-citi-plaza.onrender.com/auth/confirm`
-     - `https://esl-citi-plaza.onrender.com/auth/callback`
+     - `https://YOUR-APP.vercel.app/auth/confirm`
+     - `https://YOUR-APP.vercel.app/auth/callback`
      - optional local: `http://localhost:3000/auth/confirm`
 5. **Project Settings → API**: copy **Project URL**, **anon public** key, and **service_role** key (keep service_role secret).
 6. Emails:
    - **User confirmation email** is sent by **Supabase Auth** using **Custom SMTP (Gmail)** in the Supabase dashboard. Do not use Resend for that.
-   - **Tech notice** of a confirmed application uses **Resend**. Set `RESEND_API_KEY` on Render. Notices also go to `plazaenglishgroup@gmail.com`.
+   - **Tech notice** of a confirmed application uses **Resend**. Set `RESEND_API_KEY` on Vercel. Notices also go to `plazaenglishgroup@gmail.com`.
    - **Approval email** to the new member uses **Gmail SMTP** on the server (`SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`). Do not put App Passwords in `NEXT_PUBLIC_*` vars.
 
 ### 2. Local
@@ -68,14 +68,16 @@ where id = (
 );
 ```
 
-### 4. Deploy on Render
+### 4. Deploy on Vercel
 
-Set these env vars on the web service (Blueprint lists them as `sync: false` so you fill them in the dashboard):
+Import the GitHub repo at [vercel.com/new](https://vercel.com/new). Framework: Next.js.
+
+Set these environment variables for Production (and Preview if you use preview deploys):
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `NEXT_PUBLIC_SITE_URL` = your `https://….onrender.com`
+- `NEXT_PUBLIC_SITE_URL` = your `https://….vercel.app` (or custom domain)
 - `RESEND_API_KEY` (Tech notice when a confirmed application is waiting)
 - `EMAIL_FROM` (optional — verified Resend sender; do not put Gmail here)
 - `APPROVAL_NOTIFY_EMAIL` (optional extra inbox; `plazaenglishgroup@gmail.com` is always included)
@@ -84,5 +86,7 @@ Set these env vars on the web service (Blueprint lists them as `sync: false` so 
 - `SMTP_USER` = Gmail address used for approval emails
 - `SMTP_PASS` = Gmail App Password
 - `SMTP_FROM` (optional — `ESL on the Plaza <plazaenglishgroup@gmail.com>`)
+
+After the first deploy, copy the Vercel URL into `NEXT_PUBLIC_SITE_URL` and into Supabase **Site URL** / **Redirect URLs**, then Redeploy. `NEXT_PUBLIC_*` values are baked in at build time.
 
 Redeploy after saving. Registration and approvals then use real Supabase Auth + Postgres (demo cookie mode turns off automatically once URL + anon key are set).

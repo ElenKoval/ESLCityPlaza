@@ -100,7 +100,7 @@ export default function PrivacyPage() {
             database services
           </li>
           <li>
-            <strong>Render</strong> for website hosting
+            <strong>Vercel</strong> for website hosting
           </li>
           <li>
             <strong>Google Maps</strong> to display meeting location information

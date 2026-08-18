@@ -621,7 +621,7 @@ export async function addMemberManually(
 
   const admin = createAdminClient();
   if (!admin) {
-    return { error: "Adding members needs SUPABASE_SERVICE_ROLE_KEY on Render" };
+    return { error: "Adding members needs SUPABASE_SERVICE_ROLE_KEY in Vercel" };
   }
 
   const { data: created, error: createError } = await admin.auth.admin.createUser({

@@ -134,9 +134,9 @@ export default async function TechPage() {
       : notice?.ready
         ? `Confirmed applications are emailed to ${notice.recipients.join(", ")} via Gmail. Approval emails use the same Gmail inbox.`
         : !notice?.hasSmtp && !notice?.hasKey
-          ? "Application emails are off: add SMTP_HOST, SMTP_USER, and SMTP_PASS on Render."
+          ? "Application emails are off: add SMTP_HOST, SMTP_USER, and SMTP_PASS in Vercel."
           : !notice?.hasServiceRole
-            ? "Application emails are off: add SUPABASE_SERVICE_ROLE_KEY on Render so the site can find the Tech email."
+            ? "Application emails are off: add SUPABASE_SERVICE_ROLE_KEY in Vercel so the site can find the Tech email."
             : "Application emails are off: no Tech email found. Check that your Tech account has an email in Auth.";
   const noticeOk = Boolean(notice?.ready);
 
