@@ -6,6 +6,8 @@ import { canManageClassTopics } from "@/lib/roles";
 import { classTopicWhenLabel } from "@/lib/class-topics";
 import { loadClassTopic } from "@/lib/load-class-topics";
 import { sitePageTitle } from "@/lib/site-name";
+import { topicContentToDisplayHtml } from "@/lib/topic-html";
+import { TopicPrintButton } from "@/components/TopicPrintButton";
 
 export async function generateMetadata({
   params,
@@ -33,28 +35,42 @@ export default async function ClassTopicPage({
   const topic = await loadClassTopic(id, profile.role);
   if (!topic) notFound();
 
+  const bodyHtml = topicContentToDisplayHtml(topic.content);
+
   return (
     <div className="page">
       <section className="section topic-page">
-        <h1>{topic.title}</h1>
-        {topic.class_starts_at && (
-          <p className="lead">{classTopicWhenLabel(topic.class_starts_at)}</p>
-        )}
-        {staff && (
-          <p className="class-actions">
-            <span className="class-meta" style={{ alignSelf: "center" }}>
-              {topic.is_published ? "Published" : "Draft"}
-            </span>
-            <Link href={`/topics/${topic.id}/edit`} className="btn-primary">
-              Edit
-            </Link>
-          </p>
-        )}
-        <div className="panel">
-          <h2 className="announce-manage__title">Questions for discussion</h2>
-          <div className="topic-body">{topic.content}</div>
+        <article className="topic-print-root">
+          <h1>{topic.title}</h1>
+          {topic.class_starts_at && (
+            <p className="lead topic-print__when">
+              {classTopicWhenLabel(topic.class_starts_at)}
+            </p>
+          )}
+          <div className="panel topic-print__panel">
+            <h2 className="announce-manage__title topic-no-print">
+              Questions for discussion
+            </h2>
+            <div
+              className="topic-body"
+              dangerouslySetInnerHTML={{ __html: bodyHtml }}
+            />
+          </div>
+        </article>
+        <div className="topic-page__toolbar topic-no-print">
+          <TopicPrintButton />
+          {staff && (
+            <>
+              <span className="class-meta">
+                {topic.is_published ? "Published" : "Draft"}
+              </span>
+              <Link href={`/topics/${topic.id}/edit`} className="btn-primary">
+                Edit
+              </Link>
+            </>
+          )}
         </div>
-        <p className="topic-back">
+        <p className="topic-back topic-no-print">
           <Link href="/topics">Back to Class Topics</Link>
           {" · "}
           <Link href="/">Back to home</Link>

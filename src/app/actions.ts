@@ -73,6 +73,11 @@ import {
   CLASS_TOPIC_TITLE_MAX,
 } from "@/lib/class-topics";
 import {
+  looksLikeTopicHtml,
+  sanitizeTopicHtml,
+  topicContentPlainLength,
+} from "@/lib/topic-html";
+import {
   EXISTING_ACCOUNT_MESSAGE,
   emailFormatError,
   isExistingAccountError,
@@ -2256,12 +2261,17 @@ export async function saveClassTopic(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const { id, classId, title, content, intent } = classTopicFields(formData);
+  const { id, classId, title, content: rawContent, intent } = classTopicFields(formData);
+  const content = looksLikeTopicHtml(rawContent)
+    ? sanitizeTopicHtml(rawContent)
+    : rawContent.trim();
   if (!classId) return { error: "Choose a class" };
   if (!title) return { error: "Add a topic title" };
-  if (!content) return { error: "Add the questions or text for this class" };
+  if (!content || topicContentPlainLength(content) === 0) {
+    return { error: "Add the questions or text for this class" };
+  }
   if (title.length > CLASS_TOPIC_TITLE_MAX) return { error: "Title is too long" };
-  if (content.length > CLASS_TOPIC_CONTENT_MAX) {
+  if (topicContentPlainLength(content) > CLASS_TOPIC_CONTENT_MAX) {
     return { error: "Topic text is too long" };
   }
 

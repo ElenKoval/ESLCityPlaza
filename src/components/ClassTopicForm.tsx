@@ -13,7 +13,9 @@ import {
   CLASS_TOPIC_TITLE_MAX,
   classTopicWhenLabel,
 } from "@/lib/class-topics";
+import { topicContentPlainLength, sanitizeTopicHtml } from "@/lib/topic-html";
 import type { ClassRow, ClassTopicRow } from "@/lib/types";
+import { TopicContentEditor } from "@/components/TopicContentEditor";
 
 export function ClassTopicForm({
   classes,
@@ -50,7 +52,26 @@ export function ClassTopicForm({
 
   return (
     <div className="stack">
-      <form action={saveAction} className="panel form-grid">
+      <form
+        action={saveAction}
+        className="panel form-grid"
+        onSubmit={(event) => {
+          const form = event.currentTarget;
+          const editor = form.querySelector(
+            ".topic-editor",
+          ) as HTMLDivElement | null;
+          const input = form.elements.namedItem(
+            "content",
+          ) as HTMLInputElement | null;
+          if (editor && input) {
+            input.value = sanitizeTopicHtml(editor.innerHTML);
+          }
+          const value = input?.value || "";
+          if (topicContentPlainLength(value) > CLASS_TOPIC_CONTENT_MAX) {
+            event.preventDefault();
+          }
+        }}
+      >
         {topic ? <input type="hidden" name="id" value={topic.id} /> : null}
         <h3 className="announce-form__heading">
           {editing ? "Edit class topic" : "Add class topic"}
@@ -91,22 +112,7 @@ export function ClassTopicForm({
             placeholder="Animals"
           />
         </label>
-        <label>
-          Questions / text
-          <textarea
-            name="content"
-            required
-            maxLength={CLASS_TOPIC_CONTENT_MAX}
-            rows={16}
-            defaultValue={topic?.content || ""}
-            placeholder={
-              "1. What is your favorite animal?\n2. Did you have pets as a child?\n3. Which animals are common in your country?"
-            }
-          />
-        </label>
-        <p className="field-hint">
-          Paste your questions as plain text. Line breaks and numbering are kept.
-        </p>
+        <TopicContentEditor initialContent={topic?.content || ""} />
         {saveState?.error && <p className="error">{saveState.error}</p>}
         <div className="class-actions">
           {editing ? (

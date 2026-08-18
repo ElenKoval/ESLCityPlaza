@@ -3,6 +3,7 @@ import Link from "next/link";
 import { requireApproved } from "@/lib/auth";
 import { canManageClassTopics } from "@/lib/roles";
 import { splitClassTopics } from "@/lib/class-topics";
+import { stripTopicHtml } from "@/lib/topic-html";
 import { formatClassHours } from "@/lib/class-schedule";
 import { loadClassTopics } from "@/lib/load-class-topics";
 import type { ClassTopicRow } from "@/lib/types";
@@ -31,7 +32,7 @@ function topicWeekday(startsAt: string) {
 }
 
 function topicPreview(content: string) {
-  const text = content.replace(/\s+/g, " ").trim();
+  const text = stripTopicHtml(content);
   return text || null;
 }
 
