@@ -13,9 +13,11 @@ import {
 import {
   classLocation,
   DEFAULT_CLASS_HOURS,
-  DEFAULT_CLASS_LOCATION,
   formatClassHours,
+  formatClassWhen,
   isUpcomingClassDate,
+  laDateParts,
+  sessionStartsAtIso,
 } from "@/lib/class-schedule";
 import {
   addLocalEnrollment,
@@ -104,8 +106,8 @@ export function HomeCalendar({
   const byDay = useMemo(() => {
     const map = new Map<string, ClassRow[]>();
     for (const c of classes) {
-      const d = new Date(c.starts_at);
-      const key = dayKey(new Date(d.getFullYear(), d.getMonth(), d.getDate()));
+      const la = laDateParts(c.starts_at);
+      const key = `${la.year}-${la.monthIndex}-${la.day}`;
       const list = map.get(key) ?? [];
       list.push(c);
       map.set(key, list);
@@ -260,17 +262,19 @@ export function HomeCalendar({
       </div>
 
       <p className="home-cal__note">
-        Classes meet Mondays and Fridays, {DEFAULT_CLASS_HOURS} ·{" "}
-        {DEFAULT_CLASS_LOCATION} · max 15 people.
+        Classes usually meet Mondays and Fridays, {DEFAULT_CLASS_HOURS}.
+        Check the calendar for each meeting’s location.
       </p>
 
       <div className="home-cal__detail">
         <p className="home-cal__detail-label">
-          {new Intl.DateTimeFormat("en-US", {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          }).format(selected)}
+          {formatClassWhen(
+            sessionStartsAtIso(
+              selected.getFullYear(),
+              selected.getMonth(),
+              selected.getDate(),
+            ),
+          )}
         </p>
 
         {isUpcomingClassDate(selected) && (

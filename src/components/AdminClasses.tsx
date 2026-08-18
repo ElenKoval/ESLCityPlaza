@@ -11,16 +11,12 @@ import {
 import {
   classLocation,
   DEFAULT_CLASS_LOCATION,
+  formatClassDateTime,
+  toLosAngelesDatetimeLocal,
 } from "@/lib/class-schedule";
 import { ClassSignupList } from "@/components/ClassRoster";
 import { canEditClassSchedule, type Role } from "@/lib/roles";
 import type { ClassRoster, ClassRow } from "@/lib/types";
-
-function toDatetimeLocalValue(iso: string) {
-  const d = new Date(iso);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
 
 function CreateClassForm() {
   const [state, action, pending] = useActionState<ActionState, FormData>(
@@ -141,7 +137,7 @@ function EditClassForm({ item, role }: { item: ClassRow; role: Role }) {
                 name="starts_at"
                 type="datetime-local"
                 required
-                defaultValue={toDatetimeLocalValue(item.starts_at)}
+                defaultValue={toLosAngelesDatetimeLocal(item.starts_at)}
               />
             </label>
             <label>
@@ -189,12 +185,7 @@ export function AdminClasses({
             <article key={item.id} className="class-item">
               <h3>{item.title}</h3>
               <div className="class-meta">
-                <span>
-                  {new Intl.DateTimeFormat("en-US", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  }).format(new Date(item.starts_at))}
-                </span>
+                <span>{formatClassDateTime(item.starts_at)}</span>
                 <span>{classLocation(item.location)}</span>
                 <span>Capacity: {item.capacity}</span>
                 <span>Signed up: {item.enrollment_count ?? 0}</span>

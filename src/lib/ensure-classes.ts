@@ -1,8 +1,9 @@
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import {
+  sameLaCalendarDay,
   scheduleClassPayload,
-  sessionStartsAtForDate,
+  sessionStartsAtIso,
   upcomingSessionStarts,
 } from "@/lib/class-schedule";
 
@@ -13,10 +14,6 @@ function adminClient() {
   return createServiceClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
-}
-
-function sameSession(a: string, b: string) {
-  return Math.abs(new Date(a).getTime() - new Date(b).getTime()) < 60_000;
 }
 
 export async function ensureUpcomingClasses() {
@@ -31,7 +28,7 @@ export async function ensureUpcomingClasses() {
 
   const have = existing ?? [];
   const missing = wanted.filter(
-    (iso) => !have.some((row) => sameSession(row.starts_at, iso)),
+    (iso) => !have.some((row) => sameLaCalendarDay(row.starts_at, iso)),
   );
   if (!missing.length) return;
 
@@ -41,19 +38,22 @@ export async function ensureUpcomingClasses() {
 export async function findOrCreateClassId(sessionDate: string) {
   const [year, month, day] = sessionDate.split("-").map(Number);
   if (!year || !month || !day) return null;
-  const startsAt = sessionStartsAtForDate(new Date(year, month - 1, day));
+  const startsAt = sessionStartsAtIso(year, month - 1, day);
 
   const admin = adminClient();
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!admin || !supabaseUrl) return null;
 
+  const wantedAt = new Date(startsAt).getTime();
   const { data: rows } = await admin
     .from("classes")
     .select("id, starts_at")
-    .gte("starts_at", new Date(year, month - 1, day).toISOString())
-    .lt("starts_at", new Date(year, month - 1, day + 1).toISOString());
+    .gte("starts_at", new Date(wantedAt - 18 * 60 * 60 * 1000).toISOString())
+    .lt("starts_at", new Date(wantedAt + 18 * 60 * 60 * 1000).toISOString());
 
-  const match = (rows ?? []).find((row) => sameSession(row.starts_at, startsAt));
+  const match = (rows ?? []).find((row) =>
+    sameLaCalendarDay(row.starts_at, startsAt),
+  );
   if (match) return match.id as string;
 
   const { data: created, error } = await admin

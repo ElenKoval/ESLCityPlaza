@@ -3,16 +3,8 @@
 import { CancelClassControl } from "@/components/CancelClassControl";
 import { ClassTopicChip } from "@/components/ClassTopicChip";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
-import { classLocation, formatClassHours } from "@/lib/class-schedule";
+import { classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
 import type { ClassRow } from "@/lib/types";
-
-function formatClassDay(iso: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(new Date(iso));
-}
 
 export function WelcomeLessons({
   classes,
@@ -53,7 +45,7 @@ export function WelcomeLessons({
       <ul className="welcome-lessons__list">
         {mine.map((c) => (
           <li key={c.id} className="welcome-lessons__item">
-            <p className="welcome-lessons__day">{formatClassDay(c.starts_at)}</p>
+            <p className="welcome-lessons__day">{formatClassWhen(c.starts_at)}</p>
             <div className="welcome-lessons__row">
               <div>
                 <p className="welcome-lessons__time">

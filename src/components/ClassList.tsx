@@ -8,7 +8,7 @@ import {
   type ActionState,
 } from "@/app/actions";
 import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
-import { classLocation, formatClassHours } from "@/lib/class-schedule";
+import { classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
 import { ClassTopicChip } from "@/components/ClassTopicChip";
 import type { ClassRow } from "@/lib/types";
 
@@ -80,13 +80,7 @@ export function ClassList({
         const status = enrollStatus(item.starts_at);
         return (
           <article key={item.id} className="class-item">
-            <h3>
-              {new Intl.DateTimeFormat("en-US", {
-                weekday: "long",
-                month: "long",
-                day: "numeric",
-              }).format(new Date(item.starts_at))}
-            </h3>
+            <h3>{formatClassWhen(item.starts_at)}</h3>
             <p>{formatClassHours(item.starts_at)}</p>
             <p className="class-place">{classLocation(item.location)}</p>
             <ClassTopicChip topic={topics?.[item.id]} />

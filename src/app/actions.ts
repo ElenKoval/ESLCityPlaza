@@ -56,7 +56,7 @@ import {
   CHAT_FILE_PATH_RE,
   sanitizeChatFileName,
 } from "@/lib/chat-file";
-import { DEFAULT_CLASS_LOCATION } from "@/lib/class-schedule";
+import { DEFAULT_CLASS_LOCATION, fromLosAngelesDatetimeLocal, laWeekdayNumber } from "@/lib/class-schedule";
 import { authConfirmUrl } from "@/lib/site-url";
 import { SITE_NAME } from "@/lib/site-name";
 import type { AnnouncementRow, ClassTopicRow, Profile, Role } from "@/lib/types";
@@ -1549,8 +1549,9 @@ export async function createClass(
     return { error: `Capacity must be between 1 and ${CLASS_CAPACITY}` };
   }
 
-  const when = new Date(startsAt);
-  const dow = when.getDay();
+  const when = fromLosAngelesDatetimeLocal(startsAt);
+  if (!when) return { error: "Add a title and date" };
+  const dow = laWeekdayNumber(when);
   if (dow !== 1 && dow !== 5) {
     return { error: "Classes can only be scheduled on Monday or Friday" };
   }
@@ -1574,7 +1575,7 @@ export async function createClass(
     title,
     description,
     location,
-    starts_at: new Date(startsAt).toISOString(),
+    starts_at: when.toISOString(),
     capacity,
     created_by: user.id,
   });
@@ -1655,8 +1656,9 @@ export async function updateClass(
       return { error: `Capacity must be between 1 and ${CLASS_CAPACITY}` };
     }
 
-    const when = new Date(startsAt);
-    const dow = when.getDay();
+    const when = fromLosAngelesDatetimeLocal(startsAt);
+    if (!when) return { error: "Add a title and date" };
+    const dow = laWeekdayNumber(when);
     if (dow !== 1 && dow !== 5) {
       return { error: "Classes can only be scheduled on Monday or Friday" };
     }
