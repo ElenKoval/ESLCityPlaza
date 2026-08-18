@@ -1,18 +1,11 @@
-import DOMPurify from "isomorphic-dompurify";
+import sanitizeHtml from "sanitize-html";
 
-const TOPIC_ALLOWED_TAGS = [
-  "p",
-  "br",
-  "strong",
-  "b",
-  "em",
-  "i",
-  "ul",
-  "ol",
-  "li",
-] as const;
-
-const TOPIC_ALLOWED_ATTR: string[] = [];
+const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
+  allowedTags: ["p", "br", "strong", "b", "em", "i", "ul", "ol", "li"],
+  allowedAttributes: {},
+  allowedSchemes: [],
+  disallowedTagsMode: "discard",
+};
 
 export function looksLikeTopicHtml(value: string) {
   return /<\/?[a-z][\s\S]*>/i.test(value);
@@ -45,10 +38,7 @@ export function plainTextToTopicHtml(text: string) {
 }
 
 export function sanitizeTopicHtml(html: string) {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [...TOPIC_ALLOWED_TAGS],
-    ALLOWED_ATTR: TOPIC_ALLOWED_ATTR,
-  }).trim();
+  return sanitizeHtml(html, SANITIZE_OPTIONS).trim();
 }
 
 export function topicContentToEditorHtml(content: string) {
@@ -62,21 +52,16 @@ export function topicContentToDisplayHtml(content: string) {
   return topicContentToEditorHtml(content);
 }
 
-export function topicContentPlainLength(content: string) {
-  if (!content.trim()) return 0;
-  if (looksLikeTopicHtml(content)) {
-    return DOMPurify.sanitize(content, { ALLOWED_TAGS: [] }).replace(/\s+/g, " ").trim()
-      .length;
-  }
-  return content.trim().length;
-}
-
 export function stripTopicHtml(content: string) {
   if (!content.trim()) return "";
-  if (looksLikeTopicHtml(content)) {
-    return DOMPurify.sanitize(content, { ALLOWED_TAGS: [] })
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-  return content.replace(/\s+/g, " ").trim();
+  return sanitizeHtml(content, {
+    allowedTags: [],
+    allowedAttributes: {},
+  })
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function topicContentPlainLength(content: string) {
+  return stripTopicHtml(content).length;
 }
