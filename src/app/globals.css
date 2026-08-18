@@ -3348,6 +3348,40 @@ button.chat-msg__name {
   color: var(--plaza-deep);
 }
 
+.manage-block__sub {
+  margin: 0.2rem 0 0;
+  color: var(--ink-soft);
+  font-size: 0.88rem;
+}
+
+.manage-student-search {
+  display: block;
+}
+
+.manage-student-search input {
+  width: min(22rem, 100%);
+  margin: 0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.92rem;
+}
+
+.manage-more {
+  justify-self: start;
+  background: none;
+  border: none;
+  padding: 0.15rem 0;
+  color: var(--plaza-deep);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.manage-more:hover {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .manage-empty {
   margin: 0;
   display: flex;
@@ -3445,11 +3479,13 @@ button.chat-msg__name {
 }
 
 .manage-member {
-  grid-template-columns: 1fr auto;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-width: 0;
 }
 
 .manage-member__who {
   grid-column: 1;
+  min-width: 0;
 }
 
 .manage-member__joined {
@@ -3461,6 +3497,28 @@ button.chat-msg__name {
   grid-column: 2;
   grid-row: 1 / span 2;
   align-self: start;
+}
+
+.manage-member--compact {
+  padding: 0.5rem 0;
+  gap: 0.08rem 0.55rem;
+}
+
+.manage-member--compact .manage-member__name {
+  font-size: 0.94rem;
+}
+
+.manage-panel--staff {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.manage-panel--staff .manage-member {
+  padding: 0.55rem 0;
+}
+
+.manage-panel--students {
+  overflow-x: hidden;
 }
 
 .manage-menu {

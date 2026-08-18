@@ -414,6 +414,79 @@ function ModerationFlags({ profile, viewer }: { profile: Profile; viewer: Profil
   );
 }
 
+function isStaffRole(role: Profile["role"]) {
+  return role === "teacher" || role === "admin" || role === "tech";
+}
+
+function joinedLabel(iso: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    dateStyle: "medium",
+  }).format(new Date(iso));
+}
+
+function useStudentPreviewLimit() {
+  const [limit, setLimit] = useState(10);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const sync = () => setLimit(mq.matches ? 5 : 10);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return limit;
+}
+
+function MemberRow({
+  member,
+  viewer,
+  compact,
+  onView,
+  onChangeRole,
+}: {
+  member: Profile;
+  viewer: Profile;
+  compact?: boolean;
+  onView: () => void;
+  onChangeRole: () => void;
+}) {
+  const showMenu = member.id !== viewer.id;
+  return (
+    <article
+      className={`manage-member${compact ? " manage-member--compact" : ""}`}
+    >
+      <div className="manage-member__who">
+        <button
+          type="button"
+          className="profile-link manage-member__name"
+          onClick={onView}
+        >
+          {member.display_name}
+        </button>
+        <RoleBadge role={member.role} />
+        {member.status !== "approved" && member.status !== "suspended" && (
+          <span className="manage-member__status">{member.status}</span>
+        )}
+        <ModerationFlags profile={member} viewer={viewer} />
+      </div>
+      {member.created_at && (
+        <p className="manage-member__joined">Joined {joinedLabel(member.created_at)}</p>
+      )}
+      <div className="manage-member__aside">
+        {member.id === viewer.id ? (
+          <span className="manage-you">You</span>
+        ) : showMenu ? (
+          <MemberMenu
+            member={member}
+            viewer={viewer}
+            onView={onView}
+            onChangeRole={onChangeRole}
+          />
+        ) : null}
+      </div>
+    </article>
+  );
+}
+
 export function TechPanel({
   applications,
   members,
@@ -426,7 +499,22 @@ export function TechPanel({
   const [viewing, setViewing] = useState<Profile | null>(null);
   const [adding, setAdding] = useState(false);
   const [roleFor, setRoleFor] = useState<Profile | null>(null);
+  const [studentQuery, setStudentQuery] = useState("");
+  const [studentsOpen, setStudentsOpen] = useState(false);
+  const previewLimit = useStudentPreviewLimit();
   const showEmail = viewer.role === "admin" || viewer.role === "tech";
+  const staff = members.filter((m) => isStaffRole(m.role));
+  const students = members.filter((m) => m.role === "student");
+  const needle = studentQuery.trim().toLowerCase();
+  const matchingStudents = needle
+    ? students.filter((m) => m.display_name.toLowerCase().includes(needle))
+    : students;
+  const showStudentSearch = students.length > 10;
+  const collapsed =
+    !needle && !studentsOpen && matchingStudents.length > previewLimit;
+  const visibleStudents = collapsed
+    ? matchingStudents.slice(0, previewLimit)
+    : matchingStudents;
 
   return (
     <div className="manage-stack">
@@ -481,9 +569,37 @@ export function TechPanel({
         )}
       </section>
 
-      <section className="manage-block">
+      <section className="manage-block manage-block--staff">
         <div className="manage-block__head">
-          <h3 className="manage-block__title">Members</h3>
+          <div>
+            <h3 className="manage-block__title">Staff</h3>
+            <p className="manage-block__sub">
+              People who help manage the group
+            </p>
+          </div>
+        </div>
+        <div className="panel manage-panel manage-panel--staff">
+          {staff.length === 0 ? (
+            <p className="manage-empty">No staff yet.</p>
+          ) : (
+            staff.map((m) => (
+              <MemberRow
+                key={m.id}
+                member={m}
+                viewer={viewer}
+                onView={() => setViewing(m)}
+                onChangeRole={() => setRoleFor(m)}
+              />
+            ))
+          )}
+        </div>
+      </section>
+
+      <section className="manage-block manage-block--students">
+        <div className="manage-block__head">
+          <h3 className="manage-block__title">
+            Students · {students.length}
+          </h3>
           <button
             type="button"
             className="manage-add"
@@ -492,44 +608,45 @@ export function TechPanel({
             + Add member
           </button>
         </div>
-        <div className="panel manage-panel">
-          {members.map((m) => (
-            <article key={m.id} className="manage-member">
-              <div className="manage-member__who">
-                <button
-                  type="button"
-                  className="profile-link manage-member__name"
-                  onClick={() => setViewing(m)}
-                >
-                  {m.display_name}
-                </button>
-                <RoleBadge role={m.role} />
-                {m.status !== "approved" && m.status !== "suspended" && (
-                  <span className="manage-member__status">{m.status}</span>
-                )}
-                <ModerationFlags profile={m} viewer={viewer} />
-              </div>
-              <p className="manage-member__joined">
-                Joined{" "}
-                {new Intl.DateTimeFormat("en-US", {
-                  dateStyle: "medium",
-                }).format(new Date(m.created_at))}
-              </p>
-              <div className="manage-member__aside">
-                {m.id === viewer.id ? (
-                  <span className="manage-you">You</span>
-                ) : (
-                  <MemberMenu
-                    member={m}
-                    viewer={viewer}
-                    onView={() => setViewing(m)}
-                    onChangeRole={() => setRoleFor(m)}
-                  />
-                )}
-              </div>
-            </article>
-          ))}
+        {showStudentSearch && (
+          <label className="manage-student-search">
+            <input
+              type="search"
+              value={studentQuery}
+              onChange={(e) => setStudentQuery(e.target.value)}
+              placeholder="Search students..."
+              autoComplete="off"
+              aria-label="Search students"
+            />
+          </label>
+        )}
+        <div className="panel manage-panel manage-panel--students">
+          {visibleStudents.length === 0 ? (
+            <p className="manage-empty">
+              {needle ? "No students match that name." : "No students yet."}
+            </p>
+          ) : (
+            visibleStudents.map((m) => (
+              <MemberRow
+                key={m.id}
+                member={m}
+                viewer={viewer}
+                compact
+                onView={() => setViewing(m)}
+                onChangeRole={() => setRoleFor(m)}
+              />
+            ))
+          )}
         </div>
+        {!needle && matchingStudents.length > previewLimit && (
+          <button
+            type="button"
+            className="manage-more"
+            onClick={() => setStudentsOpen((open) => !open)}
+          >
+            {studentsOpen ? "Show less" : "Show all students"}
+          </button>
+        )}
       </section>
     </div>
   );
