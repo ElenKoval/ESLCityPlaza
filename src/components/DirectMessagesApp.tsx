@@ -23,6 +23,7 @@ import {
 import { chatTimeLabel } from "@/lib/chat";
 import { RoleBadge } from "@/components/RoleBadge";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
+import { DmMemberPicker } from "@/components/DmMemberPicker";
 import { getPublicProfile } from "@/app/actions";
 import type {
   DirectConversationListItem,
@@ -138,6 +139,7 @@ export function DirectMessagesApp({
   const [viewing, setViewing] = useState<Awaited<
     ReturnType<typeof getPublicProfile>
   >>(null);
+  const [picking, setPicking] = useState(false);
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
     null,
   );
@@ -326,6 +328,7 @@ export function DirectMessagesApp({
           onClose={() => setViewing(null)}
         />
       )}
+      {picking && <DmMemberPicker onClose={() => setPicking(false)} />}
       {lightbox && (
         <DmLightbox
           src={lightbox.src}
@@ -335,7 +338,16 @@ export function DirectMessagesApp({
       )}
 
       <aside className="dm-list">
-        <h1 className="dm-list__title">Direct Messages</h1>
+        <div className="dm-list__head">
+          <h1 className="dm-list__title">Direct Messages</h1>
+          <button
+            type="button"
+            className="dm-new-btn"
+            onClick={() => setPicking(true)}
+          >
+            + New message
+          </button>
+        </div>
         {setupNeeded && (
           <p className="activity-note">
             Run <code>supabase/direct-messages-upgrade.sql</code> in the
@@ -343,7 +355,17 @@ export function DirectMessagesApp({
           </p>
         )}
         {conversations.length === 0 && !setupNeeded ? (
-          <p className="dm-empty">No conversations yet.</p>
+          <div className="dm-empty">
+            <p>No conversations yet.</p>
+            <p>Start a private conversation with another member.</p>
+            <button
+              type="button"
+              className="dm-new-btn"
+              onClick={() => setPicking(true)}
+            >
+              New message
+            </button>
+          </div>
         ) : (
           <ul className="dm-convos">
             {conversations.map((item) => {

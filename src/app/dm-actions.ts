@@ -15,7 +15,7 @@ import {
   dmSortedPair,
   dmTableMissing,
 } from "@/lib/direct-messages";
-import type { DirectThreadMessage } from "@/lib/types";
+import type { DirectThreadMessage, Role } from "@/lib/types";
 
 export type DmActionState = {
   error?: string;
@@ -138,6 +138,30 @@ export async function openDirectConversation(
   revalidatePath("/messages");
   revalidatePath(`/messages/${created.id}`);
   return { success: "opened", conversationId: created.id };
+}
+
+export type DmMemberOption = {
+  id: string;
+  display_name: string;
+  role: Role;
+};
+
+export async function listApprovedMembersForDm(): Promise<DmMemberOption[]> {
+  const auth = await requireApprovedUser();
+  if ("error" in auth) return [];
+  const { supabase, userId } = auth;
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, display_name, role")
+    .eq("status", "approved")
+    .neq("id", userId)
+    .order("display_name", { ascending: true });
+  if (error || !data) return [];
+  return data.map((row) => ({
+    id: row.id as string,
+    display_name: row.display_name as string,
+    role: row.role as Role,
+  }));
 }
 
 export async function markDirectConversationRead(conversationId: string) {

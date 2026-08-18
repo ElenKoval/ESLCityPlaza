@@ -3746,19 +3746,61 @@ button.chat-msg__name {
   background: var(--paper);
 }
 
+.dm-list__head {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.55rem 0.75rem;
+  padding: 0.85rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--line);
+}
+
 .dm-list__title {
   margin: 0;
-  padding: 0.95rem 1.1rem 0.8rem;
   font-family: var(--font-display);
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   color: var(--plaza-deep);
-  border-bottom: 1px solid var(--line);
+}
+
+.dm-new-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: 0.38rem 0.75rem;
+  border-radius: 999px;
+  border: 1.5px solid rgba(196, 81, 12, 0.35);
+  background: #fff8f1;
+  color: var(--plaza-deep);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.dm-new-btn:hover {
+  background: rgba(232, 106, 23, 0.12);
 }
 
 .dm-empty,
 .dm-pick {
   margin: 1.25rem 1.1rem;
   color: var(--ink-soft);
+}
+
+.dm-empty {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
+}
+
+.dm-empty p {
+  margin: 0;
+}
+
+.dm-empty .dm-new-btn {
+  margin-top: 0.35rem;
 }
 
 .dm-convos {
@@ -3923,4 +3965,72 @@ button.chat-msg__name {
   .dm-back {
     display: none;
   }
+}
+
+.dm-picker {
+  width: min(26rem, 100%);
+  max-height: min(85dvh, 38rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dm-picker__search {
+  display: block;
+  margin-bottom: 0.65rem;
+}
+
+.dm-picker__search input {
+  width: 100%;
+  margin: 0;
+}
+
+.dm-picker__list {
+  list-style: none;
+  margin: 0 -0.35rem;
+  padding: 0;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.dm-picker__note {
+  padding: 0.75rem 0.6rem;
+  color: var(--ink-soft);
+}
+
+.dm-picker__person {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.6rem;
+  border: 0;
+  border-radius: 0.75rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dm-picker__person:hover,
+.dm-picker__person:focus-visible {
+  background: rgba(232, 106, 23, 0.08);
+}
+
+.dm-picker__person:disabled {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.dm-picker__name {
+  min-width: 0;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 650;
 }
