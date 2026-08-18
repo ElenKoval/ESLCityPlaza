@@ -2393,6 +2393,11 @@ button.chat-msg__name {
   color: var(--ink-soft);
 }
 
+.chat-unavailable a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .table-like {
   display: grid;
   gap: 0.75rem;
