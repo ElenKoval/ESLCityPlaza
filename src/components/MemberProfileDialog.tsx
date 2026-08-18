@@ -24,9 +24,11 @@ export type MemberPreview = Pick<
 export function MemberProfileCard({
   profile,
   showEmail = false,
+  self = false,
 }: {
   profile: MemberPreview;
   showEmail?: boolean;
+  self?: boolean;
 }) {
   const languages = (profile.languages ?? []).filter(Boolean);
   const interests = (profile.interests ?? []).filter(
@@ -88,7 +90,11 @@ export function MemberProfileCard({
           ) : null}
         </dl>
       ) : (
-        <p className="sub">They have not shared extra details yet.</p>
+        <p className="sub">
+          {self
+            ? "You have not shared extra details yet."
+            : "They have not shared extra details yet."}
+        </p>
       )}
     </div>
   );

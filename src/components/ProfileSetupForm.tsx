@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   saveProfile,
   skipProfile,
@@ -37,12 +38,18 @@ export function ProfileSetupForm({
     ActionState,
     FormData
   >(skipProfile, null);
+  const router = useRouter();
 
   useEffect(() => {
     if (mode === "setup" && (saveState?.success || skipState?.success)) {
-      window.location.assign("/");
+      window.location.assign("/account");
     }
   }, [mode, saveState, skipState]);
+  useEffect(() => {
+    if (mode === "edit" && saveState?.success) {
+      router.refresh();
+    }
+  }, [mode, saveState, router]);
   const existingLangs = (profile.languages ?? []).filter(Boolean);
   const [languages, setLanguages] = useState(
     existingLangs.length ? existingLangs : [""],
