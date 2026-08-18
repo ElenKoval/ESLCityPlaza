@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import {
+  ActivityNavLink,
   AnnouncementsNavLink,
   ChatNavLink,
   ClassTopicsNavLink,
@@ -10,6 +11,7 @@ import {
   ScheduleNavLink,
 } from "./HomeNavLink";
 import { HeaderSessionGuard } from "./HeaderSessionGuard";
+import { SiteActivityTracker } from "./SiteActivityTracker";
 import { RoleBadge } from "./RoleBadge";
 import { SignOutButton } from "./SignOutButton";
 import { canManageClasses, canReviewApplications } from "@/lib/roles";
@@ -21,6 +23,7 @@ export async function SiteHeader() {
   return (
     <header className="site-header">
       <HeaderSessionGuard hasProfile={Boolean(profile)} />
+      {profile?.status === "approved" && <SiteActivityTracker />}
       <div className="site-header__inner">
         <nav className="site-nav" aria-label="Main">
           <HomeNavLink />
@@ -31,6 +34,9 @@ export async function SiteHeader() {
             canReviewApplications(profile.role) && <ManageMembersNavLink />}
           {profile?.status === "approved" &&
             canManageClasses(profile.role) && <ScheduleNavLink />}
+          {profile?.status === "approved" && profile.role === "tech" && (
+            <ActivityNavLink />
+          )}
         </nav>
         {profile && (
           <div className="site-header__user">

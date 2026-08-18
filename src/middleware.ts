@@ -234,6 +234,12 @@ export async function middleware(request: NextRequest) {
         redirectUrl.pathname = "/";
         return NextResponse.redirect(redirectUrl);
       }
+
+      if (path.startsWith("/activity") && profile.role !== "tech") {
+        const redirectUrl = request.nextUrl.clone();
+        redirectUrl.pathname = "/";
+        return NextResponse.redirect(redirectUrl);
+      }
     }
   }
 

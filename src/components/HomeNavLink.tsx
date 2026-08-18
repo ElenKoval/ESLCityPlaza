@@ -58,3 +58,7 @@ export function ScheduleNavLink() {
 export function ManageMembersNavLink() {
   return <NavLink href="/members">Manage Members</NavLink>;
 }
+
+export function ActivityNavLink() {
+  return <NavLink href="/activity">Activity</NavLink>;
+}
