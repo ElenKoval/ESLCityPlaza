@@ -358,13 +358,6 @@ export function DirectMessagesApp({
           <div className="dm-empty">
             <p>No conversations yet.</p>
             <p>Start a private conversation with another member.</p>
-            <button
-              type="button"
-              className="dm-new-btn"
-              onClick={() => setPicking(true)}
-            >
-              New message
-            </button>
           </div>
         ) : (
           <ul className="dm-convos">

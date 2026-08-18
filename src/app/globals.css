@@ -3857,10 +3857,6 @@ button.chat-msg__name {
   margin: 0;
 }
 
-.dm-empty .dm-new-btn {
-  margin-top: 0.35rem;
-}
-
 .dm-convos {
   list-style: none;
   margin: 0;
