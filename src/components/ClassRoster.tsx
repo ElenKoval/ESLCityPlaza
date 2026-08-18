@@ -4,8 +4,6 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { removeClassEnrollment, type ActionState } from "@/app/actions";
 import { canRemoveFromClass } from "@/lib/roles";
-import { classTopicWhenLabel } from "@/lib/class-topics";
-import { signedUpCountLabel } from "@/lib/enrollment";
 import type { ClassRoster, Role } from "@/lib/types";
 
 function useRefreshOnSuccess(state: ActionState) {
@@ -82,54 +80,5 @@ export function ClassSignupList({
         </li>
       ))}
     </ul>
-  );
-}
-
-export function ClassRosterPanel({
-  rosters,
-  actorRole,
-}: {
-  rosters: ClassRoster[];
-  actorRole: Role;
-}) {
-  if (rosters.length === 0) {
-    return (
-      <section className="manage-block">
-        <h3 className="manage-block__title">Who signed up</h3>
-        <p className="manage-empty">No upcoming classes</p>
-      </section>
-    );
-  }
-
-  return (
-    <section className="manage-block">
-      <h3 className="manage-block__title">Who signed up</h3>
-      <p className="manage-fold__hint" style={{ marginTop: 0 }}>
-        Open a class to see the names.
-      </p>
-      <div className="panel manage-panel">
-        {rosters.map((item) => {
-          const count = item.people.length;
-          const cap = item.capacity ?? 15;
-          return (
-            <details key={item.classId} className="roster-class">
-              <summary className="roster-class__summary">
-                <span className="roster-class__when">
-                  {classTopicWhenLabel(item.startsAt)}
-                </span>
-                <span className="roster-class__count">
-                  {signedUpCountLabel(count, cap)}
-                </span>
-              </summary>
-              <ClassSignupList
-                classId={item.classId}
-                people={item.people}
-                actorRole={actorRole}
-              />
-            </details>
-          );
-        })}
-      </div>
-    </section>
   );
 }

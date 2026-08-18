@@ -1,7 +1,6 @@
 import { requireApprover } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { TechPanel } from "@/components/TechPanel";
-import { ClassRosterPanel } from "@/components/ClassRoster";
 import {
   DEMO_TECH_ID,
   getDemoMembers,
@@ -11,10 +10,7 @@ import {
 import { authContactsForUserIds } from "@/lib/auth-admin";
 import { getApplicationNoticeStatus } from "@/lib/mail";
 import { SendTestMailButton } from "@/components/SendTestMailButton";
-import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
-import { loadUpcomingClassRosters } from "@/lib/load-class-rosters";
-import { canViewClassRoster } from "@/lib/roles";
-import type { ClassRoster, Profile } from "@/lib/types";
+import type { Profile } from "@/lib/types";
 import { revalidatePath } from "next/cache";
 
 async function resetDemoAction() {
@@ -29,36 +25,11 @@ export default async function ManageMembersPage() {
 
   let applications: Profile[] = [];
   let members: Profile[] = [];
-  let rosters: ClassRoster[] = [];
 
   if (isDemo) {
     const all = await getDemoMembers();
     applications = all.filter((p) => p.status === "pending");
     members = all.filter((p) => p.status !== "pending");
-    if (canViewClassRoster(profile.role)) {
-      const demoClasses = await getDemoClassesWithEnrollments();
-      const now = Date.now();
-      const me = all.find((p) => p.id === userId);
-      rosters = demoClasses
-        .filter((item) => new Date(item.starts_at).getTime() >= now)
-        .map((item) => ({
-          classId: item.id,
-          title: item.title,
-          startsAt: item.starts_at,
-          location: item.location,
-          capacity: item.capacity,
-          people:
-            item.enrolled && me
-              ? [
-                  {
-                    userId: me.id,
-                    displayName: me.display_name,
-                    role: me.role,
-                  },
-                ]
-              : [],
-        }));
-    }
   } else {
     const supabase = await createClient();
     const { data: pending } = await supabase
@@ -94,10 +65,6 @@ export default async function ManageMembersPage() {
     }));
     if (profile.role === "teacher") {
       members = members.map((p) => ({ ...p, email: undefined }));
-    }
-
-    if (canViewClassRoster(profile.role)) {
-      rosters = await loadUpcomingClassRosters(supabase);
     }
   }
 
@@ -139,9 +106,6 @@ export default async function ManageMembersPage() {
               Load sample applications
             </button>
           </form>
-        )}
-        {canViewClassRoster(profile.role) && (
-          <ClassRosterPanel rosters={rosters} actorRole={profile.role} />
         )}
         <TechPanel
           applications={applications}

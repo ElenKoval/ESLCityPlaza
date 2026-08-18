@@ -1,4 +1,3 @@
-import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import type { ClassRoster, Profile } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -61,16 +60,4 @@ export async function loadClassRostersFor(
     people = (data ?? []) as Array<Pick<Profile, "id" | "display_name" | "role">>;
   }
   return mapClassRosters(classRows, rows, people);
-}
-
-export async function loadUpcomingClassRosters(
-  supabase: SupabaseClient,
-): Promise<ClassRoster[]> {
-  const { data: classes } = await supabase
-    .from("classes")
-    .select("id, title, starts_at, location, capacity")
-    .gte("starts_at", new Date(Date.now() - CLASS_DURATION_MS).toISOString())
-    .order("starts_at", { ascending: true })
-    .limit(16);
-  return loadClassRostersFor(supabase, classes ?? []);
 }
