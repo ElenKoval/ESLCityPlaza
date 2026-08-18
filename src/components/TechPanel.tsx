@@ -36,22 +36,28 @@ function useRefreshOnSuccess(state: ActionState, onSuccess?: () => void) {
 function ManageDialog({
   title,
   onClose,
+  closeOnBackdrop = true,
   children,
 }: {
   title: string;
   onClose: () => void;
+  closeOnBackdrop?: boolean;
   children: React.ReactNode;
 }) {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && closeOnBackdrop) onClose();
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, closeOnBackdrop]);
 
   return (
-    <div className="profile-dialog" role="presentation" onClick={onClose}>
+    <div
+      className="profile-dialog"
+      role="presentation"
+      onClick={closeOnBackdrop ? onClose : undefined}
+    >
       <div
         className="profile-dialog__panel panel manage-dialog__panel"
         role="dialog"
@@ -73,53 +79,90 @@ function ManageDialog({
   );
 }
 
-function AddMemberForm({ viewer }: { viewer: Profile }) {
+function AddMemberDialog({
+  viewer,
+  onClose,
+}: {
+  viewer: Profile;
+  onClose: () => void;
+}) {
+  const router = useRouter();
   const [state, action, pending] = useActionState<ActionState, FormData>(
     addMemberManually,
     null,
   );
-  useRefreshOnSuccess(state);
+  const [password, setPassword] = useState<string | null>(null);
   const pickRole = canManageRoles(viewer.role);
+  const done = Boolean(password || state?.success);
+
+  useEffect(() => {
+    if (!state?.success) return;
+    if (state.tempPassword) setPassword(state.tempPassword);
+    router.refresh();
+  }, [state, router]);
 
   return (
-    <form action={action} className="form-grid">
-      <p className="field-hint" style={{ marginTop: 0 }}>
-        Creates an approved account right away — no Apply form and no email
-        confirmation. You will get a password to give them. They can keep using
-        it; they do not have to change it.
-      </p>
-      <label>
-        Name
-        <input name="display_name" required maxLength={60} autoComplete="name" />
-      </label>
-      <label>
-        Email
-        <input name="email" type="email" autoComplete="email" required />
-      </label>
-      {pickRole ? (
-        <label>
-          Role
-          <select name="role" defaultValue="student">
-            <option value="student">Student</option>
-            <option value="teacher">Teacher</option>
-            <option value="admin">Admin</option>
-          </select>
-        </label>
+    <ManageDialog
+      title={done ? "Member added" : "Add member"}
+      onClose={onClose}
+      closeOnBackdrop={!done}
+    >
+      {done ? (
+        <div className="form-grid">
+          {state?.success && <p className="success">{state.success}</p>}
+          {password && (
+            <p className="temp-password">
+              <span>Password</span>
+              <strong>{password}</strong>
+            </p>
+          )}
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            Copy this password now. You will not see it again after you close
+            this window.
+          </p>
+          <button type="button" className="btn-primary" onClick={onClose}>
+            Done
+          </button>
+        </div>
       ) : (
-        <input type="hidden" name="role" value="student" />
+        <form action={action} className="form-grid">
+          <p className="field-hint" style={{ marginTop: 0 }}>
+            Creates an approved account right away — no Apply form and no email
+            confirmation. You will get a password to give them. They can keep
+            using it; they do not have to change it.
+          </p>
+          <label>
+            Name
+            <input
+              name="display_name"
+              required
+              maxLength={60}
+              autoComplete="name"
+            />
+          </label>
+          <label>
+            Email
+            <input name="email" type="email" autoComplete="email" required />
+          </label>
+          {pickRole ? (
+            <label>
+              Role
+              <select name="role" defaultValue="student">
+                <option value="student">Student</option>
+                <option value="teacher">Teacher</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+          ) : (
+            <input type="hidden" name="role" value="student" />
+          )}
+          {state?.error && <p className="error">{state.error}</p>}
+          <button className="btn-primary" type="submit" disabled={pending}>
+            {pending ? "Adding…" : "Add member"}
+          </button>
+        </form>
       )}
-      {state?.error && <p className="error">{state.error}</p>}
-      {state?.success && <p className="success">{state.success}</p>}
-      {state?.tempPassword && (
-        <p className="temp-password">
-          <span>Password</span>
-          <strong>{state.tempPassword}</strong>
-        </p>
-      )}
-      <button className="btn-primary" type="submit" disabled={pending}>
-        {pending ? "Adding…" : "Add member"}
-      </button>
-    </form>
+    </ManageDialog>
   );
 }
 
@@ -395,9 +438,7 @@ export function TechPanel({
         />
       )}
       {adding && (
-        <ManageDialog title="Add member" onClose={() => setAdding(false)}>
-          <AddMemberForm viewer={viewer} />
-        </ManageDialog>
+        <AddMemberDialog viewer={viewer} onClose={() => setAdding(false)} />
       )}
       {roleFor && (
         <RoleDialog profile={roleFor} onClose={() => setRoleFor(null)} />

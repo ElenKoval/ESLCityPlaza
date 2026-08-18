@@ -648,29 +648,33 @@ export async function addMemberManually(
   const newId = created.user?.id;
   if (!newId) return { error: "Could not create the account" };
 
-  const payload = {
+  const profilePayload = {
+    id: newId,
     display_name: displayName,
+    requested_role: "student" as const,
     role,
     status: "approved" as const,
     reviewed_at: now,
     reviewed_by: user.id,
   };
 
-  const { data: profile } = await admin
+  const { data: saved, error: profileError } = await admin
     .from("profiles")
-    .select("id")
-    .eq("id", newId)
+    .upsert(profilePayload, { onConflict: "id" })
+    .select("id, status")
     .maybeSingle();
 
-  const { error: profileError } = profile
-    ? await admin.from("profiles").update(payload).eq("id", newId)
-    : await admin.from("profiles").insert({
-        id: newId,
-        requested_role: "student",
-        ...payload,
-      });
-
-  if (profileError) return { error: profileError.message };
+  if (profileError || !saved || saved.status !== "approved") {
+    await admin.auth.admin.deleteUser(newId);
+    if (profileError) {
+      const raw = profileError.message.toLowerCase();
+      if (raw.includes("duplicate") || raw.includes("already exists")) {
+        return { error: EXISTING_ACCOUNT_MESSAGE };
+      }
+      return { error: profileError.message };
+    }
+    return { error: "Could not finish setting up the new account" };
+  }
 
   revalidatePath("/members");
   revalidatePath("/");
