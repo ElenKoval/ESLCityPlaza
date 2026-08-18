@@ -44,7 +44,7 @@ export function ChatNavLink() {
 }
 
 export function ClassTopicsNavLink() {
-  return <NavLink href="/topics">Class Topics</NavLink>;
+  return <NavLink href="/topics">Topics</NavLink>;
 }
 
 export function AnnouncementsNavLink() {
@@ -55,10 +55,6 @@ export function ScheduleNavLink() {
   return <NavLink href="/admin">Schedule</NavLink>;
 }
 
-export function ApprovalsNavLink() {
-  return <NavLink href="/tech">Approvals</NavLink>;
-}
-
-export function ProfileNavLink() {
-  return <NavLink href="/account">Profile</NavLink>;
+export function ManageMembersNavLink() {
+  return <NavLink href="/members">Manage Members</NavLink>;
 }

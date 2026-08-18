@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
-import { ApprovalsNavLink, AnnouncementsNavLink, ChatNavLink, ClassTopicsNavLink, HomeNavLink, ProfileNavLink, ScheduleNavLink } from "./HomeNavLink";
+import {
+  AnnouncementsNavLink,
+  ChatNavLink,
+  ClassTopicsNavLink,
+  HomeNavLink,
+  ManageMembersNavLink,
+  ScheduleNavLink,
+} from "./HomeNavLink";
 import { HeaderSessionGuard } from "./HeaderSessionGuard";
 import { RoleBadge } from "./RoleBadge";
 import { SignOutButton } from "./SignOutButton";
@@ -20,27 +27,35 @@ export async function SiteHeader() {
           {profile?.status === "approved" && <ChatNavLink />}
           {profile?.status === "approved" && <ClassTopicsNavLink />}
           {profile?.status === "approved" && <AnnouncementsNavLink />}
-          {profile?.status === "approved" && <ProfileNavLink />}
           {profile?.status === "approved" &&
-            canReviewApplications(profile.role) && <ApprovalsNavLink />}
+            canReviewApplications(profile.role) && <ManageMembersNavLink />}
           {profile?.status === "approved" &&
             canManageClasses(profile.role) && <ScheduleNavLink />}
         </nav>
         {profile && (
           <div className="site-header__user">
-            <div className="site-header__identity">
-              {profile.status === "approved" ? (
-                <Link href="/account" className="site-header__name" prefetch>
-                  {profile.display_name}
-                </Link>
-              ) : (
+            {profile.status === "approved" ? (
+              <Link
+                href="/account"
+                className="site-header__profile-link"
+                prefetch
+                aria-label={`Open your profile (${profile.display_name})`}
+              >
                 <span className="site-header__name">{profile.display_name}</span>
-              )}
-              <span className="site-header__dot" aria-hidden="true">
-                ·
-              </span>
-              <RoleBadge role={profile.role} />
-            </div>
+                <span className="site-header__dot" aria-hidden="true">
+                  ·
+                </span>
+                <RoleBadge role={profile.role} />
+              </Link>
+            ) : (
+              <div className="site-header__identity">
+                <span className="site-header__name">{profile.display_name}</span>
+                <span className="site-header__dot" aria-hidden="true">
+                  ·
+                </span>
+                <RoleBadge role={profile.role} />
+              </div>
+            )}
             <SignOutButton demo={demo} />
           </div>
         )}

@@ -93,7 +93,7 @@ export async function requireStaff() {
   return { profile, userId };
 }
 
-/** Teacher, Admin, or Tech — Approvals and member moderation at /tech. */
+/** Teacher, Admin, or Tech — member management at /members. */
 export async function requireApprover() {
   const { profile, userId } = await requireApproved();
   if (!canReviewApplications(profile.role)) redirect("/");

@@ -23,7 +23,7 @@ export async function enterDemo(
   }
 
   await setDemoSession(DEMO_TECH_ID);
-  redirect("/tech");
+  redirect("/members");
 }
 
 export async function exitDemo() {

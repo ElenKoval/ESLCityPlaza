@@ -12,7 +12,7 @@ export default function EnterPage() {
       <h1>Private enter</h1>
       <p className="sub">
         Tech access with your private key. Use this after someone applies on
-        Join — approve them on Approvals. Tip: stay in the same browser so demo
+        Join — approve them in Manage Members. Tip: stay in the same browser so demo
         applications are shared.
       </p>
       <EnterForm />

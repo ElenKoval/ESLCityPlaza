@@ -590,7 +590,7 @@ export async function addMemberManually(
     member.reviewed_at = now;
     member.reviewed_by = me.id;
     await saveDemoMembers([member, ...members]);
-    revalidatePath("/tech");
+    revalidatePath("/members");
     return {
       success: `${displayName} was added as a ${role}. Give them this password so they can log in.`,
       tempPassword,
@@ -667,7 +667,7 @@ export async function addMemberManually(
 
   if (profileError) return { error: profileError.message };
 
-  revalidatePath("/tech");
+  revalidatePath("/members");
   revalidatePath("/");
   return {
       success: `${displayName} was added as a ${role}. Give them this password so they can log in.`,
@@ -711,7 +711,7 @@ export async function reviewApplication(
       };
     });
     await saveDemoMembers(next);
-    revalidatePath("/tech");
+    revalidatePath("/members");
     revalidatePath("/pending");
     return {
       success:
@@ -781,7 +781,7 @@ export async function reviewApplication(
       .select("display_name")
       .eq("id", userId)
       .maybeSingle();
-    revalidatePath("/tech");
+    revalidatePath("/members");
     revalidatePath("/pending");
     if (email) {
       const name = person?.display_name || "there";
@@ -797,7 +797,7 @@ export async function reviewApplication(
     return { success: "Approved. We emailed them a welcome note." };
   }
 
-  revalidatePath("/tech");
+  revalidatePath("/members");
   revalidatePath("/pending");
   return { success: "Application declined" };
 }
@@ -821,7 +821,7 @@ export async function deleteMember(
       return { error: "You cannot delete this account" };
     }
     await saveDemoMembers(members.filter((m) => m.id !== userId));
-    revalidatePath("/tech");
+    revalidatePath("/members");
     return { success: "Account deleted" };
   }
 
@@ -864,7 +864,7 @@ export async function deleteMember(
       })
       .eq("id", userId);
     if (error) return { error: error.message };
-    revalidatePath("/tech");
+    revalidatePath("/members");
     return {
       success: "Account blocked (add SUPABASE_SERVICE_ROLE_KEY to fully delete)",
     };
@@ -876,12 +876,12 @@ export async function deleteMember(
   const { error } = await admin.auth.admin.deleteUser(userId);
   if (error) return { error: error.message };
 
-  revalidatePath("/tech");
+  revalidatePath("/members");
   return { success: "Account deleted" };
 }
 
 function revalidateMemberPaths() {
-  revalidatePath("/tech");
+  revalidatePath("/members");
   revalidatePath("/", "layout");
   revalidatePath("/chat");
   revalidatePath("/suspended");
@@ -1120,7 +1120,7 @@ export async function removeClassEnrollment(
     .eq("class_id", classId)
     .eq("user_id", userId);
   if (error) return { error: error.message };
-  revalidatePath("/tech");
+  revalidatePath("/members");
   revalidatePath("/");
   revalidatePath("/classes");
   revalidatePath("/my");

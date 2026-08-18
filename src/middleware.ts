@@ -73,6 +73,10 @@ function copyCookies(from: NextResponse, to: NextResponse) {
   return to;
 }
 
+function isMemberManagementPath(path: string) {
+  return path.startsWith("/members") || path.startsWith("/tech");
+}
+
 function statusHomePath(status: string | null | undefined) {
   if (status === "approved") return "/";
   if (status === "suspended") return "/suspended";
@@ -126,7 +130,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    if (status === "approved" && path.startsWith("/tech")) {
+    if (status === "approved" && isMemberManagementPath(path)) {
       // Role check happens on the page; allow through
     }
 
@@ -211,7 +215,7 @@ export async function middleware(request: NextRequest) {
       }
 
       if (
-        path.startsWith("/tech") &&
+        isMemberManagementPath(path) &&
         profile.role !== "tech" &&
         profile.role !== "teacher" &&
         profile.role !== "admin"

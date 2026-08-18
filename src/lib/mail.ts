@@ -272,7 +272,7 @@ export async function sendNewApplicationNotice(input: {
   try {
     const to = [TECH_NOTIFY_EMAIL];
     console.info("[mail] application notice recipients", to);
-    const approvalsUrl = `${siteUrl()}/tech`;
+    const membersUrl = `${siteUrl()}/members`;
     const hometown = input.hometown?.trim() || "";
     const heardFrom = input.heardFrom?.trim() || "";
     const extraHtml = [
@@ -294,13 +294,13 @@ export async function sendNewApplicationNotice(input: {
         <p>${escapeHtml(input.name)} has requested to join ${SITE_NAME}.</p>
         <p>Email: ${escapeHtml(input.email)}</p>
         ${extraHtml}
-        <p><a href="${approvalsUrl}">Open Approvals</a></p>
+        <p><a href="${membersUrl}">Manage Members</a></p>
       `;
     const text = [
       `${input.name} has requested to join ${SITE_NAME}.`,
       `Email: ${input.email}`,
       extraText,
-      `Approvals: ${approvalsUrl}`,
+      `Manage Members: ${membersUrl}`,
     ]
       .filter(Boolean)
       .join("\n\n");
