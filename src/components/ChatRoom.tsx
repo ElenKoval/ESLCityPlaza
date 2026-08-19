@@ -72,21 +72,13 @@ function applyAnnouncementPin(
   id: string,
   pinned: boolean,
 ): ChatMessage[] {
-  return messages.map((msg) => ({
-    ...msg,
-    is_announcement: pinned
-      ? msg.id === id
-      : msg.id === id
-        ? false
-        : Boolean(msg.is_announcement),
-  }));
+  return messages.map((msg) =>
+    msg.id === id ? { ...msg, is_announcement: pinned } : msg,
+  );
 }
 
 function withNewChatMessage(messages: ChatMessage[], incoming: ChatMessage) {
-  const base = incoming.is_announcement
-    ? messages.map((msg) => ({ ...msg, is_announcement: false }))
-    : messages;
-  return [...base, incoming];
+  return [...messages, incoming];
 }
 
 function pinnedAnnouncementPreview(msg: ChatMessage) {
@@ -739,7 +731,9 @@ export function ChatRoom({
 
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
-            const incoming: ChatMessage = {
+            return [
+              ...prev,
+              {
                 id: row.id,
                 user_id: row.user_id,
                 body: row.body,
@@ -757,11 +751,8 @@ export function ChatRoom({
                 file_path: row.file_path ?? null,
                 file_name: row.file_name ?? null,
                 fileUrl,
-            };
-            const base = incoming.is_announcement
-              ? prev.map((m) => ({ ...m, is_announcement: false }))
-              : prev;
-            return [...base, incoming];
+              },
+            ];
           });
           void markChatRead().then(() => {
             dispatchChatUnreadRefresh();
@@ -775,19 +766,15 @@ export function ChatRoom({
           const row = payload.new as MessageRow;
           if (!row.id) return;
           setMessages((prev) =>
-            prev.map((m) => {
-              if (m.id === row.id) {
-                return {
-                  ...m,
-                  body: row.body ?? m.body,
-                  is_announcement: Boolean(row.is_announcement),
-                };
-              }
-              if (row.is_announcement) {
-                return { ...m, is_announcement: false };
-              }
-              return m;
-            }),
+            prev.map((m) =>
+              m.id === row.id
+                ? {
+                    ...m,
+                    body: row.body ?? m.body,
+                    is_announcement: Boolean(row.is_announcement),
+                  }
+                : m,
+            ),
           );
         },
       )
@@ -1052,8 +1039,9 @@ export function ChatRoom({
     return <ChatUnavailable />;
   }
 
-  const pin = [...messages].reverse().find((m) => m.is_announcement);
-  const pinPreview = pin ? pinnedAnnouncementPreview(pin) : null;
+  const pins = messages
+    .filter((m) => m.is_announcement)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
   let lastDay = "";
   const canSend = !pending && !preparingPhoto && Boolean(body.trim() || preview);
 
@@ -1095,24 +1083,31 @@ export function ChatRoom({
         onOpen={() => setOnlineSheetOpen(true)}
       />
 
-      {pin && pinPreview && (
-        <aside className="chat-pin">
-          <p className="chat-pin__meta">
-            Announcement from {displayChatName(pin.display_name)}
-          </p>
-          <p
-            className={`chat-pin__excerpt${pinPreview.fallback ? " is-fallback" : ""}`}
-          >
-            {pinPreview.text}
-          </p>
-          <button
-            type="button"
-            className="chat-pin__jump"
-            onClick={() => jumpToMessage(pin.id)}
-          >
-            View message
-          </button>
-        </aside>
+      {pins.length > 0 && (
+        <div className="chat-pins">
+          {pins.map((pin) => {
+            const pinPreview = pinnedAnnouncementPreview(pin);
+            return (
+              <aside key={pin.id} className="chat-pin">
+                <p className="chat-pin__meta">
+                  Announcement from {displayChatName(pin.display_name)}
+                </p>
+                <p
+                  className={`chat-pin__excerpt${pinPreview.fallback ? " is-fallback" : ""}`}
+                >
+                  {pinPreview.text}
+                </p>
+                <button
+                  type="button"
+                  className="chat-pin__jump"
+                  onClick={() => jumpToMessage(pin.id)}
+                >
+                  View message
+                </button>
+              </aside>
+            );
+          })}
+        </div>
       )}
 
       {error && <p className="error chat-app__error">{error}</p>}

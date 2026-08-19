@@ -1427,15 +1427,6 @@ export async function postChatMessage(
     return { error: "Could not send that message. Please try again." };
   }
 
-  if (asAnnounce && data.id) {
-    const writer = createAdminClient() ?? supabase;
-    await writer
-      .from("messages")
-      .update({ is_announcement: false })
-      .eq("is_announcement", true)
-      .neq("id", data.id);
-  }
-
   let imageUrl: string | null = null;
   if (data.image_path) {
     const signed = await signChatImagePaths([data.image_path]);
@@ -1588,13 +1579,6 @@ export async function setChatAnnouncement(
   if (!row) return { error: "Message not found" };
 
   const writer = createAdminClient() ?? supabase;
-  if (pinned) {
-    await writer
-      .from("messages")
-      .update({ is_announcement: false })
-      .eq("is_announcement", true)
-      .neq("id", id);
-  }
   const { error } = await writer
     .from("messages")
     .update({ is_announcement: pinned })

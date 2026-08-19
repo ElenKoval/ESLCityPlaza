@@ -1654,6 +1654,17 @@ body:has(.dm-page) main {
   line-height: 1.4;
 }
 
+.chat-pins {
+  flex-shrink: 0;
+  display: grid;
+  gap: 0.45rem;
+  margin: 0.5rem 0.85rem 0;
+}
+
+.chat-pins .chat-pin {
+  margin: 0;
+}
+
 .chat-pin {
   flex-shrink: 0;
   margin: 0.5rem 0.85rem 0;
@@ -2479,6 +2490,11 @@ button.chat-msg__name {
 
   .chat-photo img {
     max-height: 12rem;
+  }
+
+  .chat-pins {
+    margin: 0.4rem 0.75rem 0;
+    gap: 0.4rem;
   }
 
   .chat-pin {
