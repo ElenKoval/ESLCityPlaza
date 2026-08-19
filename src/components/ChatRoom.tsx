@@ -8,6 +8,7 @@ import {
   getPublicProfile,
   postChatMessage,
   deleteChatMessage,
+  setChatAnnouncement,
   signChatImagePaths,
   signChatFilePaths,
   checkChatAccess,
@@ -49,6 +50,53 @@ function readDemoMessages(): ChatMessage[] {
 
 function writeDemoMessages(msgs: ChatMessage[]) {
   localStorage.setItem(DEMO_CHAT_KEY, JSON.stringify(msgs.slice(-300)));
+}
+
+const NEAR_BOTTOM_PX = 96;
+
+function isInnerScroller(el: HTMLElement) {
+  return el.scrollHeight > el.clientHeight + 4;
+}
+
+function isWindowNearBottom() {
+  const doc = document.documentElement;
+  return (
+    window.innerHeight + window.scrollY >= doc.scrollHeight - NEAR_BOTTOM_PX
+  );
+}
+
+function applyAnnouncementPin(
+  messages: ChatMessage[],
+  id: string,
+  pinned: boolean,
+): ChatMessage[] {
+  return messages.map((msg) => ({
+    ...msg,
+    is_announcement: pinned
+      ? msg.id === id
+      : msg.id === id
+        ? false
+        : Boolean(msg.is_announcement),
+  }));
+}
+
+function withNewChatMessage(messages: ChatMessage[], incoming: ChatMessage) {
+  const base = incoming.is_announcement
+    ? messages.map((msg) => ({ ...msg, is_announcement: false }))
+    : messages;
+  return [...base, incoming];
+}
+
+function pinnedAnnouncementPreview(msg: ChatMessage) {
+  const text = msg.body.trim();
+  if (text) return { text, fallback: false };
+  if (msg.imageUrl || msg.image_path) {
+    return { text: "Photo announcement", fallback: true };
+  }
+  if (msg.fileUrl || msg.file_path) {
+    return { text: "File announcement", fallback: true };
+  }
+  return { text: "Photo announcement", fallback: true };
 }
 
 function dayLabel(iso: string) {
@@ -219,8 +267,12 @@ function ChatTextFileModal({
 
 function MessageMenu({
   onDelete,
+  onPin,
+  onUnpin,
 }: {
-  onDelete: () => void;
+  onDelete?: () => void;
+  onPin?: () => void;
+  onUnpin?: () => void;
 }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [open, setOpen] = useState(false);
@@ -241,6 +293,8 @@ function MessageMenu({
     };
   }, [open]);
 
+  if (!onDelete && !onPin && !onUnpin) return null;
+
   return (
     <div className="chat-msg-menu" ref={wrapRef}>
       <button
@@ -255,17 +309,45 @@ function MessageMenu({
       </button>
       {open && (
         <div className="chat-msg-menu__list" role="menu">
-          <button
-            type="button"
-            className="chat-msg-menu__item"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onDelete();
-            }}
-          >
-            Delete message
-          </button>
+          {onPin && (
+            <button
+              type="button"
+              className="chat-msg-menu__item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onPin();
+              }}
+            >
+              Pin as announcement
+            </button>
+          )}
+          {onUnpin && (
+            <button
+              type="button"
+              className="chat-msg-menu__item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onUnpin();
+              }}
+            >
+              Unpin announcement
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              className="chat-msg-menu__item"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+            >
+              Delete message
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -277,7 +359,10 @@ function MessageRowView({
   continued,
   mine,
   canDelete,
+  canPin,
   onDelete,
+  onPin,
+  onUnpin,
   onOpenProfile,
   onOpenPhoto,
   onOpenFile,
@@ -286,7 +371,10 @@ function MessageRowView({
   continued: boolean;
   mine: boolean;
   canDelete: boolean;
+  canPin: boolean;
   onDelete: (id: string) => void;
+  onPin: (id: string) => void;
+  onUnpin: (id: string) => void;
   onOpenProfile: (userId: string) => void;
   onOpenPhoto: (src: string, alt: string) => void;
   onOpenFile: (src: string, name: string) => void;
@@ -299,6 +387,14 @@ function MessageRowView({
   const photo = msg.imageUrl;
   const fileUrl = msg.fileUrl;
   const fileName = msg.file_name || "note.txt";
+  const menu =
+    (canDelete || canPin) && (
+      <MessageMenu
+        onDelete={canDelete ? () => onDelete(msg.id) : undefined}
+        onPin={canPin && !msg.is_announcement ? () => onPin(msg.id) : undefined}
+        onUnpin={canPin && msg.is_announcement ? () => onUnpin(msg.id) : undefined}
+      />
+    );
 
   return (
     <article
@@ -330,7 +426,7 @@ function MessageRowView({
         {mine ? (
           <p className="chat-msg__meta">
             <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
-            {canDelete && <MessageMenu onDelete={() => onDelete(msg.id)} />}
+            {menu}
           </p>
         ) : (
           <>
@@ -350,13 +446,13 @@ function MessageRowView({
                 <RoleBadge role={msg.role} />
                 <span className="chat-msg__dot">·</span>
                 <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
-                {canDelete && <MessageMenu onDelete={() => onDelete(msg.id)} />}
+                {menu}
               </p>
             )}
-            {continued && canDelete && (
+            {continued && menu && (
               <div className="chat-msg__continued-actions">
                 <span className="chat-msg__time">{chatTimeLabel(msg.created_at)}</span>
-                <MessageMenu onDelete={() => onDelete(msg.id)} />
+                {menu}
               </div>
             )}
           </>
@@ -451,6 +547,7 @@ export function ChatRoom({
   const stickRef = useRef(true);
   const didInit = useRef(false);
   const sendingRef = useRef(false);
+  const [flashId, setFlashId] = useState<string | null>(null);
   const canPin = canAnnounce(role);
 
   useEffect(() => {
@@ -513,18 +610,61 @@ export function ChatRoom({
     });
   }, [allowed]);
 
-  useEffect(() => {
+  function scrollChatToLatest(smooth = false) {
     const el = logRef.current;
-    if (!el) return;
-    if (!didInit.current) {
+    if (el && isInnerScroller(el)) {
       el.scrollTop = el.scrollHeight;
+      return;
+    }
+    bottomRef.current?.scrollIntoView({
+      behavior: smooth ? "smooth" : "auto",
+      block: "end",
+    });
+  }
+
+  useEffect(() => {
+    if (!didInit.current) {
+      scrollChatToLatest(false);
       didInit.current = true;
       return;
     }
     if (stickRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+      scrollChatToLatest(true);
     }
   }, [messages]);
+
+  useEffect(() => {
+    const onWindowScroll = () => {
+      const el = logRef.current;
+      if (el && isInnerScroller(el)) return;
+      stickRef.current = isWindowNearBottom();
+    };
+    window.addEventListener("scroll", onWindowScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onWindowScroll);
+  }, []);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const vv = window.visualViewport;
+    const update = () => {
+      if (!vv) {
+        root.style.setProperty("--chat-keyboard-inset", "0px");
+        return;
+      }
+      const inset = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      root.style.setProperty("--chat-keyboard-inset", `${Math.round(inset)}px`);
+    };
+    update();
+    window.addEventListener("resize", update);
+    vv?.addEventListener("resize", update);
+    vv?.addEventListener("scroll", update);
+    return () => {
+      window.removeEventListener("resize", update);
+      vv?.removeEventListener("resize", update);
+      vv?.removeEventListener("scroll", update);
+      root.style.removeProperty("--chat-keyboard-inset");
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -597,9 +737,7 @@ export function ChatRoom({
 
           setMessages((prev) => {
             if (prev.some((m) => m.id === row.id)) return prev;
-            return [
-              ...prev,
-              {
+            const incoming: ChatMessage = {
                 id: row.id,
                 user_id: row.user_id,
                 body: row.body,
@@ -617,12 +755,38 @@ export function ChatRoom({
                 file_path: row.file_path ?? null,
                 file_name: row.file_name ?? null,
                 fileUrl,
-              },
-            ];
+            };
+            const base = incoming.is_announcement
+              ? prev.map((m) => ({ ...m, is_announcement: false }))
+              : prev;
+            return [...base, incoming];
           });
           void markChatRead().then(() => {
             dispatchChatUnreadRefresh();
           });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "messages" },
+        (payload) => {
+          const row = payload.new as MessageRow;
+          if (!row.id) return;
+          setMessages((prev) =>
+            prev.map((m) => {
+              if (m.id === row.id) {
+                return {
+                  ...m,
+                  body: row.body ?? m.body,
+                  is_announcement: Boolean(row.is_announcement),
+                };
+              }
+              if (row.is_announcement) {
+                return { ...m, is_announcement: false };
+              }
+              return m;
+            }),
+          );
         },
       )
       .on(
@@ -741,7 +905,7 @@ export function ChatRoom({
             file_name: textFile?.name ?? null,
             fileUrl: textFile ? URL.createObjectURL(textFile.blob) : null,
           };
-          const next = [...readDemoMessages(), msg];
+          const next = withNewChatMessage(readDemoMessages(), msg);
           writeDemoMessages(next);
           setMessages(next);
           setBody("");
@@ -778,9 +942,7 @@ export function ChatRoom({
         if (sent) {
           setMessages((prev) => {
             if (prev.some((m) => m.id === sent.id)) return prev;
-            return [
-              ...prev,
-              {
+            return withNewChatMessage(prev, {
                 id: sent.id,
                 user_id: sent.user_id,
                 body: sent.body,
@@ -795,8 +957,7 @@ export function ChatRoom({
                 file_path: sent.file_path ?? null,
                 file_name: sent.file_name ?? null,
                 fileUrl: sent.fileUrl ?? null,
-              },
-            ];
+            });
           });
         }
         setBody("");
@@ -828,6 +989,41 @@ export function ChatRoom({
     });
   }
 
+  function setPinned(id: string, pinned: boolean) {
+    startTransition(async () => {
+      if (isLocalDemo) {
+        const next = applyAnnouncementPin(readDemoMessages(), id, pinned);
+        writeDemoMessages(next);
+        setMessages(next);
+        return;
+      }
+      const form = new FormData();
+      form.set("message_id", id);
+      form.set("pinned", pinned ? "true" : "false");
+      const result = await setChatAnnouncement(null, form);
+      if (result?.error) {
+        setError(result.error);
+        return;
+      }
+      setMessages((prev) => applyAnnouncementPin(prev, id, pinned));
+    });
+  }
+
+  function jumpToMessage(id: string) {
+    stickRef.current = false;
+    setFlashId(id);
+    const reveal = () => {
+      document.getElementById(`chat-msg-${id}`)?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    };
+    requestAnimationFrame(reveal);
+    window.setTimeout(() => {
+      setFlashId((current) => (current === id ? null : current));
+    }, 1600);
+  }
+
   function openProfile(id: string) {
     if (id === "system") return;
     startProfile(async () => {
@@ -850,6 +1046,7 @@ export function ChatRoom({
   }
 
   const pin = [...messages].reverse().find((m) => m.is_announcement);
+  const pinPreview = pin ? pinnedAnnouncementPreview(pin) : null;
   let lastDay = "";
   const canSend = !pending && !preparingPhoto && Boolean(body.trim() || preview);
 
@@ -891,42 +1088,23 @@ export function ChatRoom({
         onOpen={() => setOnlineSheetOpen(true)}
       />
 
-      {pin && (
+      {pin && pinPreview && (
         <aside className="chat-pin">
           <p className="chat-pin__meta">
-            {displayChatName(pin.display_name)} · Announcement
+            Announcement from {displayChatName(pin.display_name)}
           </p>
-          {pin.imageUrl && (
-            <button
-              type="button"
-              className="chat-photo"
-              onClick={() =>
-                setLightbox({
-                  src: pin.imageUrl!,
-                  alt: pin.body.trim() || `Photo shared by ${displayChatName(pin.display_name)}`,
-                })
-              }
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={pin.imageUrl} alt="" />
-            </button>
-          )}
-          {pin.fileUrl && (
-            <button
-              type="button"
-              className="chat-file"
-              onClick={() =>
-                setFileView({
-                  src: pin.fileUrl!,
-                  name: pin.file_name || "note.txt",
-                })
-              }
-            >
-              <span className="chat-file__badge">TXT</span>
-              <span className="chat-file__name">{pin.file_name || "note.txt"}</span>
-            </button>
-          )}
-          <MessageBody text={pin.body} />
+          <p
+            className={`chat-pin__excerpt${pinPreview.fallback ? " is-fallback" : ""}`}
+          >
+            {pinPreview.text}
+          </p>
+          <button
+            type="button"
+            className="chat-pin__jump"
+            onClick={() => jumpToMessage(pin.id)}
+          >
+            View message
+          </button>
         </aside>
       )}
 
@@ -937,9 +1115,9 @@ export function ChatRoom({
         ref={logRef}
         onScroll={() => {
           const el = logRef.current;
-          if (!el) return;
+          if (!el || !isInnerScroller(el)) return;
           stickRef.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 96;
+            el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_PX;
         }}
       >
         {messages.length === 0 && (
@@ -968,7 +1146,11 @@ export function ChatRoom({
             !prev?.is_announcement &&
             prev?.user_id === msg.user_id;
           return (
-            <div key={msg.id}>
+            <div
+              key={msg.id}
+              id={`chat-msg-${msg.id}`}
+              className={`chat-log__row${flashId === msg.id ? " is-flash" : ""}`}
+            >
               {showDay && <div className="chat-day">{day}</div>}
               <MessageRowView
                 msg={msg}
@@ -978,7 +1160,10 @@ export function ChatRoom({
                   { id: userId, role },
                   { user_id: msg.user_id, role: msg.role },
                 )}
+                canPin={canPin}
                 onDelete={remove}
+                onPin={(id) => setPinned(id, true)}
+                onUnpin={(id) => setPinned(id, false)}
                 onOpenProfile={openProfile}
                 onOpenPhoto={(src, alt) => setLightbox({ src, alt })}
                 onOpenFile={(src, name) => setFileView({ src, name })}
@@ -1057,6 +1242,17 @@ export function ChatRoom({
           placeholder="Write a message..."
           maxLength={2000}
           rows={1}
+          onFocus={() => {
+            stickRef.current = true;
+            const reveal = () => {
+              inputRef.current?.scrollIntoView({
+                block: "center",
+                behavior: "auto",
+              });
+            };
+            requestAnimationFrame(reveal);
+            window.setTimeout(reveal, 350);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

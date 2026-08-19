@@ -1567,12 +1567,18 @@ textarea {
   margin-top: 0.75rem;
 }
 
-html:has(.chat-page),
-html:has(.chat-page) body,
 html:has(.dm-page),
 html:has(.dm-page) body {
   height: 100dvh;
   overflow: hidden;
+}
+
+@media (min-width: 800px) {
+  html:has(.chat-page),
+  html:has(.chat-page) body {
+    height: 100dvh;
+    overflow: hidden;
+  }
 }
 
 body:has(.chat-page) .site-footer,
@@ -1650,22 +1656,54 @@ body:has(.dm-page) main {
 
 .chat-pin {
   flex-shrink: 0;
-  margin: 0.65rem 0.85rem 0;
-  padding: 0.7rem 0.85rem;
+  margin: 0.5rem 0.85rem 0;
+  padding: 0.5rem 0.75rem 0.55rem;
   border-radius: 0.85rem;
   background: #fff6e8;
   border: 1px solid rgba(232, 106, 23, 0.28);
 }
 
 .chat-pin__meta {
-  margin: 0 0 0.25rem;
-  font-size: 0.82rem;
+  margin: 0;
+  font-size: 0.8rem;
   font-weight: 700;
   color: var(--plaza-deep);
 }
 
-.chat-pin .chat-msg__body {
-  margin: 0;
+.chat-pin__excerpt {
+  margin: 0.2rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  color: var(--ink);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.chat-pin__excerpt.is-fallback {
+  color: var(--ink-soft);
+}
+
+.chat-pin__jump {
+  margin: 0.3rem 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--plaza-deep);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.chat-pin__jump:hover,
+.chat-pin__jump:focus-visible {
+  color: var(--plaza);
 }
 
 .chat-app__error {
@@ -1682,6 +1720,27 @@ body:has(.dm-page) main {
   display: grid;
   gap: 0.55rem;
   align-content: start;
+}
+
+.chat-log__row {
+  min-width: 0;
+  scroll-margin-top: 4.75rem;
+}
+
+.chat-log__row.is-flash .chat-msg__main {
+  animation: chat-msg-flash 1.4s ease;
+}
+
+@keyframes chat-msg-flash {
+  0% {
+    box-shadow: 0 0 0 0 rgba(232, 106, 23, 0.45);
+  }
+  35% {
+    box-shadow: 0 0 0 4px rgba(232, 106, 23, 0.28);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(232, 106, 23, 0);
+  }
 }
 
 .chat-empty {
@@ -1995,7 +2054,7 @@ button.chat-msg__name {
   right: 0;
   top: 100%;
   z-index: 24;
-  min-width: 10.5rem;
+  min-width: 12.5rem;
   padding: 0.3rem 0;
   background: #fffdf8;
   border: 1px solid var(--line);
@@ -2158,7 +2217,8 @@ button.chat-msg__name {
   grid-template-columns: auto 1fr auto;
   gap: 0.45rem 0.55rem;
   align-items: end;
-  padding: 0.65rem 0.85rem calc(0.75rem + env(safe-area-inset-bottom));
+  padding: 0.65rem 0.85rem
+    calc(0.75rem + env(safe-area-inset-bottom, 0px) + var(--chat-keyboard-inset, 0px));
   border-top: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.94);
 }
@@ -2240,6 +2300,78 @@ button.chat-msg__name {
   gap: 0.4rem;
   font-size: 0.85rem;
   color: var(--ink-soft);
+}
+
+@media (max-width: 799px) {
+  html.h-full:has(.chat-page),
+  html:has(.chat-page) body {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+  }
+
+  body:has(.chat-page) {
+    height: auto;
+    min-height: 100svh;
+    overflow: visible;
+    background-attachment: scroll;
+  }
+
+  body:has(.chat-page) main {
+    flex: 0 0 auto;
+    display: block;
+    min-height: 0;
+    height: auto;
+    overflow: visible;
+  }
+
+  .chat-page,
+  .chat-layout,
+  .chat-layout__main,
+  .chat-app {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .chat-layout,
+  .chat-layout__main,
+  .chat-app {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .chat-log {
+    flex: none;
+    min-height: 0;
+    overflow: visible;
+  }
+
+  .chat-compose {
+    position: static;
+    padding-bottom: calc(
+      1rem + env(safe-area-inset-bottom, 0px) +
+        max(2.75rem, var(--chat-keyboard-inset, 0px))
+    );
+  }
+
+  .chat-compose textarea {
+    font-size: 1rem;
+  }
+
+  .chat-photo img {
+    max-height: 12rem;
+  }
+
+  .chat-pin {
+    margin: 0.4rem 0.75rem 0;
+    padding: 0.45rem 0.7rem 0.5rem;
+  }
+
+  .chat-log__row {
+    scroll-margin-top: 4.25rem;
+  }
 }
 
 @media (min-width: 800px) {

@@ -1427,6 +1427,15 @@ export async function postChatMessage(
     return { error: "Could not send that message. Please try again." };
   }
 
+  if (asAnnounce && data.id) {
+    const writer = createAdminClient() ?? supabase;
+    await writer
+      .from("messages")
+      .update({ is_announcement: false })
+      .eq("is_announcement", true)
+      .neq("id", data.id);
+  }
+
   let imageUrl: string | null = null;
   if (data.image_path) {
     const signed = await signChatImagePaths([data.image_path]);
@@ -1535,6 +1544,70 @@ export async function deleteChatMessage(
   const { error } = await supabase.from("messages").delete().eq("id", id);
   if (error) return { error: "Could not delete that message." };
   return { success: "deleted" };
+}
+
+export async function setChatAnnouncement(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = String(formData.get("message_id") || "");
+  const pinned = String(formData.get("pinned") || "") === "true";
+  if (!id) return { error: "Missing message" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved") return { error: "Please log in" };
+    if (me.muted) return { error: CHAT_ACCESS_DENIED };
+    if (!canManageAnnouncements(me.role)) {
+      return { error: "You cannot pin announcements" };
+    }
+    return { success: pinned ? "pinned" : "unpinned" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("id, role, status, muted")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me || me.status !== "approved") return { error: "Please log in" };
+  if (me.muted) return { error: CHAT_ACCESS_DENIED };
+  if (!canManageAnnouncements(me.role)) {
+    return { error: "You cannot pin announcements" };
+  }
+
+  const { data: row } = await supabase
+    .from("messages")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!row) return { error: "Message not found" };
+
+  const writer = createAdminClient() ?? supabase;
+  if (pinned) {
+    await writer
+      .from("messages")
+      .update({ is_announcement: false })
+      .eq("is_announcement", true)
+      .neq("id", id);
+  }
+  const { error } = await writer
+    .from("messages")
+    .update({ is_announcement: pinned })
+    .eq("id", id);
+  if (error) {
+    return {
+      error: pinned
+        ? "Could not pin that announcement."
+        : "Could not unpin that announcement.",
+    };
+  }
+  revalidatePath("/chat");
+  return { success: pinned ? "pinned" : "unpinned" };
 }
 
 export async function createClass(
