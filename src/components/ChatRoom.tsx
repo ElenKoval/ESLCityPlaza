@@ -1274,7 +1274,7 @@ export function ChatRoom({
               checked={announce}
               onChange={(e) => setAnnounce(e.target.checked)}
             />
-            Announcement
+            <span>Announcement</span>
           </label>
         )}
       </form>

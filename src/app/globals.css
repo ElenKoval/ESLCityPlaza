@@ -2294,12 +2294,40 @@ button.chat-msg__name {
 }
 
 .chat-compose__announce {
-  grid-column: 1 / -1;
-  display: flex;
+  grid-column: 2 / 3;
+  justify-self: start;
+  display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 0.85rem;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 1.85rem;
+  margin: 0;
+  padding: 0.1rem 0.15rem 0.1rem 0;
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2;
   color: var(--ink-soft);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+
+.chat-compose__announce input {
+  appearance: auto;
+  width: 0.95rem;
+  height: 0.95rem;
+  margin: 0;
+  padding: 0;
+  flex: none;
+  border: 1px solid rgba(42, 28, 18, 0.22);
+  border-radius: 0.22rem;
+  background: #fff;
+  accent-color: var(--plaza-deep);
+}
+
+.chat-compose__announce span {
+  min-width: 0;
 }
 
 @media (max-width: 799px) {
@@ -2358,6 +2386,16 @@ button.chat-msg__name {
 
   .chat-compose textarea {
     font-size: 1rem;
+  }
+
+  .chat-compose__announce {
+    min-height: 2.5rem;
+    padding: 0.35rem 0.35rem 0.35rem 0;
+  }
+
+  .chat-compose__announce input {
+    width: 1.05rem;
+    height: 1.05rem;
   }
 
   .chat-photo img {
