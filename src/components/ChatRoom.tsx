@@ -33,6 +33,8 @@ import {
 } from "@/lib/chat-presence";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
 import { chatTimeLabel, type ChatMessage } from "@/lib/chat";
+import { insertIntoTextarea } from "@/lib/chat-emojis";
+import { ChatEmojiPicker } from "@/components/ChatEmojiPicker";
 import type { MessageRow, Role } from "@/lib/types";
 
 const DEMO_CHAT_KEY = "esl-demo-chat";
@@ -868,6 +870,11 @@ export function ChatRoom({
     }
   }
 
+  function insertEmoji(emoji: string) {
+    const next = insertIntoTextarea(body, emoji, inputRef.current);
+    if (next !== null) setBody(next);
+  }
+
   function send() {
     const text = body.trim();
     if (!text && !preview) return;
@@ -1218,23 +1225,29 @@ export function ChatRoom({
             void onPickAttachment(e.target.files?.[0]);
           }}
         />
-        <button
-          type="button"
-          className="chat-photo-btn"
-          aria-label="Add photo or text file"
-          onClick={() => fileRef.current?.click()}
-          disabled={pending || preparingPhoto}
-        >
-          <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-            <path
-              d="M12 4v16M4 12h16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="3.2"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
+        <div className="chat-compose__actions">
+          <button
+            type="button"
+            className="chat-photo-btn"
+            aria-label="Add photo or text file"
+            onClick={() => fileRef.current?.click()}
+            disabled={pending || preparingPhoto}
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path
+                d="M12 4v16M4 12h16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <ChatEmojiPicker
+            disabled={pending || preparingPhoto}
+            onPick={insertEmoji}
+          />
+        </div>
         <textarea
           ref={inputRef}
           value={body}

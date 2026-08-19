@@ -2223,6 +2223,74 @@ button.chat-msg__name {
   background: rgba(255, 255, 255, 0.94);
 }
 
+.chat-compose__actions {
+  display: flex;
+  align-items: end;
+  gap: 0.35rem;
+}
+
+.chat-emoji-picker {
+  position: relative;
+}
+
+.chat-emoji-picker__panel {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.45rem);
+  z-index: 30;
+  width: min(17.5rem, calc(100vw - 1.7rem));
+  max-height: min(16rem, 42vh);
+  overflow: auto;
+  padding: 0.55rem 0.65rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 0.95rem;
+  background: #fffdf8;
+  box-shadow: 0 14px 34px rgba(196, 81, 12, 0.14);
+}
+
+.chat-emoji-picker__group + .chat-emoji-picker__group {
+  margin-top: 0.45rem;
+}
+
+.chat-emoji-picker__label {
+  margin: 0 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+
+.chat-emoji-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.15rem;
+}
+
+.chat-emoji-picker__item {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  min-height: 2.35rem;
+  padding: 0.15rem;
+  border: 0;
+  border-radius: 0.55rem;
+  background: transparent;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-emoji-picker__item:hover,
+.chat-emoji-picker__item:focus-visible {
+  background: rgba(232, 106, 23, 0.1);
+}
+
+.chat-emoji-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .chat-preview {
   position: relative;
   grid-column: 1 / -1;
@@ -2386,6 +2454,10 @@ button.chat-msg__name {
 
   .chat-compose textarea {
     font-size: 1rem;
+  }
+
+  .chat-emoji-picker__item {
+    min-height: 2.5rem;
   }
 
   .chat-compose__announce {

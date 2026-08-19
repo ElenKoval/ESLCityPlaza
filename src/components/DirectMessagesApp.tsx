@@ -26,6 +26,8 @@ import {
   showOnlineRoleBadge,
 } from "@/lib/chat-presence";
 import { chatTimeLabel } from "@/lib/chat";
+import { insertIntoTextarea } from "@/lib/chat-emojis";
+import { ChatEmojiPicker } from "@/components/ChatEmojiPicker";
 import { RoleBadge } from "@/components/RoleBadge";
 import { ProfileDialog } from "@/components/MemberProfileDialog";
 import { DmMemberPicker } from "@/components/DmMemberPicker";
@@ -160,6 +162,7 @@ export function DirectMessagesApp({
   const [preparingPhoto, setPreparingPhoto] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const stickRef = useRef(true);
 
@@ -309,6 +312,11 @@ export function DirectMessagesApp({
       setPreparingPhoto(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  function insertEmoji(emoji: string) {
+    const next = insertIntoTextarea(body, emoji, inputRef.current);
+    if (next !== null) setBody(next);
   }
 
   function send() {
@@ -655,24 +663,31 @@ export function DirectMessagesApp({
                   hidden
                   onChange={(e) => void onPickPhoto(e.target.files?.[0])}
                 />
-                <button
-                  type="button"
-                  className="chat-photo-btn"
-                  aria-label="Add photo"
-                  onClick={() => fileRef.current?.click()}
-                  disabled={pending || preparingPhoto}
-                >
-                  <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
-                    <path
-                      d="M12 4v16M4 12h16"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="3.2"
-                      strokeLinecap="round"
-                    />
-                  </svg>
-                </button>
+                <div className="chat-compose__actions">
+                  <button
+                    type="button"
+                    className="chat-photo-btn"
+                    aria-label="Add photo"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={pending || preparingPhoto}
+                  >
+                    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+                      <path
+                        d="M12 4v16M4 12h16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3.2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </button>
+                  <ChatEmojiPicker
+                    disabled={pending || preparingPhoto}
+                    onPick={insertEmoji}
+                  />
+                </div>
                 <textarea
+                  ref={inputRef}
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
                   placeholder="Write a message..."
