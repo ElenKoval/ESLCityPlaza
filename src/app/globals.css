@@ -2231,16 +2231,16 @@ button.chat-msg__name {
 
 .chat-emoji-picker {
   position: relative;
+  flex-shrink: 0;
 }
 
 .chat-emoji-picker__panel {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 0.45rem);
-  z-index: 30;
-  width: min(17.5rem, calc(100vw - 1.7rem));
-  max-height: min(16rem, 42vh);
-  overflow: auto;
+  z-index: 140;
+  max-height: min(19rem, 52vh);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   padding: 0.55rem 0.65rem 0.65rem;
   border: 1px solid var(--line);
   border-radius: 0.95rem;
@@ -2263,16 +2263,17 @@ button.chat-msg__name {
 
 .chat-emoji-picker__grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.15rem;
+  grid-template-columns: repeat(6, 2.35rem);
+  gap: 0.2rem;
+  justify-content: start;
 }
 
 .chat-emoji-picker__item {
   display: grid;
   place-items: center;
-  min-width: 0;
-  min-height: 2.35rem;
-  padding: 0.15rem;
+  width: 2.35rem;
+  height: 2.35rem;
+  padding: 0;
   border: 0;
   border-radius: 0.55rem;
   background: transparent;
@@ -2456,8 +2457,14 @@ button.chat-msg__name {
     font-size: 1rem;
   }
 
+  .chat-emoji-picker__grid {
+    grid-template-columns: repeat(6, 2.5rem);
+    gap: 0.22rem;
+  }
+
   .chat-emoji-picker__item {
-    min-height: 2.5rem;
+    width: 2.5rem;
+    height: 2.5rem;
   }
 
   .chat-compose__announce {
