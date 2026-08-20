@@ -11,10 +11,16 @@ const PUBLIC = new Set([
   "/terms",
   "/announcements",
   "/suspended",
+  "/forgot-password",
+  "/reset-password",
 ]);
 
 function isPublicPath(path: string) {
-  return PUBLIC.has(path) || path.startsWith("/register/");
+  return (
+    PUBLIC.has(path) ||
+    path.startsWith("/register/") ||
+    path.startsWith("/forgot-password")
+  );
 }
 
 function isSuspendedAllowedPath(path: string) {

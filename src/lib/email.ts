@@ -3,6 +3,9 @@ export const MIN_PASSWORD_LENGTH = 8;
 export const EXISTING_ACCOUNT_MESSAGE =
   "An account with this email already exists. Log in or reset your password.";
 
+export const DISPLAY_NAME_TAKEN_MESSAGE =
+  "That name is already taken. Please choose another.";
+
 const EMAIL_RE =
   /^[a-z0-9](?:[a-z0-9._%+-]{0,62}[a-z0-9])?@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
 

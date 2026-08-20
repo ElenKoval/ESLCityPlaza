@@ -23,7 +23,12 @@ import {
 import { findOrCreateClassId } from "@/lib/ensure-classes";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 import type { EmailOtpType } from "@supabase/supabase-js";
-import { emailForUserId, authEmailExists, createAdminClient } from "@/lib/auth-admin";
+import {
+  authEmailExists,
+  createAdminClient,
+  displayNameTaken,
+  emailForUserId,
+} from "@/lib/auth-admin";
 import { sendApprovedWelcomeEmail, sendNewApplicationNotice } from "@/lib/mail";
 import {
   MAX_INTERESTS,
@@ -61,7 +66,7 @@ import {
   sanitizeChatFileName,
 } from "@/lib/chat-file";
 import { DEFAULT_CLASS_LOCATION, fromLosAngelesDatetimeLocal, laWeekdayNumber } from "@/lib/class-schedule";
-import { authConfirmUrl } from "@/lib/site-url";
+import { authConfirmUrl, authResetUrl } from "@/lib/site-url";
 import { SITE_NAME } from "@/lib/site-name";
 import type { AnnouncementRow, ClassTopicRow, Profile, Role } from "@/lib/types";
 import {
@@ -82,6 +87,7 @@ import {
   topicContentPlainLength,
 } from "@/lib/topic-html";
 import {
+  DISPLAY_NAME_TAKEN_MESSAGE,
   EXISTING_ACCOUNT_MESSAGE,
   emailFormatError,
   isExistingAccountError,
@@ -269,6 +275,13 @@ export async function signUp(
     if (members.some((m) => m.email?.toLowerCase() === email)) {
       return { error: EXISTING_ACCOUNT_MESSAGE };
     }
+    if (
+      members.some(
+        (m) => m.display_name.toLowerCase() === displayName.toLowerCase(),
+      )
+    ) {
+      return { error: DISPLAY_NAME_TAKEN_MESSAGE };
+    }
     const member = createPendingMember({
       displayName,
       email,
@@ -284,6 +297,9 @@ export async function signUp(
 
   const exists = await authEmailExists(email);
   if (exists) return { error: EXISTING_ACCOUNT_MESSAGE };
+
+  const nameTaken = await displayNameTaken(displayName);
+  if (nameTaken) return { error: DISPLAY_NAME_TAKEN_MESSAGE };
 
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
@@ -524,6 +540,75 @@ export async function resendConfirmationEmail(
   return { success: "If an account exists, we sent another confirmation email." };
 }
 
+export async function requestPasswordReset(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const email = normalizeEmail(String(formData.get("email") || ""));
+  const emailError = emailFormatError(email);
+  if (emailError) return { error: emailError };
+
+  if (useLocalDemo()) {
+    return {
+      error:
+        "Password reset by email isn't available in demo mode. Log in with your demo password or ask Tech.",
+    };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: authResetUrl(),
+  });
+  if (error) {
+    console.error("[password reset]", error.message);
+    return {
+      error: "Could not send a reset email just now. Try again later.",
+    };
+  }
+
+  redirect(`/forgot-password/sent?email=${encodeURIComponent(email)}`);
+}
+
+export async function resetPasswordFromRecovery(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const next = String(formData.get("new_password") || "");
+  const confirm = String(formData.get("confirm_password") || "");
+
+  if (!next || !confirm) {
+    return { error: "Please fill in both password fields" };
+  }
+  if (next.length < MIN_PASSWORD_LENGTH) {
+    return { error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+  }
+  if (next !== confirm) return { error: "Passwords do not match" };
+
+  if (useLocalDemo()) {
+    return {
+      error:
+        "Password reset by email isn't available in demo mode. Log in with your demo password or ask Tech.",
+    };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return {
+      error: "This reset link has expired. Request a new one from the login page.",
+    };
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: next });
+  if (error) return { error: error.message };
+
+  await supabase.auth.signOut();
+  revalidatePath("/", "layout");
+  redirect("/login?reset=1");
+}
+
 export async function sendTestApplicationNotice(
   _prev: ActionState,
   _formData: FormData,
@@ -588,6 +673,13 @@ export async function addMemberManually(
     if (members.some((m) => m.email?.toLowerCase() === email)) {
       return { error: EXISTING_ACCOUNT_MESSAGE };
     }
+    if (
+      members.some(
+        (m) => m.display_name.toLowerCase() === displayName.toLowerCase(),
+      )
+    ) {
+      return { error: DISPLAY_NAME_TAKEN_MESSAGE };
+    }
     const member = createPendingMember({
       displayName,
       email,
@@ -628,6 +720,9 @@ export async function addMemberManually(
 
   const exists = await authEmailExists(email);
   if (exists) return { error: EXISTING_ACCOUNT_MESSAGE };
+
+  const nameTaken = await displayNameTaken(displayName);
+  if (nameTaken) return { error: DISPLAY_NAME_TAKEN_MESSAGE };
 
   const admin = createAdminClient();
   if (!admin) {
@@ -1908,6 +2003,21 @@ export async function saveProfile(
   if (!displayName) return { error: "Please enter your name" };
   if (bio.length > 600) return { error: "Please keep the intro a little shorter" };
 
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved") return { error: "Please log in" };
+    const members = await getDemoMembers();
+    if (
+      members.some(
+        (m) =>
+          m.id !== me.id &&
+          m.display_name.toLowerCase() === displayName.toLowerCase(),
+      )
+    ) {
+      return { error: DISPLAY_NAME_TAKEN_MESSAGE };
+    }
+  }
+
   const now = new Date().toISOString();
   const payload = {
     display_name: displayName,
@@ -1946,6 +2056,9 @@ export async function saveProfile(
     .eq("id", user.id)
     .maybeSingle();
   if (!me || me.status !== "approved") return { error: "Please log in" };
+
+  const nameTaken = await displayNameTaken(displayName, user.id);
+  if (nameTaken) return { error: DISPLAY_NAME_TAKEN_MESSAGE };
 
   let { data, error } = await supabase
     .from("profiles")

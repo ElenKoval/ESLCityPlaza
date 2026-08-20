@@ -123,7 +123,7 @@ export function AuthConfirmClient() {
       }
 
       if (type === "recovery") {
-        router.replace("/login");
+        router.replace("/reset-password");
         return;
       }
       if (type && !JOIN_TYPES.has(type) && type !== "email_change") {

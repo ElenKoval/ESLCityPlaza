@@ -28,3 +28,7 @@ export function publicSiteUrl() {
 export function authConfirmUrl() {
   return `${publicSiteUrl()}/auth/confirm`;
 }
+
+export function authResetUrl() {
+  return `${publicSiteUrl()}/reset-password`;
+}

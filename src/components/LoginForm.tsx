@@ -51,6 +51,9 @@ export function LoginForm({ next = "/" }: { next?: string }) {
         {pending || leaving ? "Signing in…" : "Log in"}
       </button>
       <p className="sub" style={{ margin: 0 }}>
+        <Link href="/forgot-password">Forgot password?</Link>
+      </p>
+      <p className="sub" style={{ margin: 0 }}>
         No account yet? <Link href="/register">Apply to join</Link>
       </p>
     </form>

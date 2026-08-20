@@ -51,6 +51,34 @@ export async function emailsForUserIds(
   return map;
 }
 
+export async function displayNameTaken(
+  displayName: string,
+  excludeUserId?: string,
+): Promise<boolean | null> {
+  const trimmed = displayName.trim();
+  if (!trimmed) return false;
+
+  const admin = createAdminClient();
+  if (!admin) return null;
+
+  let query = admin
+    .from("profiles")
+    .select("id")
+    .ilike("display_name", trimmed)
+    .limit(1);
+
+  if (excludeUserId) {
+    query = query.neq("id", excludeUserId);
+  }
+
+  const { data, error } = await query;
+  if (error) {
+    console.error("[auth-admin] displayNameTaken", error.message);
+    return null;
+  }
+  return (data?.length ?? 0) > 0;
+}
+
 export async function authEmailExists(email: string): Promise<boolean | null> {
   const admin = createAdminClient();
   if (!admin) return null;

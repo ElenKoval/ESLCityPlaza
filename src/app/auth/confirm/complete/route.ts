@@ -12,6 +12,8 @@ const JOIN_TYPES = new Set<EmailOtpType>([
   "magiclink",
 ]);
 
+const RECOVERY_TYPES = new Set<EmailOtpType>(["recovery"]);
+
 function redirectTo(pathname: string) {
   return new URL(pathname, `${publicSiteUrl()}/`);
 }
@@ -27,8 +29,11 @@ export async function GET(request: NextRequest) {
   if (!tokenHash && !code) {
     return NextResponse.redirect(errorUrl);
   }
-  if (tokenHash && rawType && !JOIN_TYPES.has(type)) {
-    return NextResponse.redirect(errorUrl);
+  if (tokenHash && rawType) {
+    const otpType = rawType as EmailOtpType;
+    if (!JOIN_TYPES.has(otpType) && !RECOVERY_TYPES.has(otpType)) {
+      return NextResponse.redirect(errorUrl);
+    }
   }
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -58,7 +63,11 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = tokenHash
     ? await supabase.auth.verifyOtp({
-        type: JOIN_TYPES.has(type) ? type : "signup",
+        type: RECOVERY_TYPES.has(type)
+          ? "recovery"
+          : JOIN_TYPES.has(type)
+            ? type
+            : "signup",
         token_hash: tokenHash,
       })
     : await supabase.auth.exchangeCodeForSession(code!);
@@ -69,6 +78,14 @@ export async function GET(request: NextRequest) {
   }
 
   const user = data.user ?? data.session?.user ?? null;
+  if (RECOVERY_TYPES.has(type)) {
+    const response = NextResponse.redirect(redirectTo("/reset-password"));
+    for (const cookie of pendingCookies) {
+      response.cookies.set(cookie.name, cookie.value, cookie.options);
+    }
+    return response;
+  }
+
   try {
     if (!user?.email) {
       console.error("[auth/confirm] confirmed, but no user on the session");
