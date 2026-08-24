@@ -90,6 +90,10 @@ export function ClassList({
             <div className="class-actions">
               {item.enrolled ? (
                 <UnenrollButton classId={item.id} />
+              ) : status === "closed" ? (
+                <button className="btn-primary" type="button" disabled>
+                  Holiday
+                </button>
               ) : status === "too_early" ? (
                 <button className="btn-primary" type="button" disabled>
                   Opens 2 weeks before

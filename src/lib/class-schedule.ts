@@ -1,4 +1,8 @@
-import { CLASS_CAPACITY, CLASS_DURATION_MS } from "@/lib/enrollment";
+import {
+  CLASS_CAPACITY,
+  CLASS_DURATION_MS,
+  isClosedClassDate,
+} from "@/lib/enrollment";
 import type { ClassRow } from "@/lib/types";
 
 export const DEFAULT_CLASS_LOCATION = "on the Plaza";
@@ -175,6 +179,7 @@ export function upcomingSessionStarts(now = new Date()) {
     const iso = sessionStartsAtIso(year, monthIndex, day);
     const weekday = laWeekdayNumber(iso);
     if (weekday !== 1 && weekday !== 5) continue;
+    if (isClosedClassDate(`${year}-${pad(monthIndex + 1)}-${pad(day)}`)) continue;
     if (new Date(iso).getTime() > now.getTime()) out.push(iso);
   }
   return out;

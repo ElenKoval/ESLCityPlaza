@@ -7,6 +7,7 @@ import { enrollClass } from "@/app/actions";
 import { CancelClassControl } from "@/components/CancelClassControl";
 import {
   enrollStatus,
+  isClosedClassDate,
   signedUpCountLabel,
   spotsAvailableLabel,
 } from "@/lib/enrollment";
@@ -318,7 +319,14 @@ export function HomeCalendar({
 
         {access === "approved" && isUpcomingClassDate(selected) && (
           <div className="home-cal__signup">
-            {dayClasses.length === 0 ? (
+            {isClosedClassDate(selected) ? (
+              <div className="home-cal__signup-row">
+                <p className="home-cal__spots">No class this day — holiday.</p>
+                <button type="button" className="btn-primary" disabled>
+                  Holiday
+                </button>
+              </div>
+            ) : dayClasses.length === 0 ? (
               <div className="home-cal__signup-row">
                 <p className="home-cal__spots">15 spots available</p>
                 <button
@@ -356,6 +364,10 @@ export function HomeCalendar({
                         {status === "past" ? (
                           <button type="button" className="btn-primary" disabled>
                             Past
+                          </button>
+                        ) : status === "closed" ? (
+                          <button type="button" className="btn-primary" disabled>
+                            Holiday
                           </button>
                         ) : status === "too_early" ? (
                           <button type="button" className="btn-primary" disabled>

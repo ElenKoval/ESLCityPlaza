@@ -10,6 +10,28 @@ export const ENROLL_OPEN_DAYS = 14;
 /** Class runs 1:00–3:00 PM, so keep it visible until it ends */
 export const CLASS_DURATION_MS = 2 * 60 * 60 * 1000;
 
+/** Plaza local calendar dates with no class (Labor Day 2026 only). */
+export const CLOSED_CLASS_DATES = new Set(["2026-09-07"]);
+
+export const CLOSED_CLASS_MESSAGE = "No class this day — holiday.";
+
+export function classDateKey(value: Date | string) {
+  if (value instanceof Date) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, "0");
+    const d = String(value.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Los_Angeles",
+  }).format(new Date(value));
+}
+
+export function isClosedClassDate(value: Date | string) {
+  return CLOSED_CLASS_DATES.has(classDateKey(value));
+}
+
 /** Monday = 1, Friday = 5 */
 export function isClassWeekday(day: number) {
   return day === 1 || day === 5;
@@ -36,12 +58,14 @@ export function enrollmentOpensAt(startsAt: string | Date) {
 }
 
 export function canEnrollNow(startsAt: string | Date, now = new Date()) {
+  if (isClosedClassDate(startsAt)) return false;
   const start = new Date(startsAt);
   if (start.getTime() <= now.getTime()) return false;
   return now.getTime() >= enrollmentOpensAt(start).getTime();
 }
 
 export function enrollStatus(startsAt: string | Date, now = new Date()) {
+  if (isClosedClassDate(startsAt)) return "closed" as const;
   const start = new Date(startsAt);
   if (start.getTime() <= now.getTime()) return "past" as const;
   if (now.getTime() < enrollmentOpensAt(start).getTime()) {

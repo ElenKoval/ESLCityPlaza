@@ -4,7 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { canEnrollNow, CLASS_CAPACITY, CLASS_FULL_MESSAGE, isPlazaCalendarClass } from "@/lib/enrollment";
+import {
+  canEnrollNow,
+  CLASS_CAPACITY,
+  CLASS_FULL_MESSAGE,
+  CLOSED_CLASS_MESSAGE,
+  isClosedClassDate,
+  isPlazaCalendarClass,
+} from "@/lib/enrollment";
 import {
   createPendingMember,
   getDemoMembers,
@@ -1840,6 +1847,9 @@ export async function enrollClass(
 ): Promise<ActionState> {
   let classId = String(formData.get("class_id") || "");
   const sessionDate = String(formData.get("session_date") || "");
+  if (sessionDate && isClosedClassDate(sessionDate)) {
+    return { error: CLOSED_CLASS_MESSAGE };
+  }
   if (!classId && sessionDate) {
     classId = (await findOrCreateClassId(sessionDate)) ?? "";
   }
@@ -1853,6 +1863,9 @@ export async function enrollClass(
     }
     const classRow = buildDemoClasses().find((c) => c.id === classId);
     if (!classRow) return { error: "Class not found" };
+    if (isClosedClassDate(classRow.starts_at)) {
+      return { error: CLOSED_CLASS_MESSAGE };
+    }
     if (!canEnrollNow(classRow.starts_at) && !useLocalDemo()) {
       return {
         error: "Sign-up opens only within 2 weeks before the class",
@@ -1889,6 +1902,10 @@ export async function enrollClass(
     .single();
 
   if (!classRow) return { error: "Class not found" };
+
+  if (isClosedClassDate(classRow.starts_at)) {
+    return { error: CLOSED_CLASS_MESSAGE };
+  }
 
   if (!canEnrollNow(classRow.starts_at)) {
     return {
