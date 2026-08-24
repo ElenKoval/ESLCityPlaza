@@ -148,8 +148,8 @@ function AddMemberDialog({
             <label>
               Role
               <select name="role" defaultValue="student">
-                <option value="student">Student</option>
-                <option value="teacher">Teacher</option>
+                <option value="student">Participant</option>
+                <option value="teacher">Coordinator</option>
                 <option value="admin">Admin</option>
               </select>
             </label>
@@ -607,7 +607,7 @@ export function TechPanel({
       <section className="manage-block manage-block--students">
         <div className="manage-block__head">
           <h3 className="manage-block__title">
-            Students · {students.length}
+            Participants · {students.length}
           </h3>
           <button
             type="button"
@@ -623,16 +623,16 @@ export function TechPanel({
               type="search"
               value={studentQuery}
               onChange={(e) => setStudentQuery(e.target.value)}
-              placeholder="Search students..."
+              placeholder="Search participants..."
               autoComplete="off"
-              aria-label="Search students"
+              aria-label="Search participants"
             />
           </label>
         )}
         <div className="panel manage-panel manage-panel--students">
           {visibleStudents.length === 0 ? (
             <p className="manage-empty">
-              {needle ? "No students match that name." : "No students yet."}
+              {needle ? "No participants match that name." : "No participants yet."}
             </p>
           ) : (
             visibleStudents.map((m) => (
@@ -653,7 +653,7 @@ export function TechPanel({
             className="manage-more"
             onClick={() => setStudentsOpen((open) => !open)}
           >
-            {studentsOpen ? "Show less" : "Show all students"}
+            {studentsOpen ? "Show less" : "Show all participants"}
           </button>
         )}
       </section>

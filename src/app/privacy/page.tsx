@@ -21,7 +21,7 @@ export default function PrivacyPage() {
           <li>Your name</li>
           <li>Your email address</li>
           <li>
-            Your role in the group, such as Student, Teacher, Admin, or Tech
+            Your role in the group, such as Participant, Coordinator, Admin, or Tech
           </li>
           <li>
             Your account status, such as pending, approved, declined, or
@@ -79,12 +79,12 @@ export default function PrivacyPage() {
           <li>The profile information you choose to provide</li>
           <li>Messages and photos you share in the Community Chat</li>
         </ul>
-        <p>Other students cannot see your email address.</p>
+        <p>Other participants cannot see your email address.</p>
         <p>
-          Other students also cannot see which classes you have signed up for.
+          Other participants also cannot see which classes you have signed up for.
         </p>
         <p>
-          Teachers, administrators, and the website Tech may see additional
+          Coordinators, administrators, and the website Tech may see additional
           information needed to manage accounts, membership requests, classes,
           moderation, and the website. This may include email addresses and
           account or moderation status.

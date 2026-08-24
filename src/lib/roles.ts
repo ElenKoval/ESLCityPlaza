@@ -3,8 +3,8 @@ import type { Role } from "./types";
 export type { Role };
 
 export const ROLE_LABELS: Record<Role, string> = {
-  student: "STUDENT",
-  teacher: "TEACHER",
+  student: "PARTICIPANT",
+  teacher: "COORDINATOR",
   admin: "ADMIN",
   tech: "TECH",
 };

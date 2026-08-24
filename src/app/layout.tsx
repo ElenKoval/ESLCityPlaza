@@ -17,7 +17,7 @@ const figtree = Figtree({
 
 export const metadata: Metadata = {
   title: SITE_NAME,
-  description: "English practice at the plaza — classes, community chat, and teachers",
+  description: "English practice at the plaza — classes, community chat, and coordinators",
 };
 
 export const dynamic = "force-dynamic";

@@ -667,7 +667,7 @@ export async function addMemberManually(
     if (!canManageRoles(me.role)) {
       role = "student";
     } else if (!assignableRoles().includes(role)) {
-      return { error: "Choose Student, Teacher, or Admin" };
+      return { error: "Choose Participant, Coordinator, or Admin" };
     }
     const members = await getDemoMembers();
     if (members.some((m) => m.email?.toLowerCase() === email)) {
@@ -715,7 +715,7 @@ export async function addMemberManually(
   if (!canManageRoles(me.role)) {
     role = "student";
   } else if (!assignableRoles().includes(role)) {
-    return { error: "Choose Student, Teacher, or Admin" };
+    return { error: "Choose Participant, Coordinator, or Admin" };
   }
 
   const exists = await authEmailExists(email);
@@ -1219,7 +1219,7 @@ export async function removeClassEnrollment(
     .maybeSingle();
   if (!target) return { error: "Account not found" };
   if (!canRemoveFromClass(me.role, target.role)) {
-    return { error: "You can only remove a student from a class" };
+    return { error: "You can only remove a participant from a class" };
   }
 
   const { error } = await supabase
@@ -1724,7 +1724,7 @@ export async function createClass(
     .eq("id", user.id)
     .single();
   if (!me || me.status !== "approved" || !canManageClasses(me.role)) {
-    return { error: "Only Teacher or Tech can manage classes" };
+    return { error: "Only Coordinator or Tech can manage classes" };
   }
 
   const { error } = await supabase.from("classes").insert({
@@ -1762,7 +1762,7 @@ export async function deleteClass(
     .eq("id", user.id)
     .single();
   if (!me || me.status !== "approved" || !canManageClasses(me.role)) {
-    return { error: "Only Teacher or Tech can manage classes" };
+    return { error: "Only Coordinator or Tech can manage classes" };
   }
 
   const { error } = await supabase.from("classes").delete().eq("id", id);
@@ -1796,7 +1796,7 @@ export async function updateClass(
     .eq("id", user.id)
     .single();
   if (!me || me.status !== "approved" || !canManageClasses(me.role)) {
-    return { error: "Only Teacher or Tech can manage classes" };
+    return { error: "Only Coordinator or Tech can manage classes" };
   }
 
   const patch: Record<string, unknown> = { location };
@@ -2502,7 +2502,7 @@ export async function saveClassTopic(
   if (useLocalDemo() || (await hasDemoSession())) {
     const me = await getDemoSessionProfile();
     if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
-      return { error: "Only Teacher or Tech can edit class topics" };
+      return { error: "Only Coordinator or Tech can edit class topics" };
     }
     const rows = await getDemoClassTopics();
     const existing =
@@ -2547,7 +2547,7 @@ export async function saveClassTopic(
     .eq("id", user.id)
     .single();
   if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
-    return { error: "Only Teacher or Tech can edit class topics" };
+    return { error: "Only Coordinator or Tech can edit class topics" };
   }
 
   const { data: existing } = await supabase
@@ -2601,7 +2601,7 @@ export async function setClassTopicPublished(
   if (useLocalDemo() || (await hasDemoSession())) {
     const me = await getDemoSessionProfile();
     if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
-      return { error: "Only Teacher or Tech can publish class topics" };
+      return { error: "Only Coordinator or Tech can publish class topics" };
     }
     const rows = await getDemoClassTopics();
     const found = rows.find((row) => row.id === id);
@@ -2628,7 +2628,7 @@ export async function setClassTopicPublished(
     .eq("id", user.id)
     .single();
   if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
-    return { error: "Only Teacher or Tech can publish class topics" };
+    return { error: "Only Coordinator or Tech can publish class topics" };
   }
 
   const { error } = await supabase
@@ -2650,7 +2650,7 @@ export async function deleteClassTopic(
   if (useLocalDemo() || (await hasDemoSession())) {
     const me = await getDemoSessionProfile();
     if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
-      return { error: "Only Teacher or Tech can delete class topics" };
+      return { error: "Only Coordinator or Tech can delete class topics" };
     }
     const rows = await getDemoClassTopics();
     await saveDemoClassTopics(rows.filter((row) => row.id !== id));
@@ -2669,7 +2669,7 @@ export async function deleteClassTopic(
     .eq("id", user.id)
     .single();
   if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
-    return { error: "Only Teacher or Tech can delete class topics" };
+    return { error: "Only Coordinator or Tech can delete class topics" };
   }
 
   const { error } = await supabase.from("class_topics").delete().eq("id", id);

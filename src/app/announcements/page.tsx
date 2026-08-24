@@ -26,7 +26,7 @@ export default async function AnnouncementsPage() {
       <section className="section">
         <h1>Announcements</h1>
         <p className="lead">
-          Notes from teachers for the {SITE_NAME} group.
+          Notes from coordinators for the {SITE_NAME} group.
         </p>
         <AnnouncementBoard items={current} className="announce-board" />
         {staff && (

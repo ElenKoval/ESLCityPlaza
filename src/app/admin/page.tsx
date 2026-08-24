@@ -39,7 +39,7 @@ export default async function AdminPage() {
         <h2>Schedule</h2>
         <p className="lead">
           Open <strong>Who signed up</strong> on a class to see the names.
-          Teachers can change the meeting place. Tech can also change time,
+          Coordinators can change the meeting place. Tech can also change time,
           title, and capacity.
         </p>
         <AdminClasses classes={items} role={profile.role} rosters={rosters} />
