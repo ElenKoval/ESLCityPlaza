@@ -91,7 +91,7 @@ export default async function HomePage() {
   const topicMap = await loadTopicSummariesByClassIds(classes.map((c) => c.id));
   const topics: Record<string, { id: string; title: string }> = {};
   for (const [classId, topic] of topicMap) topics[classId] = topic;
-  const announcements = await loadCurrentAnnouncements(3);
+  const announcements = await loadCurrentAnnouncements(1);
   const firstName = welcomeFirstName(profile?.display_name);
 
   return (

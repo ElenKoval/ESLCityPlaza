@@ -551,13 +551,10 @@ textarea {
 }
 
 .home-announcements__digest .home-announcement__body {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
   margin: 0 0 0.28rem;
   font-size: 0.86rem;
-  line-height: 1.35;
+  line-height: 1.4;
+  white-space: pre-wrap;
 }
 
 .announce-board .home-announcement {
