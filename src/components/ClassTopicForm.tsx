@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteClassTopic,
@@ -16,6 +16,8 @@ import {
 import { topicContentPlainLength, sanitizeTopicHtml } from "@/lib/topic-html";
 import type { ClassRow, ClassTopicRow } from "@/lib/types";
 import { TopicContentEditor } from "@/components/TopicContentEditor";
+
+const MEETINGS_VISIBLE_DEFAULT = 3;
 
 export function ClassTopicForm({
   classes,
@@ -41,6 +43,9 @@ export function ClassTopicForm({
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(seedIds),
   );
+  const [visibleSlots, setVisibleSlots] = useState(() =>
+    Math.max(MEETINGS_VISIBLE_DEFAULT, seedIds.length),
+  );
   const [saveState, saveAction, saving] = useActionState<ActionState, FormData>(
     saveClassTopic,
     null,
@@ -60,6 +65,15 @@ export function ClassTopicForm({
 
   const editing = Boolean(topic);
   const published = Boolean(topic?.is_published);
+
+  const visibleMeetings = useMemo(() => {
+    const selectedRows = classes.filter((cls) => selected.has(cls.id));
+    const unselectedRows = classes.filter((cls) => !selected.has(cls.id));
+    const unselectedLimit = Math.max(0, visibleSlots - selectedRows.length);
+    return [...selectedRows, ...unselectedRows.slice(0, unselectedLimit)];
+  }, [classes, selected, visibleSlots]);
+
+  const hiddenRemaining = classes.length - visibleMeetings.length;
 
   function toggleMeeting(classId: string) {
     setSelected((prev) => {
@@ -103,7 +117,7 @@ export function ClassTopicForm({
         <fieldset className="topic-meetings">
           <legend className="topic-meetings__legend">Meetings</legend>
           <div className="topic-meetings__list">
-            {classes.map((cls) => (
+            {visibleMeetings.map((cls) => (
               <label key={cls.id} className="topic-meetings__item">
                 <input
                   type="checkbox"
@@ -116,6 +130,15 @@ export function ClassTopicForm({
               </label>
             ))}
           </div>
+          {hiddenRemaining > 0 && (
+            <button
+              type="button"
+              className="topic-meetings__add"
+              onClick={() => setVisibleSlots((n) => n + 1)}
+            >
+              + Add another meeting
+            </button>
+          )}
           {selected.size === 0 && (
             <p className="error">Choose at least one meeting.</p>
           )}

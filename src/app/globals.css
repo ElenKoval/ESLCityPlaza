@@ -3373,6 +3373,25 @@ button.chat-msg__name {
   white-space: nowrap;
 }
 
+.topic-meetings__add {
+  display: inline-block;
+  margin: 0.45rem 0 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--plaza-deep);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.topic-meetings__add:hover {
+  color: var(--plaza);
+}
+
 @media (max-width: 480px) {
   .topic-meetings {
     width: 100%;
