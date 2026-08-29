@@ -53,12 +53,20 @@ export default async function ManageMembersPage() {
     const canCheckConfirm = Boolean(
       process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
     );
+    // If Auth Admin timed out, contacts may be empty — still show pending apps
+    // rather than filtering everyone out or hanging the page.
+    const contactsReady = contacts.size > 0 || applications.length === 0;
     applications = applications
       .map((p) => ({
         ...p,
         email: contacts.get(p.id)?.email ?? p.email,
       }))
-      .filter((p) => !canCheckConfirm || contacts.get(p.id)?.confirmed);
+      .filter(
+        (p) =>
+          !canCheckConfirm ||
+          !contactsReady ||
+          contacts.get(p.id)?.confirmed,
+      );
     members = members.map((p) => ({
       ...p,
       email: contacts.get(p.id)?.email ?? p.email,
@@ -73,7 +81,15 @@ export default async function ManageMembersPage() {
   let noticeError: string | null = null;
   if (!isDemo && profile.role === "tech") {
     try {
-      notice = await getApplicationNoticeStatus();
+      notice = await Promise.race([
+        getApplicationNoticeStatus(),
+        new Promise<never>((_, reject) => {
+          setTimeout(
+            () => reject(new Error("Email diagnostics timed out")),
+            5000,
+          );
+        }),
+      ]);
     } catch (error) {
       noticeError =
         error instanceof Error ? error.message : "Could not check email status";

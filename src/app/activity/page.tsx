@@ -36,39 +36,52 @@ export default async function ActivityPage() {
   let setupNeeded = false;
 
   if (!demo) {
-    const supabase = await createClient();
-    const since = new Date(Date.now() - ACTIVITY_RECENT_MS).toISOString();
-    const { data, error } = await supabase
-      .from("site_activity")
-      .select("user_id, last_seen_at, last_section")
-      .gte("last_seen_at", since)
-      .order("last_seen_at", { ascending: false });
+    try {
+      const supabase = await createClient();
+      const since = new Date(Date.now() - ACTIVITY_RECENT_MS).toISOString();
+      const result = await Promise.race([
+        supabase
+          .from("site_activity")
+          .select("user_id, last_seen_at, last_section")
+          .gte("last_seen_at", since)
+          .order("last_seen_at", { ascending: false }),
+        new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error("Activity query timed out")), 8000);
+        }),
+      ]);
+      const { data, error } = result;
 
-    if (error) {
-      if (tableMissing(error.message)) setupNeeded = true;
-      else console.error("[activity] load", error.message);
-    } else {
-      const ids = (data ?? []).map((row) => row.user_id);
-      const names = new Map<string, { display_name: string; role: Role }>();
-      if (ids.length) {
-        const { data: people } = await supabase
-          .from("profiles")
-          .select("id, display_name, role")
-          .in("id", ids);
-        for (const person of people ?? []) {
-          names.set(person.id, {
-            display_name: person.display_name,
-            role: person.role as Role,
-          });
+      if (error) {
+        if (tableMissing(error.message)) setupNeeded = true;
+        else console.error("[activity] load", error.message);
+      } else {
+        const ids = (data ?? []).map((row) => row.user_id);
+        const names = new Map<string, { display_name: string; role: Role }>();
+        if (ids.length) {
+          const { data: people } = await supabase
+            .from("profiles")
+            .select("id, display_name, role")
+            .in("id", ids);
+          for (const person of people ?? []) {
+            names.set(person.id, {
+              display_name: person.display_name,
+              role: person.role as Role,
+            });
+          }
         }
+        rows = (data ?? []).map((row) => ({
+          user_id: row.user_id,
+          last_seen_at: row.last_seen_at,
+          last_section: row.last_section,
+          display_name: names.get(row.user_id)?.display_name ?? "Member",
+          role: names.get(row.user_id)?.role ?? "student",
+        }));
       }
-      rows = (data ?? []).map((row) => ({
-        user_id: row.user_id,
-        last_seen_at: row.last_seen_at,
-        last_section: row.last_section,
-        display_name: names.get(row.user_id)?.display_name ?? "Member",
-        role: names.get(row.user_id)?.role ?? "student",
-      }));
+    } catch (error) {
+      console.error(
+        "[activity] load",
+        error instanceof Error ? error.message : error,
+      );
     }
   }
 
