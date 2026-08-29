@@ -3319,32 +3319,72 @@ button.chat-msg__name {
   padding: 0;
   border: 0;
   min-width: 0;
+  justify-self: start;
+  width: max-content;
+  max-width: 100%;
 }
 
 .topic-meetings__legend {
   padding: 0;
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.5rem;
   font-weight: 600;
   color: var(--ink);
 }
 
 .topic-meetings__list {
-  display: grid;
-  gap: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
 }
 
+/* Override global label { display: grid } and input { width: 100% } */
 .topic-meetings__item {
   display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
   margin: 0;
+  width: auto;
+  max-width: 100%;
+  font-size: 0.95rem;
   font-weight: 500;
+  color: var(--ink);
+  cursor: pointer;
+  line-height: 1.35;
+}
+
+.topic-meetings__item input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  min-width: 1.05rem;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  border-radius: 0.25rem;
+  accent-color: var(--plaza);
   cursor: pointer;
 }
 
-.topic-meetings__item input {
-  margin-top: 0.2rem;
-  flex-shrink: 0;
+.topic-meetings__item span {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .topic-meetings {
+    width: 100%;
+  }
+
+  .topic-meetings__item {
+    width: 100%;
+  }
+
+  .topic-meetings__item span {
+    white-space: normal;
+  }
 }
 
 .topic-meetings-summary {
