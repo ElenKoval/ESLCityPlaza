@@ -2467,11 +2467,14 @@ function revalidateClassTopics(id?: string) {
 
 function classTopicFields(formData: FormData) {
   const id = String(formData.get("id") || "").trim();
-  const classId = String(formData.get("class_id") || "").trim();
+  const classIds = formData
+    .getAll("class_ids")
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
   const title = String(formData.get("title") || "").trim();
   const content = String(formData.get("content") || "").trim();
   const intent = String(formData.get("intent") || "").trim();
-  return { id, classId, title, content, intent };
+  return { id, classIds, title, content, intent };
 }
 
 async function classStartsAtForTopic(classId: string): Promise<string | null> {
@@ -2490,15 +2493,49 @@ async function classStartsAtForTopic(classId: string): Promise<string | null> {
   return data?.starts_at ?? null;
 }
 
+async function validateTopicClassIds(classIds: string[]) {
+  if (!classIds.length) return { error: "Choose at least one meeting" as const };
+  const unique = [...new Set(classIds)];
+  for (const classId of unique) {
+    const classStartsAt = await classStartsAtForTopic(classId);
+    if (!classStartsAt || !isPlazaCalendarClass(classStartsAt)) {
+      return {
+        error: "Choose Monday or Friday classes from the calendar" as const,
+      };
+    }
+  }
+  return { classIds: unique };
+}
+
+async function replaceTopicMeetings(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  topicId: string,
+  classIds: string[],
+) {
+  const { error: delError } = await supabase
+    .from("class_topic_meetings")
+    .delete()
+    .eq("topic_id", topicId);
+  if (delError) return delError.message;
+  if (!classIds.length) return null;
+  const { error: insError } = await supabase.from("class_topic_meetings").insert(
+    classIds.map((class_id) => ({ topic_id: topicId, class_id })),
+  );
+  return insError?.message ?? null;
+}
+
 export async function saveClassTopic(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  const { id, classId, title, content: rawContent, intent } = classTopicFields(formData);
+  const { id, classIds: rawClassIds, title, content: rawContent, intent } =
+    classTopicFields(formData);
   const content = looksLikeTopicHtml(rawContent)
     ? sanitizeTopicHtml(rawContent)
     : rawContent.trim();
-  if (!classId) return { error: "Choose a class" };
+  const validated = await validateTopicClassIds(rawClassIds);
+  if ("error" in validated) return { error: validated.error };
+  const classIds = validated.classIds;
   if (!title) return { error: "Add a topic title" };
   if (!content || topicContentPlainLength(content) === 0) {
     return { error: "Add the questions or text for this class" };
@@ -2506,11 +2543,6 @@ export async function saveClassTopic(
   if (title.length > CLASS_TOPIC_TITLE_MAX) return { error: "Title is too long" };
   if (topicContentPlainLength(content) > CLASS_TOPIC_CONTENT_MAX) {
     return { error: "Topic text is too long" };
-  }
-
-  const classStartsAt = await classStartsAtForTopic(classId);
-  if (!classStartsAt || !isPlazaCalendarClass(classStartsAt)) {
-    return { error: "Choose a Monday or Friday class from the calendar" };
   }
 
   const publishNow = intent === "publish";
@@ -2521,25 +2553,37 @@ export async function saveClassTopic(
     if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
       return { error: "Only Coordinator or Tech can edit class topics" };
     }
+    const demoClasses = await getDemoClassesWithEnrollments();
+    const meetings = classIds
+      .map((classId) => {
+        const cls = demoClasses.find((row) => row.id === classId);
+        if (!cls) return null;
+        return {
+          class_id: cls.id,
+          class_title: cls.title,
+          class_starts_at: cls.starts_at,
+          class_location: cls.location,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => Boolean(row));
+
     const rows = await getDemoClassTopics();
-    const existing =
-      rows.find((row) => row.id === id) ||
-      rows.find((row) => row.class_id === classId);
+    const existing = rows.find((row) => row.id === id);
     const row: ClassTopicRow = existing
       ? {
           ...existing,
-          class_id: classId,
           title,
           content,
+          meetings,
           is_published:
             intent === "save" ? existing.is_published : publishNow,
           updated_at: now,
         }
       : {
           id: crypto.randomUUID(),
-          class_id: classId,
           title,
           content,
+          meetings,
           created_by: me.id,
           is_published: publishNow,
           created_at: now,
@@ -2567,13 +2611,14 @@ export async function saveClassTopic(
     return { error: "Only Coordinator or Tech can edit class topics" };
   }
 
-  const { data: existing } = await supabase
-    .from("class_topics")
-    .select("id, is_published")
-    .eq("class_id", classId)
-    .maybeSingle();
+  if (id) {
+    const { data: existing } = await supabase
+      .from("class_topics")
+      .select("id, is_published")
+      .eq("id", id)
+      .maybeSingle();
+    if (!existing) return { error: "Topic not found" };
 
-  if (existing) {
     const { error } = await supabase
       .from("class_topics")
       .update({
@@ -2585,6 +2630,14 @@ export async function saveClassTopic(
       })
       .eq("id", existing.id);
     if (error) return { error: error.message };
+
+    const linkError = await replaceTopicMeetings(
+      supabase,
+      existing.id,
+      classIds,
+    );
+    if (linkError) return { error: linkError };
+
     revalidateClassTopics(existing.id);
     redirect(`/topics/${existing.id}`);
   }
@@ -2592,7 +2645,6 @@ export async function saveClassTopic(
   const { data: created, error } = await supabase
     .from("class_topics")
     .insert({
-      class_id: classId,
       title,
       content,
       created_by: user.id,
@@ -2602,6 +2654,13 @@ export async function saveClassTopic(
     .select("id")
     .single();
   if (error || !created) return { error: error?.message || "Could not save topic" };
+
+  const linkError = await replaceTopicMeetings(supabase, created.id, classIds);
+  if (linkError) {
+    await supabase.from("class_topics").delete().eq("id", created.id);
+    return { error: linkError };
+  }
+
   revalidateClassTopics(created.id);
   redirect(`/topics/${created.id}`);
 }

@@ -1,5 +1,7 @@
 -- Run once in Supabase SQL Editor on the existing project.
--- Class Topics: one optional discussion topic per class.
+-- Class Topics: original one-topic-per-class table.
+-- For many-to-many meetings, also run class-topics-meetings-upgrade.sql
+-- after this (or after schema that still has class_topics.class_id).
 
 create table if not exists public.class_topics (
   id uuid primary key default gen_random_uuid(),

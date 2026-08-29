@@ -11,7 +11,7 @@ import {
 import {
   CLASS_TOPIC_CONTENT_MAX,
   CLASS_TOPIC_TITLE_MAX,
-  classTopicWhenLabel,
+  meetingCheckboxLabel,
 } from "@/lib/class-topics";
 import { topicContentPlainLength, sanitizeTopicHtml } from "@/lib/topic-html";
 import type { ClassRow, ClassTopicRow } from "@/lib/types";
@@ -19,16 +19,27 @@ import { TopicContentEditor } from "@/components/TopicContentEditor";
 
 export function ClassTopicForm({
   classes,
-  existingByClass,
   topic,
+  initialClassIds,
 }: {
   classes: ClassRow[];
-  existingByClass: Record<string, string>;
   topic?: ClassTopicRow | null;
+  initialClassIds?: string[];
 }) {
   const router = useRouter();
-  const [classId, setClassId] = useState(
-    topic?.class_id || classes[0]?.id || "",
+  const linkedFromTopic =
+    topic?.meetings?.map((m) => m.class_id) ||
+    (topic?.class_id ? [topic.class_id] : []);
+  const seedIds =
+    linkedFromTopic.length > 0
+      ? linkedFromTopic
+      : initialClassIds?.length
+        ? initialClassIds
+        : classes[0]?.id
+          ? [classes[0].id]
+          : [];
+  const [selected, setSelected] = useState<Set<string>>(
+    () => new Set(seedIds),
   );
   const [saveState, saveAction, saving] = useActionState<ActionState, FormData>(
     saveClassTopic,
@@ -50,6 +61,15 @@ export function ClassTopicForm({
   const editing = Boolean(topic);
   const published = Boolean(topic?.is_published);
 
+  function toggleMeeting(classId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(classId)) next.delete(classId);
+      else next.add(classId);
+      return next;
+    });
+  }
+
   return (
     <div className="stack">
       <form
@@ -70,38 +90,37 @@ export function ClassTopicForm({
           if (topicContentPlainLength(value) > CLASS_TOPIC_CONTENT_MAX) {
             event.preventDefault();
           }
+          if (selected.size === 0) {
+            event.preventDefault();
+          }
         }}
       >
         {topic ? <input type="hidden" name="id" value={topic.id} /> : null}
         <h3 className="announce-form__heading">
           {editing ? "Edit class topic" : "Add class topic"}
         </h3>
-        <label>
-          Class
-          <select
-            name="class_id"
-            required
-            value={classId}
-            onChange={(event) => {
-              const next = event.target.value;
-              const existingId = existingByClass[next];
-              if (existingId && existingId !== topic?.id) {
-                router.push(`/topics/${existingId}/edit`);
-                return;
-              }
-              setClassId(next);
-            }}
-          >
+
+        <fieldset className="topic-meetings">
+          <legend className="topic-meetings__legend">Meetings</legend>
+          <div className="topic-meetings__list">
             {classes.map((cls) => (
-              <option key={cls.id} value={cls.id}>
-                {classTopicWhenLabel(cls.starts_at)}
-                {existingByClass[cls.id] && existingByClass[cls.id] !== topic?.id
-                  ? " · has topic"
-                  : ""}
-              </option>
+              <label key={cls.id} className="topic-meetings__item">
+                <input
+                  type="checkbox"
+                  name="class_ids"
+                  value={cls.id}
+                  checked={selected.has(cls.id)}
+                  onChange={() => toggleMeeting(cls.id)}
+                />
+                <span>{meetingCheckboxLabel(cls.starts_at)}</span>
+              </label>
             ))}
-          </select>
-        </label>
+          </div>
+          {selected.size === 0 && (
+            <p className="error">Choose at least one meeting.</p>
+          )}
+        </fieldset>
+
         <label>
           Topic title
           <input
@@ -121,7 +140,7 @@ export function ClassTopicForm({
               type="submit"
               name="intent"
               value="save"
-              disabled={saving}
+              disabled={saving || selected.size === 0}
             >
               {saving ? "Saving…" : "Save changes"}
             </button>
@@ -132,7 +151,7 @@ export function ClassTopicForm({
                 type="submit"
                 name="intent"
                 value="draft"
-                disabled={saving}
+                disabled={saving || selected.size === 0}
               >
                 {saving ? "Saving…" : "Save draft"}
               </button>
@@ -141,7 +160,7 @@ export function ClassTopicForm({
                 type="submit"
                 name="intent"
                 value="publish"
-                disabled={saving}
+                disabled={saving || selected.size === 0}
               >
                 {saving ? "Saving…" : "Publish"}
               </button>

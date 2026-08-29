@@ -467,10 +467,9 @@ create policy "announcements_delete_staff"
   on public.announcements for delete to authenticated
   using (public.has_role(array['teacher', 'admin', 'tech']));
 
--- class topics (one optional discussion topic per class)
+-- class topics (discussion topics; meetings linked via class_topic_meetings)
 create table if not exists public.class_topics (
   id uuid primary key default gen_random_uuid(),
-  class_id uuid not null unique references public.classes (id) on delete cascade,
   title text not null check (char_length(title) > 0 and char_length(title) <= 80),
   content text not null check (char_length(content) > 0 and char_length(content) <= 8000),
   created_by uuid not null references public.profiles (id) on delete cascade,
@@ -480,7 +479,7 @@ create table if not exists public.class_topics (
 );
 
 create index if not exists class_topics_published_idx
-  on public.class_topics (is_published, class_id);
+  on public.class_topics (is_published, created_at desc);
 
 alter table public.class_topics enable row level security;
 
@@ -509,6 +508,56 @@ create policy "class_topics_update_staff"
 drop policy if exists "class_topics_delete_staff" on public.class_topics;
 create policy "class_topics_delete_staff"
   on public.class_topics for delete to authenticated
+  using (public.has_role(array['teacher', 'tech']));
+
+-- topic ↔ meeting links (many-to-many)
+create table if not exists public.class_topic_meetings (
+  topic_id uuid not null references public.class_topics (id) on delete cascade,
+  class_id uuid not null references public.classes (id) on delete cascade,
+  primary key (topic_id, class_id)
+);
+
+create index if not exists class_topic_meetings_class_id_idx
+  on public.class_topic_meetings (class_id);
+
+create index if not exists class_topic_meetings_topic_id_idx
+  on public.class_topic_meetings (topic_id);
+
+alter table public.class_topic_meetings enable row level security;
+
+drop policy if exists "class_topic_meetings_select_approved"
+  on public.class_topic_meetings;
+create policy "class_topic_meetings_select_approved"
+  on public.class_topic_meetings for select to authenticated
+  using (
+    public.has_role(array['teacher', 'tech'])
+    or (
+      public.is_approved()
+      and exists (
+        select 1
+        from public.class_topics t
+        where t.id = topic_id and t.is_published = true
+      )
+    )
+  );
+
+drop policy if exists "class_topic_meetings_insert_staff"
+  on public.class_topic_meetings;
+create policy "class_topic_meetings_insert_staff"
+  on public.class_topic_meetings for insert to authenticated
+  with check (public.has_role(array['teacher', 'tech']));
+
+drop policy if exists "class_topic_meetings_update_staff"
+  on public.class_topic_meetings;
+create policy "class_topic_meetings_update_staff"
+  on public.class_topic_meetings for update to authenticated
+  using (public.has_role(array['teacher', 'tech']))
+  with check (public.has_role(array['teacher', 'tech']));
+
+drop policy if exists "class_topic_meetings_delete_staff"
+  on public.class_topic_meetings;
+create policy "class_topic_meetings_delete_staff"
+  on public.class_topic_meetings for delete to authenticated
   using (public.has_role(array['teacher', 'tech']));
 
 -- moderation audit log (writes only via trigger; TECH can select)

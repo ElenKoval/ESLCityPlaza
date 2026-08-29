@@ -4,36 +4,104 @@ import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { getDemoClassTopics } from "@/lib/demo-class-topics";
 import { CLASS_DURATION_MS, isPlazaCalendarClass } from "@/lib/enrollment";
 import { canManageClassTopics } from "@/lib/roles";
-import type { ClassRow, ClassTopicRow, ClassTopicSummary, Role } from "@/lib/types";
+import { withPrimaryMeetingFields } from "@/lib/class-topics";
+import type {
+  ClassRow,
+  ClassTopicMeeting,
+  ClassTopicRow,
+  ClassTopicSummary,
+  Role,
+} from "@/lib/types";
 
-function attachClass(
-  topic: ClassTopicRow,
-  classes: Map<string, ClassRow>,
-): ClassTopicRow {
-  const cls = classes.get(topic.class_id);
-  return {
-    ...topic,
-    class_title: cls?.title,
-    class_starts_at: cls?.starts_at,
-    class_location: cls?.location,
-  };
-}
+type TopicBase = {
+  id: string;
+  title: string;
+  content: string;
+  created_by: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+};
 
 async function loadClassesByIds(ids: string[]): Promise<Map<string, ClassRow>> {
   const map = new Map<string, ClassRow>();
-  if (ids.length === 0) return map;
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (unique.length === 0) return map;
 
   if (useLocalDemo() || (await hasDemoSession())) {
     const rows = await getDemoClassesWithEnrollments();
     for (const row of rows) {
-      if (ids.includes(row.id)) map.set(row.id, row);
+      if (unique.includes(row.id)) map.set(row.id, row);
     }
     return map;
   }
 
   const supabase = await createClient();
-  const { data } = await supabase.from("classes").select("*").in("id", ids);
+  const { data } = await supabase.from("classes").select("*").in("id", unique);
   for (const row of (data ?? []) as ClassRow[]) map.set(row.id, row);
+  return map;
+}
+
+function meetingsFromClasses(
+  classIds: string[],
+  classes: Map<string, ClassRow>,
+): ClassTopicMeeting[] {
+  const meetings: ClassTopicMeeting[] = [];
+  for (const classId of classIds) {
+    const cls = classes.get(classId);
+    if (!cls) continue;
+    meetings.push({
+      class_id: cls.id,
+      class_title: cls.title,
+      class_starts_at: cls.starts_at,
+      class_location: cls.location,
+    });
+  }
+  return meetings;
+}
+
+function hydrateTopic(
+  base: TopicBase,
+  classIds: string[],
+  classes: Map<string, ClassRow>,
+): ClassTopicRow {
+  return withPrimaryMeetingFields({
+    ...base,
+    meetings: meetingsFromClasses(classIds, classes),
+  });
+}
+
+async function loadMeetingLinksByTopicIds(
+  topicIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (topicIds.length === 0) return map;
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    for (const row of await getDemoClassTopics()) {
+      if (!topicIds.includes(row.id)) continue;
+      const ids =
+        row.meetings?.map((m) => m.class_id) ||
+        (row.class_id ? [row.class_id] : []);
+      map.set(row.id, ids);
+    }
+    return map;
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("class_topic_meetings")
+    .select("topic_id, class_id")
+    .in("topic_id", topicIds);
+  if (error) {
+    console.error("[class-topics] meetings", error.message);
+    return map;
+  }
+  for (const row of data ?? []) {
+    const list = map.get(row.topic_id) ?? [];
+    list.push(row.class_id);
+    map.set(row.topic_id, list);
+  }
   return map;
 }
 
@@ -62,73 +130,133 @@ export async function loadUpcomingClassesForTopics(): Promise<ClassRow[]> {
   return onlyCalendar((data ?? []) as ClassRow[]);
 }
 
+/** Upcoming meetings plus any already-linked classes (so past links stay visible). */
+export async function loadClassesForTopicForm(
+  linkedClassIds: string[] = [],
+): Promise<ClassRow[]> {
+  const upcoming = await loadUpcomingClassesForTopics();
+  const have = new Set(upcoming.map((row) => row.id));
+  const missing = linkedClassIds.filter((id) => id && !have.has(id));
+  if (!missing.length) return upcoming;
+
+  const extras = await loadClassesByIds(missing);
+  const extraRows = missing
+    .map((id) => extras.get(id))
+    .filter((row): row is ClassRow => Boolean(row));
+  return [...extraRows, ...upcoming].sort(
+    (a, b) =>
+      new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime(),
+  );
+}
+
 export async function loadClassTopics(options?: {
   includeDrafts?: boolean;
 }): Promise<ClassTopicRow[]> {
   const includeDrafts = Boolean(options?.includeDrafts);
-  let rows: ClassTopicRow[] = [];
+  let bases: TopicBase[] = [];
 
   if (useLocalDemo() || (await hasDemoSession())) {
-    rows = await getDemoClassTopics();
+    let rows = await getDemoClassTopics();
     if (!includeDrafts) rows = rows.filter((row) => row.is_published);
-  } else {
-    try {
-      const supabase = await createClient();
-      let query = supabase.from("class_topics").select("*");
-      if (!includeDrafts) query = query.eq("is_published", true);
-      const { data, error } = await query;
-      if (error) {
-        console.error("[class-topics] list", error.message);
-        rows = [];
-      } else {
-        rows = (data ?? []) as ClassTopicRow[];
-      }
-    } catch (error) {
-      console.error("[class-topics] list", error);
-      rows = [];
-    }
+    return rows.map((row) =>
+      withPrimaryMeetingFields({
+        ...row,
+        meetings:
+          row.meetings?.length
+            ? row.meetings
+            : row.class_id && row.class_starts_at
+              ? [
+                  {
+                    class_id: row.class_id,
+                    class_title: row.class_title,
+                    class_starts_at: row.class_starts_at,
+                    class_location: row.class_location,
+                  },
+                ]
+              : [],
+      }),
+    );
   }
 
-  const classes = await loadClassesByIds(rows.map((row) => row.class_id));
-  return rows.map((row) => attachClass(row, classes));
+  try {
+    const supabase = await createClient();
+    let query = supabase.from("class_topics").select("*");
+    if (!includeDrafts) query = query.eq("is_published", true);
+    const { data, error } = await query;
+    if (error) {
+      console.error("[class-topics] list", error.message);
+      return [];
+    }
+    bases = (data ?? []) as TopicBase[];
+  } catch (error) {
+    console.error("[class-topics] list", error);
+    return [];
+  }
+
+  const links = await loadMeetingLinksByTopicIds(bases.map((row) => row.id));
+  const allClassIds = [...links.values()].flat();
+  const classes = await loadClassesByIds(allClassIds);
+  return bases.map((row) =>
+    hydrateTopic(row, links.get(row.id) ?? [], classes),
+  );
 }
 
 export async function loadClassTopic(
   id: string,
   viewerRole?: Role | null,
 ): Promise<ClassTopicRow | null> {
-  let row: ClassTopicRow | null = null;
+  let base: TopicBase | null = null;
 
   if (useLocalDemo() || (await hasDemoSession())) {
     const found = (await getDemoClassTopics()).find((item) => item.id === id);
-    row = found ?? null;
-  } else {
-    try {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("class_topics")
-        .select("*")
-        .eq("id", id)
-        .maybeSingle();
-      if (error) {
-        console.error("[class-topics] one", error.message);
-        row = null;
-      } else {
-        row = (data as ClassTopicRow | null) ?? null;
-      }
-    } catch (error) {
-      console.error("[class-topics] one", error);
-      row = null;
+    if (!found) return null;
+    if (!found.is_published && !canManageClassTopics(viewerRole || "student")) {
+      return null;
     }
+    return withPrimaryMeetingFields({
+      ...found,
+      meetings:
+        found.meetings?.length
+          ? found.meetings
+          : found.class_id && found.class_starts_at
+            ? [
+                {
+                  class_id: found.class_id,
+                  class_title: found.class_title,
+                  class_starts_at: found.class_starts_at,
+                  class_location: found.class_location,
+                },
+              ]
+            : [],
+    });
   }
 
-  if (!row) return null;
-  if (!row.is_published && !canManageClassTopics(viewerRole || "student")) {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("class_topics")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      console.error("[class-topics] one", error.message);
+      return null;
+    }
+    base = (data as TopicBase | null) ?? null;
+  } catch (error) {
+    console.error("[class-topics] one", error);
     return null;
   }
 
-  const classes = await loadClassesByIds([row.class_id]);
-  return attachClass(row, classes);
+  if (!base) return null;
+  if (!base.is_published && !canManageClassTopics(viewerRole || "student")) {
+    return null;
+  }
+
+  const links = await loadMeetingLinksByTopicIds([base.id]);
+  const classIds = links.get(base.id) ?? [];
+  const classes = await loadClassesByIds(classIds);
+  return hydrateTopic(base, classIds, classes);
 }
 
 export async function loadTopicSummariesByClassIds(
@@ -137,46 +265,17 @@ export async function loadTopicSummariesByClassIds(
   const map = new Map<string, ClassTopicSummary>();
   if (classIds.length === 0) return map;
 
-  let rows: ClassTopicSummary[] = [];
-  if (useLocalDemo() || (await hasDemoSession())) {
-    rows = (await getDemoClassTopics())
-      .filter((row) => row.is_published && classIds.includes(row.class_id))
-      .map((row) => ({
-        id: row.id,
-        class_id: row.class_id,
-        title: row.title,
-      }));
-  } else {
-    try {
-      const supabase = await createClient();
-      const { data, error } = await supabase
-        .from("class_topics")
-        .select("id, class_id, title")
-        .eq("is_published", true)
-        .in("class_id", classIds);
-      if (error) {
-        console.error("[class-topics] summaries", error.message);
-      } else {
-        rows = (data ?? []) as ClassTopicSummary[];
-      }
-    } catch (error) {
-      console.error("[class-topics] summaries", error);
-    }
-  }
-
-  for (const row of rows) map.set(row.class_id, row);
-  return map;
-}
-
-export async function loadTopicIdsByClassIds(
-  classIds: string[],
-): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-  if (classIds.length === 0) return map;
-
   if (useLocalDemo() || (await hasDemoSession())) {
     for (const row of await getDemoClassTopics()) {
-      if (classIds.includes(row.class_id)) map.set(row.class_id, row.id);
+      if (!row.is_published) continue;
+      const ids =
+        row.meetings?.map((m) => m.class_id) ||
+        (row.class_id ? [row.class_id] : []);
+      for (const classId of ids) {
+        if (classIds.includes(classId) && !map.has(classId)) {
+          map.set(classId, { id: row.id, class_id: classId, title: row.title });
+        }
+      }
     }
     return map;
   }
@@ -184,14 +283,76 @@ export async function loadTopicIdsByClassIds(
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
-      .from("class_topics")
-      .select("id, class_id")
+      .from("class_topic_meetings")
+      .select("topic_id, class_id, class_topics!inner(id, title, is_published)")
+      .in("class_id", classIds);
+    if (error) {
+      console.error("[class-topics] summaries", error.message);
+      return map;
+    }
+    for (const raw of data ?? []) {
+      const row = raw as {
+        topic_id: string;
+        class_id: string;
+        class_topics:
+          | { id: string; title: string; is_published: boolean }
+          | { id: string; title: string; is_published: boolean }[]
+          | null;
+      };
+      const topic = Array.isArray(row.class_topics)
+        ? row.class_topics[0]
+        : row.class_topics;
+      if (!topic?.is_published) continue;
+      if (!map.has(row.class_id)) {
+        map.set(row.class_id, {
+          id: topic.id,
+          class_id: row.class_id,
+          title: topic.title,
+        });
+      }
+    }
+  } catch (error) {
+    console.error("[class-topics] summaries", error);
+  }
+  return map;
+}
+
+export async function loadTopicIdsByClassIds(
+  classIds: string[],
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>();
+  if (classIds.length === 0) return map;
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    for (const row of await getDemoClassTopics()) {
+      const ids =
+        row.meetings?.map((m) => m.class_id) ||
+        (row.class_id ? [row.class_id] : []);
+      for (const classId of ids) {
+        if (!classIds.includes(classId)) continue;
+        const list = map.get(classId) ?? [];
+        list.push(row.id);
+        map.set(classId, list);
+      }
+    }
+    return map;
+  }
+
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("class_topic_meetings")
+      .select("topic_id, class_id")
       .in("class_id", classIds);
     if (error) {
       console.error("[class-topics] ids", error.message);
       return map;
     }
-    for (const row of data ?? []) map.set(row.class_id, row.id);
+    for (const row of data ?? []) {
+      const list = map.get(row.class_id) ?? [];
+      list.push(row.topic_id);
+      map.set(row.class_id, list);
+    }
   } catch (error) {
     console.error("[class-topics] ids", error);
   }

@@ -52,15 +52,25 @@ export type ClassRoster = {
   people: ClassRosterEntry[];
 };
 
+export type ClassTopicMeeting = {
+  class_id: string;
+  class_title?: string;
+  class_starts_at: string;
+  class_location?: string;
+};
+
 export type ClassTopicRow = {
   id: string;
-  class_id: string;
   title: string;
   content: string;
   created_by: string;
   is_published: boolean;
   created_at: string;
   updated_at: string;
+  /** Linked meetings, sorted by starts_at ascending */
+  meetings: ClassTopicMeeting[];
+  /** Display helpers from the primary linked meeting */
+  class_id?: string;
   class_title?: string;
   class_starts_at?: string;
   class_location?: string;

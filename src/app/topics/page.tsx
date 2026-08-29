@@ -7,7 +7,6 @@ import { stripTopicHtml } from "@/lib/topic-html";
 import { formatClassHours } from "@/lib/class-schedule";
 import { loadClassTopics } from "@/lib/load-class-topics";
 import type { ClassTopicRow } from "@/lib/types";
-
 import { sitePageTitle } from "@/lib/site-name";
 
 export const metadata: Metadata = {
@@ -36,6 +35,18 @@ function topicPreview(content: string) {
   return text || null;
 }
 
+function meetingsLabel(topic: ClassTopicRow) {
+  const meetings = topic.meetings ?? [];
+  if (meetings.length <= 1) {
+    const when = topic.class_starts_at;
+    if (!when) return null;
+    return `${topicWeekday(when)} · ${formatClassHours(when)}`;
+  }
+  return meetings
+    .map((m) => topicDateShort(m.class_starts_at))
+    .join(" · ");
+}
+
 function UpcomingCard({
   topic,
   staff,
@@ -45,6 +56,7 @@ function UpcomingCard({
 }) {
   const preview = topicPreview(topic.content);
   const when = topic.class_starts_at;
+  const multi = (topic.meetings?.length ?? 0) > 1;
   return (
     <article className="topic-card">
       {when && (
@@ -52,9 +64,9 @@ function UpcomingCard({
       )}
       <h3 className="topic-card__title">{topic.title}</h3>
       {preview && <p className="topic-card__preview">{preview}</p>}
-      {when && (
+      {meetingsLabel(topic) && (
         <p className="topic-card__when">
-          {topicWeekday(when)} · {formatClassHours(when)}
+          {multi ? `Meetings: ${meetingsLabel(topic)}` : meetingsLabel(topic)}
         </p>
       )}
       {staff && (
@@ -84,6 +96,7 @@ function PastRow({
   staff: boolean;
 }) {
   const when = topic.class_starts_at;
+  const multi = (topic.meetings?.length ?? 0) > 1;
   return (
     <li className="topics-archive__row">
       <span className="topics-archive__date">
@@ -91,6 +104,11 @@ function PastRow({
       </span>
       <span className="topics-archive__title">
         {topic.title}
+        {multi && when ? (
+          <span className="topics-archive__status">
+            {topic.meetings.length} meetings
+          </span>
+        ) : null}
         {staff && (
           <span className="topics-archive__status">
             {topic.is_published ? "Published" : "Draft"}
@@ -135,12 +153,12 @@ export default async function ClassTopicsPage() {
           </p>
         )}
 
-        <section className="topics-upcoming" aria-labelledby="topics-upcoming">
-          <h2 id="topics-upcoming" className="topics-index__heading">
-            Upcoming
+        <section className="topics-upcoming" aria-labelledby="topics-current">
+          <h2 id="topics-current" className="topics-index__heading">
+            Current Topics
           </h2>
           {upcoming.length === 0 ? (
-            <p className="topics-index__empty">No upcoming class topics.</p>
+            <p className="topics-index__empty">No current class topics.</p>
           ) : (
             <div className="topics-card-grid">
               {upcoming.map((topic) => (
@@ -165,7 +183,7 @@ export default async function ClassTopicsPage() {
 
         <section className="topics-archive" aria-labelledby="topics-past">
           <h2 id="topics-past" className="topics-index__heading">
-            Past topics
+            Past Topics
           </h2>
           {past.length === 0 ? (
             <p className="topics-index__empty">No past class topics yet.</p>

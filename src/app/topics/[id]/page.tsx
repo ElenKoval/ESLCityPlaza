@@ -42,10 +42,19 @@ export default async function ClassTopicPage({
       <section className="section topic-page">
         <article className="topic-print-root">
           <h1>{topic.title}</h1>
-          {topic.class_starts_at && (
+          {topic.class_starts_at && (topic.meetings?.length ?? 0) <= 1 && (
             <p className="lead topic-print__when">
               {classTopicWhenLabel(topic.class_starts_at)}
             </p>
+          )}
+          {(topic.meetings?.length ?? 0) > 1 && (
+            <ul className="topic-meetings-summary lead topic-print__when">
+              {topic.meetings.map((meeting) => (
+                <li key={meeting.class_id}>
+                  {classTopicWhenLabel(meeting.class_starts_at)}
+                </li>
+              ))}
+            </ul>
           )}
           <div className="panel topic-print__panel">
             <h2 className="announce-manage__title topic-no-print">
