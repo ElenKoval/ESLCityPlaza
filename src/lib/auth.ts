@@ -14,7 +14,7 @@ import {
 import { withTimeout } from "./with-timeout";
 import type { Profile } from "./types";
 
-const AUTH_TIMEOUT_MS = 8_000;
+const AUTH_TIMEOUT_MS = 5_000;
 
 function hasSupabaseEnv() {
   return Boolean(

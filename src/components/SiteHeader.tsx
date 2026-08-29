@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import {
@@ -43,10 +42,9 @@ export async function SiteHeader() {
         {profile && (
           <div className="site-header__user">
             {profile.status === "approved" ? (
-              <Link
+              <a
                 href="/account"
                 className="site-header__profile-link"
-                prefetch
                 aria-label={`Open your profile (${profile.display_name})`}
               >
                 <span className="site-header__name">{profile.display_name}</span>
@@ -54,7 +52,7 @@ export async function SiteHeader() {
                   ·
                 </span>
                 <RoleBadge role={profile.role} />
-              </Link>
+              </a>
             ) : (
               <div className="site-header__identity">
                 <span className="site-header__name">{profile.display_name}</span>

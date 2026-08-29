@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SITE_NAME } from "@/lib/site-name";
 
@@ -19,15 +18,15 @@ function NavLink({
       ? pathname === "/"
       : pathname === href || pathname.startsWith(`${href}/`);
 
+  // Plain <a> avoids stuck App Router soft-navigations when RSC hangs.
   return (
-    <Link
+    <a
       href={href}
-      prefetch
       className={className}
       aria-current={active ? "page" : undefined}
     >
       {children}
-    </Link>
+    </a>
   );
 }
 

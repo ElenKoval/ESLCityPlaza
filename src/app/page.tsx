@@ -1,5 +1,3 @@
-import Link from "next/link";
-import { after } from "next/server";
 import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
 import { MeetSpot } from "@/components/MeetSpot";
@@ -8,7 +6,6 @@ import { createClient } from "@/lib/supabase/server";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import { useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
-import { ensureUpcomingClasses } from "@/lib/ensure-classes";
 import { WelcomeLessons } from "@/components/WelcomeLessons";
 import { HomeAnnouncements } from "@/components/HomeAnnouncements";
 import { loadCurrentAnnouncements } from "@/lib/load-announcements";
@@ -37,11 +34,6 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
   }
 
   try {
-    // Never block the homepage on class seeding.
-    after(() => {
-      void ensureUpcomingClasses();
-    });
-
     const supabase = await createClient();
     const { data: classes } = await withTimeout(
       Promise.resolve(
@@ -165,9 +157,9 @@ export default async function HomePage() {
                     Tell the group a little about yourself — where you&apos;re
                     from, languages you speak, and your interests.
                   </p>
-                  <Link href="/profile" className="btn-primary" prefetch>
+                  <a href="/profile" className="btn-primary">
                     Complete profile
-                  </Link>
+                  </a>
                 </aside>
               )}
             </>
@@ -179,19 +171,20 @@ export default async function HomePage() {
               </p>
               {access === "guest" && (
                 <div className="hero-stage__actions">
-                  <Link href="/register" className="btn-primary" prefetch>
+                  {/* Plain anchors: full page load if soft navigation is stuck */}
+                  <a href="/register" className="btn-primary">
                     Apply to join
-                  </Link>
-                  <Link href="/login" className="btn-secondary" prefetch>
+                  </a>
+                  <a href="/login" className="btn-secondary">
                     Log in
-                  </Link>
+                  </a>
                 </div>
               )}
               {access === "pending" && (
                 <div className="hero-stage__actions">
-                  <Link href="/pending" className="btn-secondary" prefetch>
+                  <a href="/pending" className="btn-secondary">
                     Application status
-                  </Link>
+                  </a>
                 </div>
               )}
             </>

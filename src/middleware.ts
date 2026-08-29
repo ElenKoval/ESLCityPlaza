@@ -4,7 +4,7 @@ import { DEMO_COOKIE, DEMO_MEMBERS_COOKIE, DEMO_TECH_ID } from "@/lib/demo";
 import { withTimeout } from "@/lib/with-timeout";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-const PROFILE_TIMEOUT_MS = 4_000;
+const PROFILE_TIMEOUT_MS = 3_000;
 
 const PUBLIC = new Set([
   "/",
@@ -33,6 +33,19 @@ function isSuspendedAllowedPath(path: string) {
     path === "/privacy" ||
     path === "/terms" ||
     path.startsWith("/auth")
+  );
+}
+
+/** Public pages that only need a session cookie refresh — no profile gates. */
+function isLightweightPublicPath(path: string) {
+  return (
+    path === "/" ||
+    path === "/privacy" ||
+    path === "/terms" ||
+    path === "/announcements" ||
+    path === "/suspended" ||
+    path.startsWith("/register/") ||
+    path.startsWith("/forgot-password")
   );
 }
 
@@ -92,10 +105,10 @@ function statusHomePath(status: string | null | undefined) {
   return "/pending";
 }
 
-async function loadProfileFields<T extends string>(
+async function loadProfileFields(
   supabase: SupabaseClient,
   userId: string,
-  columns: T,
+  columns: string,
 ): Promise<Record<string, unknown> | null | undefined> {
   try {
     const { data, error } = await withTimeout(
@@ -126,7 +139,6 @@ export async function middleware(request: NextRequest) {
   const demoUserId = demoSessionUserId(request);
   const hasDemo = Boolean(demoUserId);
 
-  // Local demo (no Supabase yet)
   if (!url || !key) {
     if (hasDemo && demoUserId) {
       const status = demoMemberStatus(request, demoUserId);
@@ -175,9 +187,14 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse;
   }
 
+  // Homepage and other public pages: refresh session only. Extra profile
+  // lookups here were stacking with page getProfile and freezing soft navigation.
+  if (isLightweightPublicPath(path)) {
+    return supabaseResponse;
+  }
+
   if (user) {
     const existing = await loadProfileFields(supabase, user.id, "id");
-    // undefined = timed out / error — do not block the whole site
     if (existing === null) {
       try {
         await withTimeout(
@@ -231,7 +248,6 @@ export async function middleware(request: NextRequest) {
 
   if (user) {
     const profile = await loadProfileFields(supabase, user.id, "status, role");
-    // If profile lookup failed, skip gates — pages still enforce access.
     if (profile === undefined) {
       return supabaseResponse;
     }

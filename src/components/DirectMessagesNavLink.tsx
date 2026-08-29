@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getDirectUnreadCount } from "@/app/dm-actions";
@@ -58,9 +57,8 @@ export function DirectMessagesNavLink() {
   }, [pathname, openedId]);
 
   return (
-    <Link
+    <a
       href="/messages"
-      prefetch={false}
       className="dm-nav"
       aria-current={active ? "page" : undefined}
     >
@@ -70,6 +68,6 @@ export function DirectMessagesNavLink() {
           {unread > 9 ? "9+" : unread}
         </span>
       )}
-    </Link>
+    </a>
   );
 }

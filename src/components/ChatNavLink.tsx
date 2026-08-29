@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { getChatHasUnread, markChatRead } from "@/app/chat-actions";
@@ -139,9 +138,8 @@ export function ChatNavLink() {
   }, [pathname, viewingChat]);
 
   return (
-    <Link
+    <a
       href="/chat"
-      prefetch={false}
       className="dm-nav"
       aria-current={viewingChat ? "page" : undefined}
     >
@@ -149,6 +147,6 @@ export function ChatNavLink() {
       {unread && !viewingChat && (
         <span className="site-nav__dot" aria-label="New chat messages" />
       )}
-    </Link>
+    </a>
   );
 }

@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { withTimeout } from "@/lib/with-timeout";
 
-const AUTH_TIMEOUT_MS = 4_000;
+const AUTH_TIMEOUT_MS = 2_500;
 
 /**
  * Refresh the auth session cookie. Must not hang forever — a stuck
