@@ -12,16 +12,19 @@ function previewText(content: string, max = 110) {
 }
 
 export function HomeTopicCard({ topic }: { topic: ClassTopicRow }) {
+  const href = `/topics/${topic.id}`;
   const dates = formatUpcomingMeetingDatesCompact(topic.meetings ?? []);
   const preview = previewText(topic.content);
 
   return (
     <aside className="home-topic panel">
-      <h2 className="home-topic__title">Upcoming Topic</h2>
+      <a href={href} className="btn-primary home-topic__cta">
+        Upcoming Topic
+      </a>
       <p className="home-topic__name">{topic.title}</p>
       {dates ? <p className="home-topic__dates">{dates}</p> : null}
       {preview ? <p className="home-topic__preview">{preview}</p> : null}
-      <a href={`/topics/${topic.id}`} className="home-topic__link">
+      <a href={href} className="home-topic__link">
         View topic →
       </a>
     </aside>
