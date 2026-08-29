@@ -28,6 +28,33 @@ export function meetingCheckboxLabel(startsAt: string) {
   return `${day}, ${formatClassHours(startsAt)}`;
 }
 
+/** Compact home dates: "Aug 31 & Sep 4" */
+export function formatUpcomingMeetingDatesCompact(
+  meetings: ClassTopicMeeting[],
+  now = new Date(),
+) {
+  const upcoming = sortMeetings(meetings).filter((m) =>
+    classIsUpcoming(m.class_starts_at, now),
+  );
+  if (!upcoming.length) return "";
+
+  const short = (startsAt: string) =>
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      month: "short",
+      day: "numeric",
+    }).format(new Date(startsAt));
+
+  if (upcoming.length === 1) return short(upcoming[0].class_starts_at);
+  if (upcoming.length === 2) {
+    return `${short(upcoming[0].class_starts_at)} & ${short(upcoming[1].class_starts_at)}`;
+  }
+  if (upcoming.length === 3) {
+    return `${short(upcoming[0].class_starts_at)}, ${short(upcoming[1].class_starts_at)} & ${short(upcoming[2].class_starts_at)}`;
+  }
+  return `${short(upcoming[0].class_starts_at)}, ${short(upcoming[1].class_starts_at)} & ${upcoming.length - 2} more`;
+}
+
 export function classIsUpcoming(startsAt: string, now = new Date()) {
   return new Date(startsAt).getTime() + CLASS_DURATION_MS > now.getTime();
 }

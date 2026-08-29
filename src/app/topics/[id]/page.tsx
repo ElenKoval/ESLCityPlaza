@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireApproved } from "@/lib/auth";
+import { getProfile } from "@/lib/auth";
 import { canManageClassTopics } from "@/lib/roles";
-import { classTopicWhenLabel } from "@/lib/class-topics";
+import {
+  classIsUpcoming,
+  classTopicWhenLabel,
+} from "@/lib/class-topics";
 import { loadClassTopic } from "@/lib/load-class-topics";
 import { sitePageTitle } from "@/lib/site-name";
 import { topicContentToDisplayHtml } from "@/lib/topic-html";
@@ -15,8 +18,8 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const { profile } = await requireApproved();
-  const topic = await loadClassTopic(id, profile.role);
+  const { profile } = await getProfile();
+  const topic = await loadClassTopic(id, profile?.role);
   return {
     title: topic
       ? sitePageTitle(topic.title)
@@ -30,26 +33,33 @@ export default async function ClassTopicPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const { profile } = await requireApproved();
-  const staff = canManageClassTopics(profile.role);
-  const topic = await loadClassTopic(id, profile.role);
+  const { profile } = await getProfile();
+  const staff =
+    profile?.status === "approved" && canManageClassTopics(profile.role);
+  const topic = await loadClassTopic(id, profile?.role);
   if (!topic) notFound();
 
   const bodyHtml = topicContentToDisplayHtml(topic.content);
+  const meetings = topic.meetings ?? [];
+  const upcomingMeetings = meetings.filter((m) =>
+    classIsUpcoming(m.class_starts_at),
+  );
+  const showMeetings =
+    upcomingMeetings.length > 0 ? upcomingMeetings : meetings;
 
   return (
     <div className="page">
       <section className="section topic-page">
         <article className="topic-print-root">
           <h1>{topic.title}</h1>
-          {topic.class_starts_at && (topic.meetings?.length ?? 0) <= 1 && (
+          {showMeetings.length === 1 && (
             <p className="lead topic-print__when">
-              {classTopicWhenLabel(topic.class_starts_at)}
+              {classTopicWhenLabel(showMeetings[0].class_starts_at)}
             </p>
           )}
-          {(topic.meetings?.length ?? 0) > 1 && (
+          {showMeetings.length > 1 && (
             <ul className="topic-meetings-summary lead topic-print__when">
-              {topic.meetings.map((meeting) => (
+              {showMeetings.map((meeting) => (
                 <li key={meeting.class_id}>
                   {classTopicWhenLabel(meeting.class_starts_at)}
                 </li>
@@ -80,8 +90,12 @@ export default async function ClassTopicPage({
           )}
         </div>
         <p className="topic-back topic-no-print">
-          <Link href="/topics">Back to Class Topics</Link>
-          {" · "}
+          {profile?.status === "approved" ? (
+            <>
+              <Link href="/topics">Back to Class Topics</Link>
+              {" · "}
+            </>
+          ) : null}
           <Link href="/">Back to home</Link>
         </p>
       </section>

@@ -335,11 +335,14 @@ create policy "profiles_update_authenticated"
     or public.has_role(array['teacher', 'admin', 'tech'])
   );
 
--- classes: approved members can read; staff can write
+-- classes: public read (calendar + published topic dates); staff write
 drop policy if exists "classes_select_approved" on public.classes;
-create policy "classes_select_approved"
-  on public.classes for select to authenticated
-  using (public.is_approved());
+drop policy if exists "classes_select_public" on public.classes;
+create policy "classes_select_public"
+  on public.classes for select to anon, authenticated
+  using (true);
+
+grant select on public.classes to anon, authenticated;
 
 drop policy if exists "classes_write_staff" on public.classes;
 create policy "classes_write_staff"
@@ -484,12 +487,16 @@ create index if not exists class_topics_published_idx
 alter table public.class_topics enable row level security;
 
 drop policy if exists "class_topics_select_approved" on public.class_topics;
-create policy "class_topics_select_approved"
+drop policy if exists "class_topics_select_published" on public.class_topics;
+drop policy if exists "class_topics_select_staff_drafts" on public.class_topics;
+create policy "class_topics_select_published"
+  on public.class_topics for select to anon, authenticated
+  using (is_published = true);
+create policy "class_topics_select_staff_drafts"
   on public.class_topics for select to authenticated
-  using (
-    public.has_role(array['teacher', 'tech'])
-    or (public.is_approved() and is_published = true)
-  );
+  using (public.has_role(array['teacher', 'tech']));
+
+grant select on public.class_topics to anon, authenticated;
 
 drop policy if exists "class_topics_insert_staff" on public.class_topics;
 create policy "class_topics_insert_staff"
@@ -527,19 +534,24 @@ alter table public.class_topic_meetings enable row level security;
 
 drop policy if exists "class_topic_meetings_select_approved"
   on public.class_topic_meetings;
-create policy "class_topic_meetings_select_approved"
-  on public.class_topic_meetings for select to authenticated
+drop policy if exists "class_topic_meetings_select_published"
+  on public.class_topic_meetings;
+drop policy if exists "class_topic_meetings_select_staff"
+  on public.class_topic_meetings;
+create policy "class_topic_meetings_select_published"
+  on public.class_topic_meetings for select to anon, authenticated
   using (
-    public.has_role(array['teacher', 'tech'])
-    or (
-      public.is_approved()
-      and exists (
-        select 1
-        from public.class_topics t
-        where t.id = topic_id and t.is_published = true
-      )
+    exists (
+      select 1
+      from public.class_topics t
+      where t.id = topic_id and t.is_published = true
     )
   );
+create policy "class_topic_meetings_select_staff"
+  on public.class_topic_meetings for select to authenticated
+  using (public.has_role(array['teacher', 'tech']));
+
+grant select on public.class_topic_meetings to anon, authenticated;
 
 drop policy if exists "class_topic_meetings_insert_staff"
   on public.class_topic_meetings;

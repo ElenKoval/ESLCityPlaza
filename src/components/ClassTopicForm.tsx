@@ -84,6 +84,17 @@ export function ClassTopicForm({
     });
   }
 
+  function removeMeeting(classId: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.delete(classId);
+      setVisibleSlots((n) =>
+        Math.max(MEETINGS_VISIBLE_DEFAULT, n - 1, next.size),
+      );
+      return next;
+    });
+  }
+
   return (
     <div className="stack">
       <form
@@ -117,18 +128,32 @@ export function ClassTopicForm({
         <fieldset className="topic-meetings">
           <legend className="topic-meetings__legend">Meetings</legend>
           <div className="topic-meetings__list">
-            {visibleMeetings.map((cls) => (
-              <label key={cls.id} className="topic-meetings__item">
-                <input
-                  type="checkbox"
-                  name="class_ids"
-                  value={cls.id}
-                  checked={selected.has(cls.id)}
-                  onChange={() => toggleMeeting(cls.id)}
-                />
-                <span>{meetingCheckboxLabel(cls.starts_at)}</span>
-              </label>
-            ))}
+            {visibleMeetings.map((cls) => {
+              const checked = selected.has(cls.id);
+              return (
+                <div key={cls.id} className="topic-meetings__row">
+                  <label className="topic-meetings__item">
+                    <input
+                      type="checkbox"
+                      name="class_ids"
+                      value={cls.id}
+                      checked={checked}
+                      onChange={() => toggleMeeting(cls.id)}
+                    />
+                    <span>{meetingCheckboxLabel(cls.starts_at)}</span>
+                  </label>
+                  {checked ? (
+                    <button
+                      type="button"
+                      className="topic-meetings__remove"
+                      onClick={() => removeMeeting(cls.id)}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
           </div>
           {hiddenRemaining > 0 && (
             <button

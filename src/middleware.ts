@@ -23,8 +23,15 @@ function isPublicPath(path: string) {
   return (
     PUBLIC.has(path) ||
     path.startsWith("/register/") ||
-    path.startsWith("/forgot-password")
+    path.startsWith("/forgot-password") ||
+    isPublicTopicsPath(path)
   );
+}
+
+/** Published topic list + detail are public; new/edit stay protected. */
+function isPublicTopicsPath(path: string) {
+  if (path === "/topics") return true;
+  return /^\/topics\/[^/]+$/.test(path);
 }
 
 function isSuspendedAllowedPath(path: string) {
@@ -45,7 +52,8 @@ function isLightweightPublicPath(path: string) {
     path === "/announcements" ||
     path === "/suspended" ||
     path.startsWith("/register/") ||
-    path.startsWith("/forgot-password")
+    path.startsWith("/forgot-password") ||
+    isPublicTopicsPath(path)
   );
 }
 

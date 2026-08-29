@@ -1,10 +1,14 @@
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { hasDemoSession, useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { getDemoClassTopics } from "@/lib/demo-class-topics";
 import { CLASS_DURATION_MS, isPlazaCalendarClass } from "@/lib/enrollment";
 import { canManageClassTopics } from "@/lib/roles";
-import { withPrimaryMeetingFields } from "@/lib/class-topics";
+import {
+  splitClassTopics,
+  withPrimaryMeetingFields,
+} from "@/lib/class-topics";
 import type {
   ClassRow,
   ClassTopicMeeting,
@@ -23,6 +27,22 @@ type TopicBase = {
   updated_at: string;
 };
 
+/** Prefer service role for public/home reads (same pattern as announcements). */
+function topicsDb() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (url && serviceKey) {
+    return createServiceClient(url, serviceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+  }
+  return null;
+}
+
+async function topicsClient() {
+  return topicsDb() ?? (await createClient());
+}
+
 async function loadClassesByIds(ids: string[]): Promise<Map<string, ClassRow>> {
   const map = new Map<string, ClassRow>();
   const unique = [...new Set(ids.filter(Boolean))];
@@ -36,7 +56,7 @@ async function loadClassesByIds(ids: string[]): Promise<Map<string, ClassRow>> {
     return map;
   }
 
-  const supabase = await createClient();
+  const supabase = await topicsClient();
   const { data } = await supabase.from("classes").select("*").in("id", unique);
   for (const row of (data ?? []) as ClassRow[]) map.set(row.id, row);
   return map;
@@ -88,7 +108,7 @@ async function loadMeetingLinksByTopicIds(
     return map;
   }
 
-  const supabase = await createClient();
+  const supabase = await topicsClient();
   const { data, error } = await supabase
     .from("class_topic_meetings")
     .select("topic_id, class_id")
@@ -121,7 +141,7 @@ export async function loadUpcomingClassesForTopics(): Promise<ClassRow[]> {
     return onlyCalendar(await getDemoClassesWithEnrollments());
   }
 
-  const supabase = await createClient();
+  const supabase = await topicsClient();
   const { data } = await supabase
     .from("classes")
     .select("*")
@@ -179,7 +199,7 @@ export async function loadClassTopics(options?: {
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await topicsClient();
     let query = supabase.from("class_topics").select("*");
     if (!includeDrafts) query = query.eq("is_published", true);
     const { data, error } = await query;
@@ -232,7 +252,7 @@ export async function loadClassTopic(
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await topicsClient();
     const { data, error } = await supabase
       .from("class_topics")
       .select("*")
@@ -281,7 +301,7 @@ export async function loadTopicSummariesByClassIds(
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await topicsClient();
     const { data, error } = await supabase
       .from("class_topic_meetings")
       .select("topic_id, class_id, class_topics!inner(id, title, is_published)")
@@ -339,7 +359,7 @@ export async function loadTopicIdsByClassIds(
   }
 
   try {
-    const supabase = await createClient();
+    const supabase = await topicsClient();
     const { data, error } = await supabase
       .from("class_topic_meetings")
       .select("topic_id, class_id")
@@ -357,4 +377,14 @@ export async function loadTopicIdsByClassIds(
     console.error("[class-topics] ids", error);
   }
   return map;
+}
+
+/**
+ * Single published topic with at least one today/future meeting.
+ * Prefer the one whose next meeting is soonest. Returns null if none.
+ */
+export async function loadUpcomingHomeTopic(): Promise<ClassTopicRow | null> {
+  const topics = await loadClassTopics({ includeDrafts: false });
+  const { upcoming } = splitClassTopics(topics);
+  return upcoming[0] ?? null;
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireApproved } from "@/lib/auth";
+import { getProfile } from "@/lib/auth";
 import { canManageClassTopics } from "@/lib/roles";
 import { splitClassTopics } from "@/lib/class-topics";
 import { stripTopicHtml } from "@/lib/topic-html";
@@ -130,8 +130,9 @@ function PastRow({
 }
 
 export default async function ClassTopicsPage() {
-  const { profile } = await requireApproved();
-  const staff = canManageClassTopics(profile.role);
+  const { profile } = await getProfile();
+  const staff =
+    profile?.status === "approved" && canManageClassTopics(profile.role);
   const topics = await loadClassTopics({ includeDrafts: staff });
   const visible = staff ? topics : topics.filter((row) => row.is_published);
   const published = visible.filter((row) => row.is_published);

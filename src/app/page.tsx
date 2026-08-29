@@ -1,5 +1,6 @@
 import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
+import { HomeTopicCard } from "@/components/HomeTopicCard";
 import { MeetSpot } from "@/components/MeetSpot";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
@@ -9,11 +10,14 @@ import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { WelcomeLessons } from "@/components/WelcomeLessons";
 import { HomeAnnouncements } from "@/components/HomeAnnouncements";
 import { loadCurrentAnnouncements } from "@/lib/load-announcements";
-import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
+import {
+  loadTopicSummariesByClassIds,
+  loadUpcomingHomeTopic,
+} from "@/lib/load-class-topics";
 import { needsProfileSetup } from "@/lib/profile";
 import { SITE_NAME } from "@/lib/site-name";
 import { withTimeout } from "@/lib/with-timeout";
-import type { ClassRow } from "@/lib/types";
+import type { ClassRow, ClassTopicRow } from "@/lib/types";
 import { redirect } from "next/navigation";
 
 const HOME_QUERY_TIMEOUT_MS = 8_000;
@@ -103,7 +107,7 @@ export default async function HomePage() {
 
   const canEnroll = access === "approved";
 
-  const [classes, announcements] = await Promise.all([
+  const [classes, announcements, upcomingTopic] = await Promise.all([
     loadClasses(userId, canEnroll),
     withTimeout(
       loadCurrentAnnouncements(1),
@@ -115,6 +119,17 @@ export default async function HomePage() {
         error instanceof Error ? error.message : error,
       );
       return [];
+    }),
+    withTimeout(
+      loadUpcomingHomeTopic(),
+      HOME_QUERY_TIMEOUT_MS,
+      "home upcoming topic",
+    ).catch((error) => {
+      console.error(
+        "[home] upcoming topic",
+        error instanceof Error ? error.message : error,
+      );
+      return null as ClassTopicRow | null;
     }),
   ]);
 
@@ -171,7 +186,6 @@ export default async function HomePage() {
               </p>
               {access === "guest" && (
                 <div className="hero-stage__actions">
-                  {/* Plain anchors: full page load if soft navigation is stuck */}
                   <a href="/register" className="btn-primary">
                     Apply to join
                   </a>
@@ -198,7 +212,11 @@ export default async function HomePage() {
           demoMode={demoMode}
           topics={topics}
         />
-        <HomeChatCard access={access} />
+
+        <div className="hero-stage__aside">
+          <HomeChatCard access={access} />
+          {upcomingTopic ? <HomeTopicCard topic={upcomingTopic} /> : null}
+        </div>
       </section>
       <MeetSpot />
     </div>
