@@ -11,7 +11,10 @@ import {
   canManageClassTopics,
   canReviewApplications,
 } from "./roles";
+import { withTimeout } from "./with-timeout";
 import type { Profile } from "./types";
+
+const AUTH_TIMEOUT_MS = 8_000;
 
 function hasSupabaseEnv() {
   return Boolean(
@@ -25,10 +28,22 @@ export async function getSessionUser() {
     return { supabase: null, user: null };
   }
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return { supabase, user };
+  try {
+    const {
+      data: { user },
+    } = await withTimeout(
+      supabase.auth.getUser(),
+      AUTH_TIMEOUT_MS,
+      "getUser",
+    );
+    return { supabase, user };
+  } catch (error) {
+    console.error(
+      "[auth] getUser",
+      error instanceof Error ? error.message : error,
+    );
+    return { supabase, user: null };
+  }
 }
 
 export const getProfile = cache(async (): Promise<{
@@ -45,13 +60,22 @@ export const getProfile = cache(async (): Promise<{
 
   const { supabase, user } = await getSessionUser();
   if (supabase && user) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .maybeSingle();
-
-    return { profile: (data as Profile | null) ?? null, userId: user.id };
+    try {
+      const { data } = await withTimeout(
+        Promise.resolve(
+          supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        ),
+        AUTH_TIMEOUT_MS,
+        "getProfile",
+      );
+      return { profile: (data as Profile | null) ?? null, userId: user.id };
+    } catch (error) {
+      console.error(
+        "[auth] getProfile",
+        error instanceof Error ? error.message : error,
+      );
+      return { profile: null, userId: user.id };
+    }
   }
 
   // Optional Tech key fallback when Supabase is configured but unused

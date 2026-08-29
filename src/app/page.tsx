@@ -15,8 +15,11 @@ import { loadCurrentAnnouncements } from "@/lib/load-announcements";
 import { loadTopicSummariesByClassIds } from "@/lib/load-class-topics";
 import { needsProfileSetup } from "@/lib/profile";
 import { SITE_NAME } from "@/lib/site-name";
+import { withTimeout } from "@/lib/with-timeout";
 import type { ClassRow } from "@/lib/types";
 import { redirect } from "next/navigation";
+
+const HOME_QUERY_TIMEOUT_MS = 8_000;
 
 function welcomeFirstName(displayName: string | null | undefined) {
   if (!displayName) return "there";
@@ -25,7 +28,6 @@ function welcomeFirstName(displayName: string | null | undefined) {
 }
 
 async function loadClasses(userId: string | null, canEnroll: boolean) {
-  // Pure local demo (no Supabase env)
   if (useLocalDemo()) {
     return getDemoClassesWithEnrollments();
   }
@@ -35,18 +37,23 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
   }
 
   try {
-    // Do not block the homepage on class seeding — a stuck insert was
-    // leaving the header streamed while main content never finished.
+    // Never block the homepage on class seeding.
     after(() => {
       void ensureUpcomingClasses();
     });
 
     const supabase = await createClient();
-    const { data: classes } = await supabase
-      .from("classes")
-      .select("*")
-      .gte("starts_at", new Date(Date.now() - CLASS_DURATION_MS).toISOString())
-      .order("starts_at", { ascending: true });
+    const { data: classes } = await withTimeout(
+      Promise.resolve(
+        supabase
+          .from("classes")
+          .select("*")
+          .gte("starts_at", new Date(Date.now() - CLASS_DURATION_MS).toISOString())
+          .order("starts_at", { ascending: true }),
+      ),
+      HOME_QUERY_TIMEOUT_MS,
+      "home classes",
+    );
 
     if (!classes?.length) return [] as ClassRow[];
 
@@ -55,10 +62,16 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
     const mine = new Set<string>();
 
     if (canEnroll && userId) {
-      const { data: enrollments } = await supabase
-        .from("enrollments")
-        .select("class_id, user_id")
-        .in("class_id", ids);
+      const { data: enrollments } = await withTimeout(
+        Promise.resolve(
+          supabase
+            .from("enrollments")
+            .select("class_id, user_id")
+            .in("class_id", ids),
+        ),
+        HOME_QUERY_TIMEOUT_MS,
+        "home enrollments",
+      );
 
       for (const row of enrollments ?? []) {
         counts.set(row.class_id, (counts.get(row.class_id) ?? 0) + 1);
@@ -71,7 +84,11 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
       enrollment_count: counts.get(c.id) ?? 0,
       enrolled: mine.has(c.id),
     })) as ClassRow[];
-  } catch {
+  } catch (error) {
+    console.error(
+      "[home] loadClasses",
+      error instanceof Error ? error.message : error,
+    );
     return [] as ClassRow[];
   }
 }
@@ -93,11 +110,36 @@ export default async function HomePage() {
           : "pending";
 
   const canEnroll = access === "approved";
-  const classes = await loadClasses(userId, canEnroll);
-  const topicMap = await loadTopicSummariesByClassIds(classes.map((c) => c.id));
+
+  const [classes, announcements] = await Promise.all([
+    loadClasses(userId, canEnroll),
+    withTimeout(
+      loadCurrentAnnouncements(1),
+      HOME_QUERY_TIMEOUT_MS,
+      "home announcements",
+    ).catch((error) => {
+      console.error(
+        "[home] announcements",
+        error instanceof Error ? error.message : error,
+      );
+      return [];
+    }),
+  ]);
+
+  const topicMap = await withTimeout(
+    loadTopicSummariesByClassIds(classes.map((c) => c.id)),
+    HOME_QUERY_TIMEOUT_MS,
+    "home topics",
+  ).catch((error) => {
+    console.error(
+      "[home] topics",
+      error instanceof Error ? error.message : error,
+    );
+    return new Map<string, { id: string; title: string }>();
+  });
+
   const topics: Record<string, { id: string; title: string }> = {};
   for (const [classId, topic] of topicMap) topics[classId] = topic;
-  const announcements = await loadCurrentAnnouncements(1);
   const firstName = welcomeFirstName(profile?.display_name);
 
   return (

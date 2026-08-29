@@ -1,6 +1,10 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
 import { DEMO_COOKIE, DEMO_MEMBERS_COOKIE, DEMO_TECH_ID } from "@/lib/demo";
+import { withTimeout } from "@/lib/with-timeout";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+const PROFILE_TIMEOUT_MS = 4_000;
 
 const PUBLIC = new Set([
   "/",
@@ -46,7 +50,6 @@ function demoMemberStatus(
   if (userId === DEMO_TECH_ID) return "approved";
   const raw = request.cookies.get(DEMO_MEMBERS_COOKIE)?.value;
   if (!raw) {
-    // Seed defaults: sample pending/approved ids
     if (userId.startsWith("demo-pending")) return "pending";
     if (userId.startsWith("demo-member")) return "approved";
     return "pending";
@@ -87,6 +90,33 @@ function statusHomePath(status: string | null | undefined) {
   if (status === "approved") return "/";
   if (status === "suspended") return "/suspended";
   return "/pending";
+}
+
+async function loadProfileFields<T extends string>(
+  supabase: SupabaseClient,
+  userId: string,
+  columns: T,
+): Promise<Record<string, unknown> | null | undefined> {
+  try {
+    const { data, error } = await withTimeout(
+      Promise.resolve(
+        supabase.from("profiles").select(columns).eq("id", userId).maybeSingle(),
+      ),
+      PROFILE_TIMEOUT_MS,
+      `middleware profiles ${columns}`,
+    );
+    if (error) {
+      console.error("[middleware] profiles", error.message);
+      return undefined;
+    }
+    return data as Record<string, unknown> | null;
+  } catch (error) {
+    console.error(
+      "[middleware] profiles",
+      error instanceof Error ? error.message : error,
+    );
+    return undefined;
+  }
 }
 
 export async function middleware(request: NextRequest) {
@@ -136,10 +166,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
 
-    if (status === "approved" && isMemberManagementPath(path)) {
-      // Role check happens on the page; allow through
-    }
-
     return NextResponse.next();
   }
 
@@ -150,13 +176,21 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    const { data: existing } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("id", user.id)
-      .maybeSingle();
-    if (!existing) {
-      await supabase.auth.signOut();
+    const existing = await loadProfileFields(supabase, user.id, "id");
+    // undefined = timed out / error — do not block the whole site
+    if (existing === null) {
+      try {
+        await withTimeout(
+          supabase.auth.signOut(),
+          PROFILE_TIMEOUT_MS,
+          "middleware signOut",
+        );
+      } catch (error) {
+        console.error(
+          "[middleware] signOut",
+          error instanceof Error ? error.message : error,
+        );
+      }
       if (!isPublicPath(path)) {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/";
@@ -181,13 +215,11 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(redirectUrl);
     }
     if (user) {
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("status")
-        .eq("id", user.id)
-        .maybeSingle();
-      redirectUrl.pathname = statusHomePath(profile?.status);
-      return NextResponse.redirect(redirectUrl);
+      const profile = await loadProfileFields(supabase, user.id, "status");
+      redirectUrl.pathname = statusHomePath(
+        typeof profile?.status === "string" ? profile.status : undefined,
+      );
+      return copyCookies(supabaseResponse, NextResponse.redirect(redirectUrl));
     }
     redirectUrl.pathname = "/";
     return NextResponse.redirect(redirectUrl);
@@ -198,53 +230,52 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("status, role")
-      .eq("id", user.id)
-      .maybeSingle();
+    const profile = await loadProfileFields(supabase, user.id, "status, role");
+    // If profile lookup failed, skip gates — pages still enforce access.
+    if (profile === undefined) {
+      return supabaseResponse;
+    }
 
-    if (profile?.status === "suspended") {
+    const status = typeof profile?.status === "string" ? profile.status : null;
+    const role = typeof profile?.role === "string" ? profile.role : null;
+
+    if (status === "suspended") {
       if (!isSuspendedAllowedPath(path)) {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/suspended";
-        return NextResponse.redirect(redirectUrl);
+        return copyCookies(supabaseResponse, NextResponse.redirect(redirectUrl));
       }
       return supabaseResponse;
     }
 
     if (!isPublicPath(path) && path !== "/pending") {
-      if (!profile || profile.status !== "approved") {
+      if (!profile || status !== "approved") {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/pending";
-        return NextResponse.redirect(redirectUrl);
+        return copyCookies(supabaseResponse, NextResponse.redirect(redirectUrl));
       }
 
       if (
         isMemberManagementPath(path) &&
-        profile.role !== "tech" &&
-        profile.role !== "teacher" &&
-        profile.role !== "admin"
+        role !== "tech" &&
+        role !== "teacher" &&
+        role !== "admin"
       ) {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/";
-        return NextResponse.redirect(redirectUrl);
+        return copyCookies(supabaseResponse, NextResponse.redirect(redirectUrl));
       }
 
-      if (
-        path.startsWith("/admin") &&
-        profile.role !== "teacher" &&
-        profile.role !== "tech"
-      ) {
+      if (path.startsWith("/admin") && role !== "teacher" && role !== "tech") {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/";
-        return NextResponse.redirect(redirectUrl);
+        return copyCookies(supabaseResponse, NextResponse.redirect(redirectUrl));
       }
 
-      if (path.startsWith("/activity") && profile.role !== "tech") {
+      if (path.startsWith("/activity") && role !== "tech") {
         const redirectUrl = request.nextUrl.clone();
         redirectUrl.pathname = "/";
-        return NextResponse.redirect(redirectUrl);
+        return copyCookies(supabaseResponse, NextResponse.redirect(redirectUrl));
       }
     }
   }
