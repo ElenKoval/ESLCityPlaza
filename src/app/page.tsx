@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { after } from "next/server";
 import { HomeCalendar } from "@/components/HomeCalendar";
 import { HomeChatCard } from "@/components/HomeChatCard";
 import { MeetSpot } from "@/components/MeetSpot";
@@ -34,7 +35,12 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
   }
 
   try {
-    await ensureUpcomingClasses();
+    // Do not block the homepage on class seeding — a stuck insert was
+    // leaving the header streamed while main content never finished.
+    after(() => {
+      void ensureUpcomingClasses();
+    });
+
     const supabase = await createClient();
     const { data: classes } = await supabase
       .from("classes")

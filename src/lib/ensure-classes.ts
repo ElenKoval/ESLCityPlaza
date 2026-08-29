@@ -7,6 +7,10 @@ import {
   upcomingSessionStarts,
 } from "@/lib/class-schedule";
 
+const ENSURE_TIMEOUT_MS = 8_000;
+
+let ensureInFlight: Promise<void> | null = null;
+
 function adminClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -16,15 +20,38 @@ function adminClient() {
   });
 }
 
-export async function ensureUpcomingClasses() {
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
+}
+
+async function ensureUpcomingClassesOnce() {
   const admin = adminClient();
   if (!admin) return;
 
   const wanted = upcomingSessionStarts();
-  const { data: existing } = await admin
+  const { data: existing, error: listError } = await admin
     .from("classes")
     .select("id, starts_at")
     .gte("starts_at", new Date(Date.now() - CLASS_DURATION_MS).toISOString());
+
+  if (listError) {
+    console.error("[ensure-classes] list", listError.message);
+    return;
+  }
 
   const have = existing ?? [];
   const missing = wanted.filter(
@@ -32,7 +59,36 @@ export async function ensureUpcomingClasses() {
   );
   if (!missing.length) return;
 
-  await admin.from("classes").insert(missing.map((iso) => scheduleClassPayload(iso)));
+  const { error: insertError } = await admin
+    .from("classes")
+    .insert(missing.map((iso) => scheduleClassPayload(iso)));
+
+  // Concurrent requests may insert the same days; ignore duplicate races.
+  if (insertError && !/duplicate|unique/i.test(insertError.message)) {
+    console.error("[ensure-classes] insert", insertError.message);
+  }
+}
+
+/** Creates missing Mon/Fri class rows. Safe to call often; never throw to callers. */
+export async function ensureUpcomingClasses() {
+  if (ensureInFlight) return ensureInFlight;
+
+  ensureInFlight = withTimeout(
+    ensureUpcomingClassesOnce(),
+    ENSURE_TIMEOUT_MS,
+    "ensureUpcomingClasses",
+  )
+    .catch((error) => {
+      console.error(
+        "[ensure-classes]",
+        error instanceof Error ? error.message : error,
+      );
+    })
+    .finally(() => {
+      ensureInFlight = null;
+    });
+
+  return ensureInFlight;
 }
 
 export async function findOrCreateClassId(sessionDate: string) {
