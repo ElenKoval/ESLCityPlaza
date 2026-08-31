@@ -60,13 +60,8 @@ export default async function ManageMembersPage() {
       .map((p) => ({
         ...p,
         email: contacts.get(p.id)?.email ?? p.email,
-      }))
-      .filter(
-        (p) =>
-          !canCheckConfirm ||
-          !contactsReady ||
-          contacts.get(p.id)?.confirmed,
-      );
+        email_confirmed: contacts.get(p.id)?.confirmed,
+      }));
     members = members.map((p) => ({
       ...p,
       email: contacts.get(p.id)?.email ?? p.email,

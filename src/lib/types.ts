@@ -22,6 +22,8 @@ export type Profile = {
   reviewed_by: string | null;
   /** Filled for Approvals / member admin, and in local demo mode */
   email?: string;
+  /** Set on Manage Members from Auth Admin */
+  email_confirmed?: boolean;
 };
 
 export type ClassRow = {

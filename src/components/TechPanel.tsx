@@ -172,19 +172,24 @@ function ReviewForm({ profile }: { profile: Profile }) {
     null,
   );
   useRefreshOnSuccess(state);
+  const awaitingEmail = profile.email_confirmed === false;
 
   return (
     <form action={action} className="manage-app__actions">
       <input type="hidden" name="user_id" value={profile.id} />
-      <button
-        className="btn-primary manage-approve"
-        type="submit"
-        name="decision"
-        value="approve"
-        disabled={pending}
-      >
-        {pending ? "Saving…" : "Approve"}
-      </button>
+      {awaitingEmail ? (
+        <p className="manage-app__note">Waiting for email confirmation</p>
+      ) : (
+        <button
+          className="btn-primary manage-approve"
+          type="submit"
+          name="decision"
+          value="approve"
+          disabled={pending}
+        >
+          {pending ? "Saving…" : "Approve"}
+        </button>
+      )}
       <button
         className="manage-text-btn"
         type="submit"

@@ -3980,10 +3980,16 @@ button.chat-msg__name {
 
 .manage-app__who span,
 .manage-app__when,
+.manage-app__note,
 .manage-member__joined,
 .manage-member__status {
   color: var(--ink-soft);
   font-size: 0.82rem;
+}
+
+.manage-app__note {
+  margin: 0;
+  font-style: italic;
 }
 
 .manage-member__name {
