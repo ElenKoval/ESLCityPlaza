@@ -380,11 +380,19 @@ export async function loadTopicIdsByClassIds(
 }
 
 /**
- * Single published topic with at least one today/future meeting.
- * Prefer the one whose next meeting is soonest. Returns null if none.
+ * Published topic for the home card: prefer soonest upcoming meeting,
+ * otherwise the most recently active published topic.
  */
 export async function loadUpcomingHomeTopic(): Promise<ClassTopicRow | null> {
   const topics = await loadClassTopics({ includeDrafts: false });
-  const { upcoming } = splitClassTopics(topics);
-  return upcoming[0] ?? null;
+  if (topics.length === 0) return null;
+
+  const { upcoming, past } = splitClassTopics(topics);
+  if (upcoming[0]) return upcoming[0];
+  if (past[0]) return past[0];
+
+  return [...topics].sort(
+    (a, b) =>
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  )[0];
 }
