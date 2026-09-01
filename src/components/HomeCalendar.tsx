@@ -263,7 +263,7 @@ export function HomeCalendar({
       </div>
 
       <p className="home-cal__note">
-        Classes usually meet Mondays and Fridays, {DEFAULT_CLASS_HOURS}.
+        We usually meet Mondays and Fridays, {DEFAULT_CLASS_HOURS}.
         {access === "approved"
           ? " Check the calendar for each meeting’s location."
           : null}

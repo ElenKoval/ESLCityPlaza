@@ -6,7 +6,6 @@ import { getDemoClassTopics } from "@/lib/demo-class-topics";
 import { CLASS_DURATION_MS, isPlazaCalendarClass } from "@/lib/enrollment";
 import { canManageClassTopics } from "@/lib/roles";
 import {
-  splitClassTopics,
   withPrimaryMeetingFields,
 } from "@/lib/class-topics";
 import type {
@@ -380,19 +379,16 @@ export async function loadTopicIdsByClassIds(
 }
 
 /**
- * Published topic for the home card: prefer soonest upcoming meeting,
- * otherwise the most recently active published topic.
+ * Home card: newest published topic (by created_at).
+ * It stays on the home page until a newer published topic is created,
+ * or until this one is unpublished/deleted — then the next newest shows.
  */
 export async function loadUpcomingHomeTopic(): Promise<ClassTopicRow | null> {
   const topics = await loadClassTopics({ includeDrafts: false });
   if (topics.length === 0) return null;
 
-  const { upcoming, past } = splitClassTopics(topics);
-  if (upcoming[0]) return upcoming[0];
-  if (past[0]) return past[0];
-
   return [...topics].sort(
     (a, b) =>
-      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
   )[0];
 }
