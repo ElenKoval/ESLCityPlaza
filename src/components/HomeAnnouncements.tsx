@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { AnnouncementRow, Role } from "@/lib/types";
 
@@ -57,7 +58,10 @@ export function AnnouncementBoard({
           className={`home-announcement ${item.is_important ? "is-important" : ""}`}
         >
           <h3 className="home-announcement__title">{item.title}</h3>
-          <p className="home-announcement__body">{item.body}</p>
+          <LinkifiedText
+            text={item.body}
+            className="home-announcement__body"
+          />
           <AnnouncementMeta
             name={item.author_name || "Member"}
             role={item.author_role}
@@ -87,7 +91,10 @@ export function HomeAnnouncements({ items }: { items: AnnouncementRow[] }) {
             className={item.is_important ? "is-important" : undefined}
           >
             <h3 className="home-announcement__title">{item.title}</h3>
-            <p className="home-announcement__body">{item.body}</p>
+            <LinkifiedText
+              text={item.body}
+              className="home-announcement__body"
+            />
             <AnnouncementMeta
               name={item.author_name || "Member"}
               role={item.author_role}

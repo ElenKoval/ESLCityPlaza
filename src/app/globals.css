@@ -635,6 +635,17 @@ textarea {
   white-space: pre-wrap;
 }
 
+.home-announcement__body a {
+  color: var(--plaza);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  word-break: break-word;
+}
+
+.home-announcement__body a:hover {
+  color: var(--plaza-deep, #9a3412);
+}
+
 .home-announcement__meta {
   margin: 0;
   display: flex;
@@ -672,6 +683,17 @@ textarea {
 .announce-item__body {
   margin: 0.35rem 0;
   white-space: pre-wrap;
+}
+
+.announce-item__body a {
+  color: var(--plaza);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  word-break: break-word;
+}
+
+.announce-item__body a:hover {
+  color: var(--plaza-deep, #9a3412);
 }
 
 .welcome-lessons__title {

@@ -7,6 +7,7 @@ import {
   updateAnnouncement,
   type ActionState,
 } from "@/app/actions";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import { RoleBadge } from "@/components/RoleBadge";
 import type { AnnouncementRow } from "@/lib/types";
 
@@ -32,6 +33,9 @@ function CreateForm() {
         Message
         <textarea name="body" required maxLength={2000} rows={4} />
       </label>
+      <p className="field-hint">
+        Paste a full link (https://…) and it will be clickable.
+      </p>
       <label>
         Show until
         <input name="expires_at" type="date" />
@@ -65,7 +69,7 @@ function EditRow({ item }: { item: AnnouncementRow }) {
     return (
       <article className={`panel announce-item ${item.is_important ? "is-important" : ""}`}>
         <h3>{item.title}</h3>
-        <p className="announce-item__body">{item.body}</p>
+        <LinkifiedText text={item.body} className="announce-item__body" />
         <p className="class-meta">
           <span>{item.author_name}</span>
           {item.author_role && <RoleBadge role={item.author_role} />}
@@ -119,6 +123,9 @@ function EditRow({ item }: { item: AnnouncementRow }) {
           defaultValue={item.body}
         />
       </label>
+      <p className="field-hint">
+        Paste a full link (https://…) and it will be clickable.
+      </p>
       <label>
         Show until
         <input
