@@ -34,7 +34,7 @@ function CreateForm() {
         <textarea name="body" required maxLength={2000} rows={4} />
       </label>
       <p className="field-hint">
-        Paste a full link (https://…) and it will be clickable.
+        Links: paste https://… or write [Google Maps](https://maps.google.com/…)
       </p>
       <label>
         Show until
@@ -124,7 +124,7 @@ function EditRow({ item }: { item: AnnouncementRow }) {
         />
       </label>
       <p className="field-hint">
-        Paste a full link (https://…) and it will be clickable.
+        Links: paste https://… or write [Google Maps](https://maps.google.com/…)
       </p>
       <label>
         Show until
