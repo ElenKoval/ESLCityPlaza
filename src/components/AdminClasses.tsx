@@ -15,8 +15,11 @@ import {
   toLosAngelesDatetimeLocal,
 } from "@/lib/class-schedule";
 import { ClassSignupList } from "@/components/ClassRoster";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import { canEditClassSchedule, type Role } from "@/lib/roles";
 import type { ClassRoster, ClassRow } from "@/lib/types";
+
+const LOCATION_MAX = 500;
 
 function CreateClassForm() {
   const [state, action, pending] = useActionState<ActionState, FormData>(
@@ -38,10 +41,13 @@ function CreateClassForm() {
         Location
         <input
           name="location"
-          maxLength={120}
+          maxLength={LOCATION_MAX}
           defaultValue={DEFAULT_CLASS_LOCATION}
         />
       </label>
+      <p className="field-hint">
+        Links: [Google Maps](https://maps.google.com/…) or paste https://…
+      </p>
       <label>
         Date and time
         <input name="starts_at" type="datetime-local" required />
@@ -125,10 +131,13 @@ function EditClassForm({ item, role }: { item: ClassRow; role: Role }) {
           Location
           <input
             name="location"
-            maxLength={120}
+            maxLength={LOCATION_MAX}
             defaultValue={classLocation(item.location)}
           />
         </label>
+        <p className="field-hint">
+          Links: [Google Maps](https://maps.google.com/…) or paste https://…
+        </p>
         {tech && (
           <>
             <label>
@@ -186,7 +195,11 @@ export function AdminClasses({
               <h3>{item.title}</h3>
               <div className="class-meta">
                 <span>{formatClassDateTime(item.starts_at)}</span>
-                <span>{classLocation(item.location)}</span>
+                <LinkifiedText
+                  text={classLocation(item.location)}
+                  className="class-meta__place"
+                  as="span"
+                />
                 <span>Capacity: {item.capacity}</span>
                 <span>Signed up: {item.enrollment_count ?? 0}</span>
               </div>

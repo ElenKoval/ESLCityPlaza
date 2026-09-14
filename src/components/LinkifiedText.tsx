@@ -48,9 +48,11 @@ function linkifyPlainUrls(text: string, keyPrefix: string): ReactNode[] {
 export function LinkifiedText({
   text,
   className,
+  as: Tag = "p",
 }: {
   text: string;
   className?: string;
+  as?: "p" | "span";
 }) {
   if (!text) return null;
 
@@ -83,5 +85,5 @@ export function LinkifiedText({
     nodes.push(...linkifyPlainUrls(text.slice(lastIndex), `t${lastIndex}`));
   }
 
-  return <p className={className}>{nodes}</p>;
+  return <Tag className={className}>{nodes}</Tag>;
 }

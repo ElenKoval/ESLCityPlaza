@@ -10,6 +10,7 @@ import {
 import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
 import { classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
 import { ClassTopicChip } from "@/components/ClassTopicChip";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import type { ClassRow } from "@/lib/types";
 
 function useRefreshOnSuccess(state: ActionState) {
@@ -82,7 +83,10 @@ export function ClassList({
           <article key={item.id} className="class-item">
             <h3>{formatClassWhen(item.starts_at)}</h3>
             <p>{formatClassHours(item.starts_at)}</p>
-            <p className="class-place">{classLocation(item.location)}</p>
+            <LinkifiedText
+              text={classLocation(item.location)}
+              className="class-place"
+            />
             <ClassTopicChip topic={topics?.[item.id]} />
             <div className="class-meta">
               <span>{spotsAvailableLabel(count, item.capacity)}</span>

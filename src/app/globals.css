@@ -745,6 +745,21 @@ textarea {
   color: var(--ink-soft);
 }
 
+.welcome-lessons__place a,
+.class-place a,
+.class-meta__place a {
+  color: var(--plaza);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  word-break: break-word;
+}
+
+.welcome-lessons__place a:hover,
+.class-place a:hover,
+.class-meta__place a:hover {
+  color: var(--plaza-deep, #9a3412);
+}
+
 .welcome-lessons__empty {
   margin: 0;
   font-size: 0.92rem;
@@ -1097,6 +1112,17 @@ textarea {
   margin: 0 0 0.55rem;
   font-size: 0.9rem;
   color: var(--ink-soft);
+}
+
+.home-cal__where a {
+  color: var(--plaza);
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  word-break: break-word;
+}
+
+.home-cal__where a:hover {
+  color: var(--plaza-deep, #9a3412);
 }
 
 .home-cal__cta {

@@ -25,6 +25,7 @@ import {
   readLocalEnrollments,
 } from "@/lib/demo-enroll-client";
 import { ClassTopicChip } from "@/components/ClassTopicChip";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import type { ClassRow } from "@/lib/types";
 
 type Access = "guest" | "pending" | "rejected" | "approved";
@@ -284,7 +285,10 @@ export function HomeCalendar({
           <>
             <p className="home-cal__when">{selectedHours}</p>
             {access === "approved" && (
-              <p className="home-cal__where">{selectedPlace}</p>
+              <LinkifiedText
+                text={selectedPlace}
+                className="home-cal__where"
+              />
             )}
             {access === "approved" &&
               dayClasses.map((c) => (

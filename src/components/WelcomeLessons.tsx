@@ -2,6 +2,7 @@
 
 import { CancelClassControl } from "@/components/CancelClassControl";
 import { ClassTopicChip } from "@/components/ClassTopicChip";
+import { LinkifiedText } from "@/components/LinkifiedText";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import { classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
 import type { ClassRow } from "@/lib/types";
@@ -51,7 +52,10 @@ export function WelcomeLessons({
                 <p className="welcome-lessons__time">
                   {formatClassHours(c.starts_at)}
                 </p>
-                <p className="welcome-lessons__place">{classLocation(c.location)}</p>
+                <LinkifiedText
+                  text={classLocation(c.location)}
+                  className="welcome-lessons__place"
+                />
                 <ClassTopicChip topic={topics?.[c.id]} />
               </div>
               <CancelClassControl classId={c.id} />
