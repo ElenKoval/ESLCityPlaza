@@ -262,6 +262,71 @@ export async function sendApprovedWelcomeEmail(to: string, _name: string) {
   });
 }
 
+/** Member email when a waitlist seat opens and they are signed up. */
+export async function sendWaitlistSpotOpenedEmail(input: {
+  to: string;
+  name: string;
+  whenLabel: string;
+  hoursLabel: string;
+  placeLabel: string;
+}) {
+  const homeUrl = siteUrl();
+  const first = input.name.trim().split(/\s+/)[0] || "there";
+  const subject = `A spot opened — you're signed up (${SITE_NAME})`;
+  const html = `
+      <p>Hi ${escapeHtml(first)},</p>
+      <p><strong>A spot opened for you</strong> at ${SITE_NAME}.</p>
+      <p>You’re now signed up for:</p>
+      <p>
+        ${escapeHtml(input.whenLabel)} · ${escapeHtml(input.hoursLabel)}<br/>
+        ${escapeHtml(input.placeLabel)}
+      </p>
+      <p>If you can’t make it, please cancel on the website so someone else can take the spot.</p>
+      <p><a href="${homeUrl}">Open ${escapeHtml(SITE_NAME)}</a></p>
+    `;
+  const text = [
+    `Hi ${first},`,
+    ``,
+    `A spot opened for you at ${SITE_NAME}.`,
+    `You’re now signed up for:`,
+    `${input.whenLabel} · ${input.hoursLabel}`,
+    input.placeLabel,
+    ``,
+    `If you can’t make it, please cancel on the website so someone else can take the spot.`,
+    ``,
+    homeUrl,
+  ].join("\n");
+
+  const smtp = await sendSmtpEmail({ to: input.to, subject, html, text });
+  if (smtp.sent) return smtp;
+
+  if (process.env.RESEND_API_KEY?.trim()) {
+    const resend = await sendResendEmail({
+      to: [input.to],
+      subject,
+      html,
+      text,
+    });
+    if (resend.sent) return resend;
+    console.error(
+      "[mail] waitlist spot Resend failed",
+      resend.error,
+      "smtp:",
+      smtp.error,
+    );
+    return {
+      sent: false as const,
+      error: friendlyMailError(resend.error || smtp.error),
+    };
+  }
+
+  console.error("[mail] waitlist spot SMTP failed", smtp.error);
+  return {
+    sent: false as const,
+    error: friendlyMailError(smtp.error),
+  };
+}
+
 export async function sendNewApplicationNotice(input: {
   name: string;
   email: string;

@@ -116,6 +116,7 @@ export default function PrivacyPage() {
         <ul>
           <li>A confirmation link when you apply</li>
           <li>A notice if your account is approved</li>
+          <li>A notice if a waitlist spot opens and you are signed up</li>
           <li>Internal notices to organizers about new membership requests</li>
         </ul>
         <p>We do not send marketing emails.</p>

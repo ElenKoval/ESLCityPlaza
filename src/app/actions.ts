@@ -38,7 +38,7 @@ import {
   displayNameTaken,
   emailForUserId,
 } from "@/lib/auth-admin";
-import { sendApprovedWelcomeEmail, sendNewApplicationNotice } from "@/lib/mail";
+import { sendApprovedWelcomeEmail, sendNewApplicationNotice, sendWaitlistSpotOpenedEmail } from "@/lib/mail";
 import {
   MAX_INTERESTS,
   splitStoredInterests,
@@ -74,7 +74,7 @@ import {
   CHAT_FILE_PATH_RE,
   sanitizeChatFileName,
 } from "@/lib/chat-file";
-import { DEFAULT_CLASS_LOCATION, fromLosAngelesDatetimeLocal, laWeekdayNumber } from "@/lib/class-schedule";
+import { DEFAULT_CLASS_LOCATION, fromLosAngelesDatetimeLocal, laWeekdayNumber, classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
 import { authConfirmUrl, authResetUrl } from "@/lib/site-url";
 import { SITE_NAME } from "@/lib/site-name";
 import type { AnnouncementRow, ClassTopicRow, Profile, Role } from "@/lib/types";
@@ -1191,6 +1191,43 @@ export async function setMemberSuspended(
   return { success: suspend ? "Account suspended" : "Access restored" };
 }
 
+async function notifyWaitlistPromotion(classId: string, userId: string | null) {
+  if (!userId) return;
+  try {
+    const supabase = await createClient();
+    const [{ data: profile }, { data: classRow }, email] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("display_name")
+        .eq("id", userId)
+        .maybeSingle(),
+      supabase
+        .from("classes")
+        .select("starts_at, location")
+        .eq("id", classId)
+        .maybeSingle(),
+      emailForUserId(userId),
+    ]);
+    if (!email || !classRow?.starts_at) return;
+
+    const result = await sendWaitlistSpotOpenedEmail({
+      to: email,
+      name: profile?.display_name || "there",
+      whenLabel: formatClassWhen(classRow.starts_at),
+      hoursLabel: formatClassHours(classRow.starts_at),
+      placeLabel: classLocation(classRow.location),
+    });
+    if (!result.sent) {
+      console.error("[waitlist] promote email", result.error);
+    }
+  } catch (error) {
+    console.error(
+      "[waitlist] promote email",
+      error instanceof Error ? error.message : error,
+    );
+  }
+}
+
 export async function removeClassEnrollment(
   _prev: ActionState,
   formData: FormData,
@@ -1238,7 +1275,11 @@ export async function removeClassEnrollment(
     .eq("user_id", userId);
   if (error) return { error: error.message };
 
-  await promoteNextFromWaitlist(supabase, classId);
+  await promoteNextFromWaitlist(supabase, classId).then((promotedId) => {
+    after(() => {
+      void notifyWaitlistPromotion(classId, promotedId);
+    });
+  });
 
   revalidatePath("/members");
   revalidatePath("/admin");
@@ -1995,7 +2036,11 @@ export async function unenrollClass(
 
   if (error) return { error: error.message };
 
-  await promoteNextFromWaitlist(supabase, classId);
+  await promoteNextFromWaitlist(supabase, classId).then((promotedId) => {
+    after(() => {
+      void notifyWaitlistPromotion(classId, promotedId);
+    });
+  });
 
   revalidatePath("/classes");
   revalidatePath("/my");
@@ -2173,6 +2218,10 @@ export async function promoteWaitlistMember(
     return { error: error.message };
   }
   if (!data) return { error: "Could not move this person into the class" };
+
+  after(() => {
+    void notifyWaitlistPromotion(classId, userId);
+  });
 
   revalidatePath("/admin");
   revalidatePath("/");

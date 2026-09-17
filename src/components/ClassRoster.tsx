@@ -172,11 +172,9 @@ export function ClassSignupList({
           <p className="roster-class__empty">No one on the waitlist.</p>
         ) : (
           <ul className="roster-list">
-            {waiting.map((person, index) => (
+            {waiting.map((person) => (
               <li key={person.userId} className="roster-list__row">
-                <span>
-                  #{index + 1} {person.displayName}
-                </span>
+                <span>{person.displayName}</span>
                 <WaitlistRowActions
                   classId={classId}
                   userId={person.userId}

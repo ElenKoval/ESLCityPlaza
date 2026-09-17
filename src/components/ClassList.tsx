@@ -93,7 +93,7 @@ export function ClassList({
               {item.waitlisted || full ? (
                 <span>
                   {item.waitlisted
-                    ? `Waitlist #${item.waitlist_position ?? "?"}`
+                    ? "On waitlist"
                     : spotsAvailableLabel(count, item.capacity)}
                 </span>
               ) : (
@@ -120,7 +120,6 @@ export function ClassList({
                   classId={item.id}
                   waitlisted={item.waitlisted}
                   waitlistCount={item.waitlist_count}
-                  waitlistPosition={item.waitlist_position}
                   compact
                 />
               ) : (

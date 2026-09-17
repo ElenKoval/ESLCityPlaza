@@ -24,13 +24,11 @@ export function WaitlistControls({
   classId,
   waitlisted,
   waitlistCount,
-  waitlistPosition,
   compact = false,
 }: {
   classId: string;
   waitlisted?: boolean;
   waitlistCount?: number;
-  waitlistPosition?: number | null;
   compact?: boolean;
 }) {
   const [joinState, joinAction, joining] = useActionState<ActionState, FormData>(
@@ -51,9 +49,7 @@ export function WaitlistControls({
   if (waitlisted) {
     return (
       <div className={compact ? "waitlist-box waitlist-box--compact" : "waitlist-box"}>
-        <p className="home-cal__spots">
-          {waitlistPositionLabel(waitlistPosition ?? 0)}
-        </p>
+        <p className="home-cal__spots">{waitlistPositionLabel()}</p>
         <form action={leaveAction}>
           <input type="hidden" name="class_id" value={classId} />
           <button

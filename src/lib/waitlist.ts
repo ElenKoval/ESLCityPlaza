@@ -3,10 +3,8 @@ export const WAITLIST_MAX = 6;
 
 export const WAITLIST_FULL_MESSAGE = "Waitlist is full (6 people).";
 
-export function waitlistPositionLabel(position: number) {
-  if (position <= 0) return "You’re on the waitlist";
-  if (position === 1) return "You’re #1 on the waitlist";
-  return `You’re #${position} on the waitlist`;
+export function waitlistPositionLabel(_position?: number) {
+  return "You’re on the waitlist";
 }
 
 export function waitlistCountLabel(count: number) {

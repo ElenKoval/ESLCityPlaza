@@ -393,7 +393,6 @@ export function HomeCalendar({
                         classId={c.id}
                         waitlisted={c.waitlisted}
                         waitlistCount={c.waitlist_count}
-                        waitlistPosition={c.waitlist_position}
                       />
                     ) : (
                       <>
