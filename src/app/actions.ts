@@ -1194,21 +1194,29 @@ export async function setMemberSuspended(
 async function notifyWaitlistPromotion(classId: string, userId: string | null) {
   if (!userId) return;
   try {
-    const supabase = await createClient();
+    const admin = createAdminClient();
+    const db = admin ?? (await createClient());
     const [{ data: profile }, { data: classRow }, email] = await Promise.all([
-      supabase
+      db
         .from("profiles")
         .select("display_name")
         .eq("id", userId)
         .maybeSingle(),
-      supabase
+      db
         .from("classes")
         .select("starts_at, location")
         .eq("id", classId)
         .maybeSingle(),
       emailForUserId(userId),
     ]);
-    if (!email || !classRow?.starts_at) return;
+    if (!email) {
+      console.error("[waitlist] promote email skipped: no email for", userId);
+      return;
+    }
+    if (!classRow?.starts_at) {
+      console.error("[waitlist] promote email skipped: no class", classId);
+      return;
+    }
 
     const result = await sendWaitlistSpotOpenedEmail({
       to: email,
@@ -1219,6 +1227,8 @@ async function notifyWaitlistPromotion(classId: string, userId: string | null) {
     });
     if (!result.sent) {
       console.error("[waitlist] promote email", result.error);
+    } else {
+      console.info("[waitlist] promote email sent to", email);
     }
   } catch (error) {
     console.error(
@@ -1275,11 +1285,8 @@ export async function removeClassEnrollment(
     .eq("user_id", userId);
   if (error) return { error: error.message };
 
-  await promoteNextFromWaitlist(supabase, classId).then((promotedId) => {
-    after(() => {
-      void notifyWaitlistPromotion(classId, promotedId);
-    });
-  });
+  const promotedId = await promoteNextFromWaitlist(supabase, classId);
+  await notifyWaitlistPromotion(classId, promotedId);
 
   revalidatePath("/members");
   revalidatePath("/admin");
@@ -2036,11 +2043,8 @@ export async function unenrollClass(
 
   if (error) return { error: error.message };
 
-  await promoteNextFromWaitlist(supabase, classId).then((promotedId) => {
-    after(() => {
-      void notifyWaitlistPromotion(classId, promotedId);
-    });
-  });
+  const promotedId = await promoteNextFromWaitlist(supabase, classId);
+  await notifyWaitlistPromotion(classId, promotedId);
 
   revalidatePath("/classes");
   revalidatePath("/my");
@@ -2219,9 +2223,7 @@ export async function promoteWaitlistMember(
   }
   if (!data) return { error: "Could not move this person into the class" };
 
-  after(() => {
-    void notifyWaitlistPromotion(classId, userId);
-  });
+  await notifyWaitlistPromotion(classId, userId);
 
   revalidatePath("/admin");
   revalidatePath("/");
