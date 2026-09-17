@@ -37,6 +37,10 @@ export type ClassRow = {
   created_at: string;
   enrollment_count?: number;
   enrolled?: boolean;
+  waitlist_count?: number;
+  waitlisted?: boolean;
+  /** 1-based position when waitlisted */
+  waitlist_position?: number | null;
 };
 
 export type ClassRosterEntry = {
@@ -52,6 +56,7 @@ export type ClassRoster = {
   location?: string;
   capacity?: number;
   people: ClassRosterEntry[];
+  waitlist?: ClassRosterEntry[];
 };
 
 export type ClassTopicMeeting = {

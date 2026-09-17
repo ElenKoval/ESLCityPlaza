@@ -45,9 +45,6 @@ function CreateClassForm() {
           defaultValue={DEFAULT_CLASS_LOCATION}
         />
       </label>
-      <p className="field-hint">
-        Links: [Google Maps](https://maps.google.com/…) or paste https://…
-      </p>
       <label>
         Date and time
         <input name="starts_at" type="datetime-local" required />
@@ -135,9 +132,6 @@ function EditClassForm({ item, role }: { item: ClassRow; role: Role }) {
             defaultValue={classLocation(item.location)}
           />
         </label>
-        <p className="field-hint">
-          Links: [Google Maps](https://maps.google.com/…) or paste https://…
-        </p>
         {tech && (
           <>
             <label>
@@ -211,6 +205,8 @@ export function AdminClasses({
                 <ClassSignupList
                   classId={item.id}
                   people={people}
+                  waitlist={roster?.waitlist ?? []}
+                  capacity={item.capacity}
                   actorRole={role}
                 />
               </details>

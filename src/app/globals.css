@@ -1676,6 +1676,35 @@ textarea {
   gap: 0.75rem;
 }
 
+.roster-list__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+}
+
+.roster-sections {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.roster-waitlist__title {
+  margin: 0 0 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 650;
+  color: var(--ink-soft);
+}
+
+.waitlist-box {
+  display: grid;
+  gap: 0.45rem;
+  justify-items: start;
+}
+
+.waitlist-box--compact {
+  width: 100%;
+}
+
 .class-list {
   display: grid;
   gap: 1rem;

@@ -29,9 +29,9 @@ export function WelcomeLessons({
   if (mine.length === 0) {
     return (
       <div className="welcome-lessons">
-        <h2 className="welcome-lessons__title">My classes</h2>
+        <h2 className="welcome-lessons__title">My meetings</h2>
         <p className="welcome-lessons__empty">
-          You&apos;re not signed up for any upcoming classes yet.
+          You&apos;re not signed up for any upcoming meetings yet.
         </p>
         <a href="#home-cal" className="welcome-lessons__cal-link">
           View calendar
@@ -42,7 +42,7 @@ export function WelcomeLessons({
 
   return (
     <div className="welcome-lessons">
-      <h2 className="welcome-lessons__title">My classes</h2>
+      <h2 className="welcome-lessons__title">My meetings</h2>
       <ul className="welcome-lessons__list">
         {mine.map((c) => (
           <li key={c.id} className="welcome-lessons__item">

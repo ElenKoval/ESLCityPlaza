@@ -12,6 +12,8 @@ import {
   isClosedClassDate,
   isPlazaCalendarClass,
 } from "@/lib/enrollment";
+import { promoteNextFromWaitlist } from "@/lib/load-waitlist";
+import { WAITLIST_FULL_MESSAGE, WAITLIST_MAX } from "@/lib/waitlist";
 import {
   createPendingMember,
   getDemoMembers,
@@ -1235,6 +1237,9 @@ export async function removeClassEnrollment(
     .eq("class_id", classId)
     .eq("user_id", userId);
   if (error) return { error: error.message };
+
+  await promoteNextFromWaitlist(supabase, classId);
+
   revalidatePath("/members");
   revalidatePath("/admin");
   revalidatePath("/");
@@ -1934,6 +1939,12 @@ export async function enrollClass(
     return { error: error.message };
   }
 
+  await supabase
+    .from("class_waitlist")
+    .delete()
+    .eq("class_id", classId)
+    .eq("user_id", user.id);
+
   revalidatePath("/classes");
   revalidatePath("/my");
   revalidatePath("/");
@@ -1983,10 +1994,242 @@ export async function unenrollClass(
     .eq("user_id", user.id);
 
   if (error) return { error: error.message };
+
+  await promoteNextFromWaitlist(supabase, classId);
+
   revalidatePath("/classes");
   revalidatePath("/my");
   revalidatePath("/");
   return { success: "Sign-up canceled" };
+}
+
+export async function joinWaitlist(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const classId = String(formData.get("class_id") || "");
+  if (!classId) return { error: "Missing class" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    return { error: "Waitlist is not available in demo mode" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("status")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (!me || me.status !== "approved") {
+    return { error: "Your application must be approved first" };
+  }
+
+  const { data: classRow } = await supabase
+    .from("classes")
+    .select("id, capacity, starts_at")
+    .eq("id", classId)
+    .single();
+  if (!classRow) return { error: "Class not found" };
+  if (isClosedClassDate(classRow.starts_at)) {
+    return { error: CLOSED_CLASS_MESSAGE };
+  }
+  if (!canEnrollNow(classRow.starts_at)) {
+    return {
+      error: "Sign-up opens only within 2 weeks before the class",
+    };
+  }
+
+  const { count: enrolledCount } = await supabase
+    .from("enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("class_id", classId);
+  const cap = Math.min(classRow.capacity, CLASS_CAPACITY);
+  if ((enrolledCount ?? 0) < cap) {
+    return { error: "A spot is still open — use Sign up instead" };
+  }
+
+  const { data: alreadyIn } = await supabase
+    .from("enrollments")
+    .select("user_id")
+    .eq("class_id", classId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (alreadyIn) return { error: "You are already signed up" };
+
+  const { count: waitCount } = await supabase
+    .from("class_waitlist")
+    .select("*", { count: "exact", head: true })
+    .eq("class_id", classId);
+  if ((waitCount ?? 0) >= WAITLIST_MAX) {
+    return { error: WAITLIST_FULL_MESSAGE };
+  }
+
+  const { error } = await supabase.from("class_waitlist").insert({
+    class_id: classId,
+    user_id: user.id,
+  });
+  if (error) {
+    if (error.code === "23505") return { error: "You are already on the waitlist" };
+    if (/waitlist is full/i.test(error.message)) {
+      return { error: WAITLIST_FULL_MESSAGE };
+    }
+    if (/already signed up/i.test(error.message)) {
+      return { error: "You are already signed up" };
+    }
+    return { error: error.message };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/classes");
+  revalidatePath("/my");
+  revalidatePath("/admin");
+  return { success: "You’re on the waitlist" };
+}
+
+export async function leaveWaitlist(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const classId = String(formData.get("class_id") || "");
+  if (!classId) return { error: "Missing class" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    return { error: "Waitlist is not available in demo mode" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { error } = await supabase
+    .from("class_waitlist")
+    .delete()
+    .eq("class_id", classId)
+    .eq("user_id", user.id);
+  if (error) return { error: error.message };
+
+  revalidatePath("/");
+  revalidatePath("/classes");
+  revalidatePath("/my");
+  revalidatePath("/admin");
+  return { success: "Left the waitlist" };
+}
+
+export async function promoteWaitlistMember(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const classId = String(formData.get("class_id") || "");
+  const userId = String(formData.get("user_id") || "");
+  if (!classId || !userId) return { error: "Missing class or person" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    return { error: "Waitlist is not available in demo mode" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canViewClassRoster(me.role)) {
+    return { error: "You cannot change this waitlist" };
+  }
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!target) return { error: "Account not found" };
+  if (!canRemoveFromClass(me.role, target.role)) {
+    return { error: "You can only promote a participant" };
+  }
+
+  const { data, error } = await supabase.rpc("promote_waitlist_user", {
+    p_class_id: classId,
+    p_user_id: userId,
+  });
+  if (error) {
+    if (/class is full/i.test(error.message)) {
+      return { error: CLASS_FULL_MESSAGE };
+    }
+    if (/not allowed/i.test(error.message)) {
+      return { error: "You cannot change this waitlist" };
+    }
+    return { error: error.message };
+  }
+  if (!data) return { error: "Could not move this person into the class" };
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/classes");
+  revalidatePath("/my");
+  return { success: "Moved from waitlist into the class" };
+}
+
+export async function removeWaitlistMember(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const classId = String(formData.get("class_id") || "");
+  const userId = String(formData.get("user_id") || "");
+  if (!classId || !userId) return { error: "Missing class or person" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    return { error: "Waitlist is not available in demo mode" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canViewClassRoster(me.role)) {
+    return { error: "You cannot change this waitlist" };
+  }
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!target) return { error: "Account not found" };
+  if (!canRemoveFromClass(me.role, target.role)) {
+    return { error: "You can only remove a participant from the waitlist" };
+  }
+
+  const { error } = await supabase
+    .from("class_waitlist")
+    .delete()
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+  if (error) return { error: error.message };
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/classes");
+  revalidatePath("/my");
+  return { success: "Removed from waitlist" };
 }
 
 function collectProfileInterests(formData: FormData):

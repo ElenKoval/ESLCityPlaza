@@ -26,6 +26,7 @@ import {
 } from "@/lib/demo-enroll-client";
 import { ClassTopicChip } from "@/components/ClassTopicChip";
 import { LinkifiedText } from "@/components/LinkifiedText";
+import { WaitlistControls } from "@/components/WaitlistControls";
 import type { ClassRow } from "@/lib/types";
 
 type Access = "guest" | "pending" | "rejected" | "approved";
@@ -325,7 +326,7 @@ export function HomeCalendar({
           <div className="home-cal__signup">
             {isClosedClassDate(selected) ? (
               <div className="home-cal__signup-row">
-                <p className="home-cal__spots">No class this day — holiday.</p>
+                <p className="home-cal__spots">No meeting this day — holiday.</p>
                 <button type="button" className="btn-primary" disabled>
                   Holiday
                 </button>
@@ -360,37 +361,53 @@ export function HomeCalendar({
                         </p>
                         <CancelClassControl classId={c.id} />
                       </div>
+                    ) : status === "past" ? (
+                      <>
+                        <p className="home-cal__spots">
+                          {spotsAvailableLabel(count, c.capacity)}
+                        </p>
+                        <button type="button" className="btn-primary" disabled>
+                          Past
+                        </button>
+                      </>
+                    ) : status === "closed" ? (
+                      <>
+                        <p className="home-cal__spots">
+                          {spotsAvailableLabel(count, c.capacity)}
+                        </p>
+                        <button type="button" className="btn-primary" disabled>
+                          Holiday
+                        </button>
+                      </>
+                    ) : status === "too_early" ? (
+                      <>
+                        <p className="home-cal__spots">
+                          {spotsAvailableLabel(count, c.capacity)}
+                        </p>
+                        <button type="button" className="btn-primary" disabled>
+                          Not open yet
+                        </button>
+                      </>
+                    ) : full || c.waitlisted ? (
+                      <WaitlistControls
+                        classId={c.id}
+                        waitlisted={c.waitlisted}
+                        waitlistCount={c.waitlist_count}
+                        waitlistPosition={c.waitlist_position}
+                      />
                     ) : (
                       <>
                         <p className="home-cal__spots">
                           {spotsAvailableLabel(count, c.capacity)}
                         </p>
-                        {status === "past" ? (
-                          <button type="button" className="btn-primary" disabled>
-                            Past
-                          </button>
-                        ) : status === "closed" ? (
-                          <button type="button" className="btn-primary" disabled>
-                            Holiday
-                          </button>
-                        ) : status === "too_early" ? (
-                          <button type="button" className="btn-primary" disabled>
-                            Not open yet
-                          </button>
-                        ) : full ? (
-                          <button type="button" className="btn-primary" disabled>
-                            Class full
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn-primary"
-                            disabled={busy}
-                            onClick={() => signUp(c.id, ymd(selected))}
-                          >
-                            {busy ? "Signing up…" : "Sign up"}
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          className="btn-primary"
+                          disabled={busy}
+                          onClick={() => signUp(c.id, ymd(selected))}
+                        >
+                          {busy ? "Signing up…" : "Sign up"}
+                        </button>
                       </>
                     )}
                   </div>

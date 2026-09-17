@@ -11,6 +11,7 @@ import { enrollStatus, spotsAvailableLabel } from "@/lib/enrollment";
 import { classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
 import { ClassTopicChip } from "@/components/ClassTopicChip";
 import { LinkifiedText } from "@/components/LinkifiedText";
+import { WaitlistControls } from "@/components/WaitlistControls";
 import type { ClassRow } from "@/lib/types";
 
 function useRefreshOnSuccess(state: ActionState) {
@@ -56,7 +57,7 @@ function UnenrollButton({ classId }: { classId: string }) {
 
 export function ClassList({
   items,
-  emptyText = "No lessons yet. Sign up from the calendar on the home page.",
+  emptyText = "No meetings yet. Sign up from the calendar on the home page.",
   topics,
 }: {
   items: ClassRow[];
@@ -89,7 +90,15 @@ export function ClassList({
             />
             <ClassTopicChip topic={topics?.[item.id]} />
             <div className="class-meta">
-              <span>{spotsAvailableLabel(count, item.capacity)}</span>
+              {item.waitlisted || full ? (
+                <span>
+                  {item.waitlisted
+                    ? `Waitlist #${item.waitlist_position ?? "?"}`
+                    : spotsAvailableLabel(count, item.capacity)}
+                </span>
+              ) : (
+                <span>{spotsAvailableLabel(count, item.capacity)}</span>
+              )}
             </div>
             <div className="class-actions">
               {item.enrolled ? (
@@ -106,10 +115,14 @@ export function ClassList({
                 <button className="btn-primary" type="button" disabled>
                   Past
                 </button>
-              ) : full ? (
-                <button className="btn-primary" type="button" disabled>
-                  Class full
-                </button>
+              ) : full || item.waitlisted ? (
+                <WaitlistControls
+                  classId={item.id}
+                  waitlisted={item.waitlisted}
+                  waitlistCount={item.waitlist_count}
+                  waitlistPosition={item.waitlist_position}
+                  compact
+                />
               ) : (
                 <EnrollButton classId={item.id} />
               )}

@@ -40,7 +40,7 @@ export function DemoMyLessons({
     <ClassList
       items={items}
       topics={topics}
-      emptyText="You have no lessons yet. Pick a Monday or Friday on the home calendar."
+      emptyText="You have no meetings yet. Pick a Monday or Friday on the home calendar."
     />
   );
 }

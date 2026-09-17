@@ -5,6 +5,10 @@ import { MeetSpot } from "@/components/MeetSpot";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
+import {
+  attachWaitlistToClasses,
+  loadWaitlistRows,
+} from "@/lib/load-waitlist";
 import { useLocalDemo } from "@/lib/demo";
 import { getDemoClassesWithEnrollments } from "@/lib/demo-classes";
 import { WelcomeLessons } from "@/components/WelcomeLessons";
@@ -58,21 +62,36 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
     const mine = new Set<string>();
 
     if (canEnroll && userId) {
-      const { data: enrollments } = await withTimeout(
-        Promise.resolve(
-          supabase
-            .from("enrollments")
-            .select("class_id, user_id")
-            .in("class_id", ids),
+      const [{ data: enrollments }, waitRows] = await Promise.all([
+        withTimeout(
+          Promise.resolve(
+            supabase
+              .from("enrollments")
+              .select("class_id, user_id")
+              .in("class_id", ids),
+          ),
+          HOME_QUERY_TIMEOUT_MS,
+          "home enrollments",
         ),
-        HOME_QUERY_TIMEOUT_MS,
-        "home enrollments",
-      );
+        withTimeout(
+          loadWaitlistRows(supabase, ids),
+          HOME_QUERY_TIMEOUT_MS,
+          "home waitlist",
+        ).catch(() => [] as Awaited<ReturnType<typeof loadWaitlistRows>>),
+      ]);
 
       for (const row of enrollments ?? []) {
         counts.set(row.class_id, (counts.get(row.class_id) ?? 0) + 1);
         if (row.user_id === userId) mine.add(row.class_id);
       }
+
+      const withCounts = classes.map((c) => ({
+        ...c,
+        enrollment_count: counts.get(c.id) ?? 0,
+        enrolled: mine.has(c.id),
+      })) as ClassRow[];
+
+      return attachWaitlistToClasses(withCounts, waitRows, userId);
     }
 
     return classes.map((c) => ({

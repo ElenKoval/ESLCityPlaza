@@ -48,7 +48,7 @@ export default async function MyLessonsPage() {
   return (
     <div className="page">
       <section className="section">
-        <h2>My lessons</h2>
+        <h2>My meetings</h2>
         <p className="lead">
           Dates you signed up for. Sign up from the home page calendar.
         </p>
@@ -58,7 +58,7 @@ export default async function MyLessonsPage() {
           <ClassList
             items={items}
             topics={topics}
-            emptyText="You have no lessons yet. Pick a Monday or Friday on the home calendar."
+            emptyText="You have no meetings yet. Pick a Monday or Friday on the home calendar."
           />
         )}
       </section>

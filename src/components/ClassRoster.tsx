@@ -2,7 +2,12 @@
 
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { removeClassEnrollment, type ActionState } from "@/app/actions";
+import {
+  promoteWaitlistMember,
+  removeClassEnrollment,
+  removeWaitlistMember,
+  type ActionState,
+} from "@/app/actions";
 import { canRemoveFromClass } from "@/lib/roles";
 import type { ClassRoster, Role } from "@/lib/types";
 
@@ -52,33 +57,139 @@ function RemoveSignupForm({
   );
 }
 
+function WaitlistRowActions({
+  classId,
+  userId,
+  name,
+  targetRole,
+  actorRole,
+  canPromote,
+}: {
+  classId: string;
+  userId: string;
+  name: string;
+  targetRole: Role;
+  actorRole: Role;
+  canPromote: boolean;
+}) {
+  const [promoteState, promoteAction, promoting] = useActionState<
+    ActionState,
+    FormData
+  >(promoteWaitlistMember, null);
+  const [removeState, removeAction, removing] = useActionState<
+    ActionState,
+    FormData
+  >(removeWaitlistMember, null);
+  useRefreshOnSuccess(promoteState);
+  useRefreshOnSuccess(removeState);
+
+  if (!canRemoveFromClass(actorRole, targetRole)) return null;
+
+  return (
+    <div className="roster-list__actions">
+      {canPromote && (
+        <form
+          action={promoteAction}
+          onSubmit={(e) => {
+            if (!confirm(`Move ${name} from the waitlist into this class?`)) {
+              e.preventDefault();
+            }
+          }}
+        >
+          <input type="hidden" name="class_id" value={classId} />
+          <input type="hidden" name="user_id" value={userId} />
+          <button className="manage-text-btn" type="submit" disabled={promoting}>
+            {promoting ? "Moving…" : "Add to class"}
+          </button>
+        </form>
+      )}
+      <form
+        action={removeAction}
+        onSubmit={(e) => {
+          if (!confirm(`Remove ${name} from the waitlist?`)) {
+            e.preventDefault();
+          }
+        }}
+      >
+        <input type="hidden" name="class_id" value={classId} />
+        <input type="hidden" name="user_id" value={userId} />
+        <button className="manage-text-btn" type="submit" disabled={removing}>
+          {removing ? "Removing…" : "Remove"}
+        </button>
+      </form>
+      {(promoteState?.error || removeState?.error) && (
+        <p className="error">{promoteState?.error || removeState?.error}</p>
+      )}
+    </div>
+  );
+}
+
 export function ClassSignupList({
   classId,
   people,
+  waitlist = [],
+  capacity,
   actorRole,
 }: {
   classId: string;
   people: ClassRoster["people"];
+  waitlist?: ClassRoster["waitlist"];
+  capacity?: number;
   actorRole: Role;
 }) {
-  if (people.length === 0) {
-    return <p className="roster-class__empty">No one signed up yet.</p>;
-  }
+  const seatsLeft =
+    typeof capacity === "number"
+      ? Math.max(0, capacity - people.length)
+      : 0;
+  const waiting = waitlist ?? [];
 
   return (
-    <ul className="roster-list">
-      {people.map((person) => (
-        <li key={person.userId} className="roster-list__row">
-          <span>{person.displayName}</span>
-          <RemoveSignupForm
-            classId={classId}
-            userId={person.userId}
-            name={person.displayName}
-            targetRole={person.role}
-            actorRole={actorRole}
-          />
-        </li>
-      ))}
-    </ul>
+    <div className="roster-sections">
+      {people.length === 0 ? (
+        <p className="roster-class__empty">No one signed up yet.</p>
+      ) : (
+        <ul className="roster-list">
+          {people.map((person) => (
+            <li key={person.userId} className="roster-list__row">
+              <span>{person.displayName}</span>
+              <RemoveSignupForm
+                classId={classId}
+                userId={person.userId}
+                name={person.displayName}
+                targetRole={person.role}
+                actorRole={actorRole}
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="roster-waitlist">
+        <p className="roster-waitlist__title">
+          Waitlist{waiting.length ? ` (${waiting.length})` : ""}
+        </p>
+        {waiting.length === 0 ? (
+          <p className="roster-class__empty">No one on the waitlist.</p>
+        ) : (
+          <ul className="roster-list">
+            {waiting.map((person, index) => (
+              <li key={person.userId} className="roster-list__row">
+                <span>
+                  #{index + 1} {person.displayName}
+                </span>
+                <WaitlistRowActions
+                  classId={classId}
+                  userId={person.userId}
+                  name={person.displayName}
+                  targetRole={person.role}
+                  actorRole={actorRole}
+                  canPromote={seatsLeft > 0}
+                />
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </div>
   );
 }

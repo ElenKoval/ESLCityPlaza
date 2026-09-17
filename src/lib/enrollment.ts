@@ -13,7 +13,7 @@ export const CLASS_DURATION_MS = 2 * 60 * 60 * 1000;
 /** Plaza local calendar dates with no class (Labor Day 2026 only). */
 export const CLOSED_CLASS_DATES = new Set(["2026-09-07"]);
 
-export const CLOSED_CLASS_MESSAGE = "No class this day — holiday.";
+export const CLOSED_CLASS_MESSAGE = "No meeting this day — holiday.";
 
 export function classDateKey(value: Date | string) {
   if (value instanceof Date) {

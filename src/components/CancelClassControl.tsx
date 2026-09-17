@@ -30,7 +30,7 @@ export function CancelClassControl({
   if (asking) {
     return (
       <div className="cancel-confirm">
-        <p className="cancel-confirm__q">Cancel this class?</p>
+        <p className="cancel-confirm__q">Cancel this meeting?</p>
         <div className="cancel-confirm__actions">
           <button
             type="button"
@@ -38,7 +38,7 @@ export function CancelClassControl({
             disabled={pending}
             onClick={() => setAsking(false)}
           >
-            Keep class
+            Keep meeting
           </button>
           <form action={action}>
             <input type="hidden" name="class_id" value={classId} />
