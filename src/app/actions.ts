@@ -38,7 +38,7 @@ import {
   displayNameTaken,
   emailForUserId,
 } from "@/lib/auth-admin";
-import { sendApprovedWelcomeEmail, sendNewApplicationNotice, sendWaitlistSpotOpenedEmail } from "@/lib/mail";
+import { sendApprovedWelcomeEmail, sendNewApplicationNotice, sendWaitlistSpotOpenedEmail, memberSmtpConfigured } from "@/lib/mail";
 import {
   MAX_INTERESTS,
   splitStoredInterests,
@@ -58,6 +58,7 @@ import {
   canManageRoles,
   canModerateAccount,
   canRemoveFromClass,
+  canAddToClass,
   canReviewApplications,
   canViewClassRoster,
   CHAT_ACCESS_DENIED,
@@ -1194,15 +1195,26 @@ export async function setMemberSuspended(
 async function notifyWaitlistPromotion(classId: string, userId: string | null) {
   if (!userId) return;
   try {
+    if (!memberSmtpConfigured()) {
+      console.error(
+        "[waitlist] promote email skipped: SMTP_HOST/SMTP_USER/SMTP_PASS not set on the server",
+      );
+      return;
+    }
     const admin = createAdminClient();
-    const db = admin ?? (await createClient());
+    if (!admin) {
+      console.error(
+        "[waitlist] promote email skipped: SUPABASE_SERVICE_ROLE_KEY missing (need email lookup)",
+      );
+      return;
+    }
     const [{ data: profile }, { data: classRow }, email] = await Promise.all([
-      db
+      admin
         .from("profiles")
         .select("display_name")
         .eq("id", userId)
         .maybeSingle(),
-      db
+      admin
         .from("classes")
         .select("starts_at, location")
         .eq("id", classId)
@@ -1294,6 +1306,117 @@ export async function removeClassEnrollment(
   revalidatePath("/classes");
   revalidatePath("/my");
   return { success: "Removed from this class" };
+}
+
+export async function addClassEnrollment(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const classId = String(formData.get("class_id") || "");
+  const userId = String(formData.get("user_id") || "").trim();
+  if (!classId || !userId) return { error: "Choose a participant" };
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    return { error: "Demo mode does not store named class rosters" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canViewClassRoster(me.role)) {
+    return { error: "You cannot change this sign-up" };
+  }
+
+  const { data: target } = await supabase
+    .from("profiles")
+    .select("id, role, status, display_name")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!target) return { error: "Account not found" };
+  if (target.status !== "approved") {
+    return { error: "Only approved members can be added" };
+  }
+  if (!canAddToClass(me.role, target.role)) {
+    return { error: "You can only add a participant to a class" };
+  }
+
+  const { data: classRow } = await supabase
+    .from("classes")
+    .select("id, capacity, starts_at")
+    .eq("id", classId)
+    .single();
+  if (!classRow) return { error: "Class not found" };
+
+  const { count } = await supabase
+    .from("enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("class_id", classId);
+  const cap = Math.min(classRow.capacity, CLASS_CAPACITY);
+  if ((count ?? 0) >= cap) {
+    return { error: CLASS_FULL_MESSAGE };
+  }
+
+  const { data: already } = await supabase
+    .from("enrollments")
+    .select("user_id")
+    .eq("class_id", classId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (already) return { error: "Already signed up for this meeting" };
+
+  let insertError = (
+    await supabase.from("enrollments").insert({
+      class_id: classId,
+      user_id: userId,
+    })
+  ).error;
+
+  if (insertError) {
+    const admin = createAdminClient();
+    if (admin) {
+      insertError = (
+        await admin.from("enrollments").insert({
+          class_id: classId,
+          user_id: userId,
+        })
+      ).error;
+    }
+  }
+
+  if (insertError) {
+    if (insertError.code === "23505") {
+      return { error: "Already signed up for this meeting" };
+    }
+    if (/policy|permission|rls/i.test(insertError.message)) {
+      return {
+        error:
+          "Run supabase/class-staff-enroll-upgrade.sql in Supabase, then try again.",
+      };
+    }
+    return { error: insertError.message };
+  }
+
+  await supabase
+    .from("class_waitlist")
+    .delete()
+    .eq("class_id", classId)
+    .eq("user_id", userId);
+
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/classes");
+  revalidatePath("/my");
+  return {
+    success: `${target.display_name || "Member"} was added to this meeting`,
+  };
 }
 
 export async function checkChatAccess(): Promise<{ allowed: boolean }> {

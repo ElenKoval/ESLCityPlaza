@@ -14,7 +14,7 @@ import {
   formatClassDateTime,
   toLosAngelesDatetimeLocal,
 } from "@/lib/class-schedule";
-import { ClassSignupList } from "@/components/ClassRoster";
+import { ClassSignupList, type RosterMemberOption } from "@/components/ClassRoster";
 import { LinkifiedText } from "@/components/LinkifiedText";
 import { canEditClassSchedule, type Role } from "@/lib/roles";
 import type { ClassRoster, ClassRow } from "@/lib/types";
@@ -169,10 +169,12 @@ export function AdminClasses({
   classes,
   role,
   rosters,
+  members,
 }: {
   classes: ClassRow[];
   role: Role;
   rosters: ClassRoster[];
+  members: RosterMemberOption[];
 }) {
   const peopleByClass = new Map(rosters.map((item) => [item.classId, item]));
 
@@ -208,6 +210,7 @@ export function AdminClasses({
                   waitlist={roster?.waitlist ?? []}
                   capacity={item.capacity}
                   actorRole={role}
+                  members={members}
                 />
               </details>
               <div className="class-actions">

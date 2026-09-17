@@ -96,7 +96,18 @@ export function canViewClassRoster(role: Role) {
 
 export function canRemoveFromClass(actorRole: Role, targetRole: Role) {
   if (actorRole === "tech") return true;
-  if (actorRole === "admin") return targetRole === "student";
+  if (actorRole === "admin" || actorRole === "teacher") {
+    return targetRole === "student";
+  }
+  return false;
+}
+
+/** Who staff may place onto a class roster. */
+export function canAddToClass(actorRole: Role, targetRole: Role) {
+  if (actorRole === "tech") return true;
+  if (actorRole === "admin" || actorRole === "teacher") {
+    return targetRole === "student";
+  }
   return false;
 }
 

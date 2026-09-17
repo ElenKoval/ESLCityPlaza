@@ -2,6 +2,7 @@ import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminClasses } from "@/components/AdminClasses";
 import { loadClassRostersFor } from "@/lib/load-class-rosters";
+import type { Role } from "@/lib/roles";
 import type { ClassRow } from "@/lib/types";
 
 export default async function AdminPage() {
@@ -31,18 +32,39 @@ export default async function AdminPage() {
     ...c,
     enrollment_count: counts.get(c.id) ?? 0,
   }));
-  const rosters = await loadClassRostersFor(supabase, classRows);
+  const [rosters, membersResult] = await Promise.all([
+    loadClassRostersFor(supabase, classRows),
+    supabase
+      .from("profiles")
+      .select("id, display_name, role")
+      .eq("status", "approved")
+      .order("display_name", { ascending: true }),
+  ]);
+  const members = ((membersResult.data ?? []) as Array<{
+    id: string;
+    display_name: string;
+    role: Role;
+  }>).map((row) => ({
+    id: row.id,
+    display_name: row.display_name,
+    role: row.role,
+  }));
 
   return (
     <div className="page">
       <section className="section">
         <h2>Schedule</h2>
         <p className="lead">
-          Open <strong>Who signed up</strong> on a class to see the names.
-          Coordinators can change the meeting place. Tech can also change time,
-          title, and capacity.
+          Open <strong>Who signed up</strong> to see names, add a participant,
+          or manage the waitlist. Coordinators can change the meeting place.
+          Tech can also change time, title, and capacity.
         </p>
-        <AdminClasses classes={items} role={profile.role} rosters={rosters} />
+        <AdminClasses
+          classes={items}
+          role={profile.role}
+          rosters={rosters}
+          members={members}
+        />
       </section>
     </div>
   );

@@ -262,7 +262,10 @@ export async function sendApprovedWelcomeEmail(to: string, _name: string) {
   });
 }
 
-/** Member email when a waitlist seat opens and they are signed up. */
+/** Member email when a waitlist seat opens and they are signed up.
+ *  Same channel as approval welcome: Gmail SMTP on the server.
+ *  Resend is not used here — test mode cannot email arbitrary members.
+ */
 export async function sendWaitlistSpotOpenedEmail(input: {
   to: string;
   name: string;
@@ -297,34 +300,15 @@ export async function sendWaitlistSpotOpenedEmail(input: {
     homeUrl,
   ].join("\n");
 
-  const smtp = await sendSmtpEmail({ to: input.to, subject, html, text });
-  if (smtp.sent) return smtp;
+  return sendSmtpEmail({ to: input.to, subject, html, text });
+}
 
-  if (process.env.RESEND_API_KEY?.trim()) {
-    const resend = await sendResendEmail({
-      to: [input.to],
-      subject,
-      html,
-      text,
-    });
-    if (resend.sent) return resend;
-    console.error(
-      "[mail] waitlist spot Resend failed",
-      resend.error,
-      "smtp:",
-      smtp.error,
-    );
-    return {
-      sent: false as const,
-      error: friendlyMailError(resend.error || smtp.error),
-    };
-  }
-
-  console.error("[mail] waitlist spot SMTP failed", smtp.error);
-  return {
-    sent: false as const,
-    error: friendlyMailError(smtp.error),
-  };
+export function memberSmtpConfigured() {
+  return Boolean(
+    process.env.SMTP_HOST?.trim() &&
+      process.env.SMTP_USER?.trim() &&
+      process.env.SMTP_PASS?.trim(),
+  );
 }
 
 export async function sendNewApplicationNotice(input: {

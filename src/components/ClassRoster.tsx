@@ -3,13 +3,20 @@
 import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
+  addClassEnrollment,
   promoteWaitlistMember,
   removeClassEnrollment,
   removeWaitlistMember,
   type ActionState,
 } from "@/app/actions";
-import { canRemoveFromClass } from "@/lib/roles";
+import { canAddToClass, canRemoveFromClass } from "@/lib/roles";
 import type { ClassRoster, Role } from "@/lib/types";
+
+export type RosterMemberOption = {
+  id: string;
+  display_name: string;
+  role: Role;
+};
 
 function useRefreshOnSuccess(state: ActionState) {
   const router = useRouter();
@@ -124,18 +131,92 @@ function WaitlistRowActions({
   );
 }
 
+function AddMemberForm({
+  classId,
+  people,
+  waitlist,
+  members,
+  actorRole,
+  seatsLeft,
+}: {
+  classId: string;
+  people: ClassRoster["people"];
+  waitlist: ClassRoster["waitlist"];
+  members: RosterMemberOption[];
+  actorRole: Role;
+  seatsLeft: number;
+}) {
+  const [state, action, pending] = useActionState<ActionState, FormData>(
+    addClassEnrollment,
+    null,
+  );
+  useRefreshOnSuccess(state);
+
+  const taken = new Set([
+    ...people.map((p) => p.userId),
+    ...(waitlist ?? []).map((p) => p.userId),
+  ]);
+  const options = members
+    .filter(
+      (m) => !taken.has(m.id) && canAddToClass(actorRole, m.role),
+    )
+    .sort((a, b) => a.display_name.localeCompare(b.display_name));
+
+  if (options.length === 0 && seatsLeft > 0) {
+    return (
+      <p className="roster-class__empty">
+        No other approved participants to add.
+      </p>
+    );
+  }
+
+  if (seatsLeft <= 0) {
+    return (
+      <p className="roster-class__empty">
+        Meeting is full — free a seat or use the waitlist.
+      </p>
+    );
+  }
+
+  return (
+    <form action={action} className="roster-add">
+      <input type="hidden" name="class_id" value={classId} />
+      <label className="roster-add__label">
+        Add participant
+        <select name="user_id" required defaultValue="">
+          <option value="" disabled>
+            Choose…
+          </option>
+          {options.map((m) => (
+            <option key={m.id} value={m.id}>
+              {m.display_name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button className="btn-secondary" type="submit" disabled={pending}>
+        {pending ? "Adding…" : "Add"}
+      </button>
+      {state?.error && <p className="error">{state.error}</p>}
+      {state?.success && <p className="success">{state.success}</p>}
+    </form>
+  );
+}
+
 export function ClassSignupList({
   classId,
   people,
   waitlist = [],
   capacity,
   actorRole,
+  members = [],
 }: {
   classId: string;
   people: ClassRoster["people"];
   waitlist?: ClassRoster["waitlist"];
   capacity?: number;
   actorRole: Role;
+  members?: RosterMemberOption[];
 }) {
   const seatsLeft =
     typeof capacity === "number"
@@ -163,6 +244,15 @@ export function ClassSignupList({
           ))}
         </ul>
       )}
+
+      <AddMemberForm
+        classId={classId}
+        people={people}
+        waitlist={waiting}
+        members={members}
+        actorRole={actorRole}
+        seatsLeft={seatsLeft}
+      />
 
       <div className="roster-waitlist">
         <p className="roster-waitlist__title">
