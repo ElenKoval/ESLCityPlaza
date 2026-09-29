@@ -62,6 +62,29 @@ export function stripTopicHtml(content: string) {
     .trim();
 }
 
+/** Plain text with paragraph breaks preserved (for copy / text view). */
+export function topicContentToPlainText(content: string) {
+  const trimmed = content.replace(/\r\n/g, "\n").trim();
+  if (!trimmed) return "";
+  if (!looksLikeTopicHtml(trimmed)) return trimmed;
+
+  const withBreaks = sanitizeTopicHtml(trimmed)
+    .replace(/<\/p>/gi, "\n\n")
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/li>/gi, "\n")
+    .replace(/<\/?(ul|ol)[^>]*>/gi, "\n")
+    .replace(/<\/?li[^>]*>/gi, "")
+    .replace(/<\/?(strong|b|em|i)[^>]*>/gi, "");
+
+  return sanitizeHtml(withBreaks, {
+    allowedTags: [],
+    allowedAttributes: {},
+  })
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function topicContentPlainLength(content: string) {
   return stripTopicHtml(content).length;
 }

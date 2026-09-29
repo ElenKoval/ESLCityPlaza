@@ -10,7 +10,7 @@ import {
 import { loadClassTopic } from "@/lib/load-class-topics";
 import { sitePageTitle } from "@/lib/site-name";
 import { topicContentToDisplayHtml } from "@/lib/topic-html";
-import { TopicPrintButton } from "@/components/TopicPrintButton";
+import { TopicActions } from "@/components/TopicPrintButton";
 
 export async function generateMetadata({
   params,
@@ -77,7 +77,7 @@ export default async function ClassTopicPage({
           </div>
         </article>
         <div className="topic-page__toolbar topic-no-print">
-          <TopicPrintButton />
+          <TopicActions topicId={topic.id} />
           {staff && (
             <>
               <span className="class-meta">
