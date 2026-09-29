@@ -551,14 +551,33 @@ textarea {
 }
 
 .home-announcements__digest .home-announcement__body {
-  margin: 0 0 0.28rem;
+  margin: 0.28rem 0 0.28rem;
   font-size: 0.86rem;
   line-height: 1.4;
   white-space: pre-wrap;
 }
 
+.home-announcements__digest .home-announcement__meta {
+  margin: 0.15rem 0 0;
+}
+
+.home-announcement__more {
+  display: inline-block;
+  margin: 0.1rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 650;
+  color: var(--plaza-deep);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.home-announcement__more:hover {
+  color: var(--plaza);
+}
+
 .announce-board .home-announcement {
   padding: 1rem 1.05rem;
+  scroll-margin-top: 5.5rem;
 }
 
 .announce-board .home-announcement__title {
