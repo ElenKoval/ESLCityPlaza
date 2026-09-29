@@ -3953,7 +3953,8 @@ button.chat-msg__name {
   .topic-no-print,
   .topic-actions,
   .topic-page__toolbar,
-  .topic-back {
+  .topic-back,
+  .topic-print__when {
     display: none !important;
   }
 
@@ -3990,19 +3991,8 @@ button.chat-msg__name {
   .topic-print-root h1 {
     font-family: var(--font-display);
     font-size: 1.65rem;
-    margin: 0 0 0.35rem;
+    margin: 0 0 0.75rem;
     color: #000;
-  }
-
-  .topic-print__when {
-    margin: 0 0 1rem;
-    font-size: 0.95rem;
-    color: #333;
-  }
-
-  .topic-meetings-summary {
-    list-style: none;
-    padding: 0;
   }
 
   .topic-body {

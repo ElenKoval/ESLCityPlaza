@@ -84,7 +84,11 @@ export default async function ClassTopicPage({
           </div>
         </article>
         <div className="topic-page__toolbar topic-no-print">
-          <TopicActions copyText={copyText} />
+          <TopicActions
+            title={topic.title}
+            bodyText={bodyPlain}
+            copyText={copyText}
+          />
           {staff && (
             <>
               <span className="class-meta">
