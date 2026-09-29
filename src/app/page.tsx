@@ -129,7 +129,7 @@ export default async function HomePage() {
   const [classes, announcements, upcomingTopic] = await Promise.all([
     loadClasses(userId, canEnroll),
     withTimeout(
-      loadCurrentAnnouncements(1),
+      loadCurrentAnnouncements(3),
       HOME_QUERY_TIMEOUT_MS,
       "home announcements",
     ).catch((error) => {
