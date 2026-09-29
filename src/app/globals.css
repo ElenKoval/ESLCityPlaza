@@ -2566,9 +2566,16 @@ button.chat-msg__name {
   cursor: not-allowed;
 }
 
+.chat-preview-strip {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  max-width: 100%;
+}
+
 .chat-preview {
   position: relative;
-  grid-column: 1 / -1;
   width: fit-content;
 }
 
@@ -2581,6 +2588,7 @@ button.chat-msg__name {
 }
 
 .chat-preview--file {
+  grid-column: 1 / -1;
   display: flex;
   align-items: center;
   gap: 0.55rem;

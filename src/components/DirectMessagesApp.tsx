@@ -75,6 +75,17 @@ function CloseX() {
   );
 }
 
+const DM_MULTI_PHOTOS_MAX = 10;
+
+type DmPhotoPreview = {
+  id: string;
+  url: string;
+  blob: Blob;
+  width: number;
+  height: number;
+  mime: "image/webp" | "image/jpeg";
+};
+
 function DmLightbox({
   src,
   alt,
@@ -152,13 +163,7 @@ export function DirectMessagesApp({
   const [lightbox, setLightbox] = useState<{ src: string; alt: string } | null>(
     null,
   );
-  const [preview, setPreview] = useState<{
-    url: string;
-    blob: Blob;
-    width: number;
-    height: number;
-    mime: "image/webp" | "image/jpeg";
-  } | null>(null);
+  const [previews, setPreviews] = useState<DmPhotoPreview[]>([]);
   const [preparingPhoto, setPreparingPhoto] = useState(false);
   const logRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -285,33 +290,71 @@ export function DirectMessagesApp({
     };
   }, [userId, activeId, router]);
 
-  async function onPickPhoto(file?: File) {
-    if (!file) return;
+  async function onPickPhotos(fileList: FileList | null) {
+    const files = fileList ? [...fileList] : [];
+    if (!files.length) return;
     setError(null);
     setPreparingPhoto(true);
     try {
-      if (
-        !isHeicType(file) &&
-        !isAllowedChatImageType(file.type) &&
-        !/\.(jpe?g|png|webp|heic|heif)$/i.test(file.name)
-      ) {
-        setError("Please choose a JPEG, PNG, or WebP photo.");
+      const imageFiles = files.filter(
+        (file) =>
+          isHeicType(file) ||
+          isAllowedChatImageType(file.type) ||
+          /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name),
+      );
+      if (!imageFiles.length || imageFiles.length !== files.length) {
+        setError("Please choose JPEG, PNG, WebP, or HEIC photos.");
         return;
       }
-      const prepared = await prepareChatImage(file);
-      setPreview({
-        url: URL.createObjectURL(prepared.blob),
-        blob: prepared.blob,
-        width: prepared.width,
-        height: prepared.height,
-        mime: prepared.mime,
-      });
+      const roomLeft = DM_MULTI_PHOTOS_MAX - previews.length;
+      if (roomLeft <= 0) {
+        setError(`You can attach up to ${DM_MULTI_PHOTOS_MAX} photos.`);
+        return;
+      }
+      const toPrepare = imageFiles.slice(0, roomLeft);
+      const preparedItems: DmPhotoPreview[] = [];
+      for (const file of toPrepare) {
+        const prepared = await prepareChatImage(file);
+        preparedItems.push({
+          id: crypto.randomUUID(),
+          url: URL.createObjectURL(prepared.blob),
+          blob: prepared.blob,
+          width: prepared.width,
+          height: prepared.height,
+          mime: prepared.mime,
+        });
+      }
+      setPreviews((current) =>
+        [...current, ...preparedItems].slice(0, DM_MULTI_PHOTOS_MAX),
+      );
+      if (imageFiles.length > toPrepare.length) {
+        setError(`Only the first ${DM_MULTI_PHOTOS_MAX} photos were added.`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not prepare that photo.");
     } finally {
       setPreparingPhoto(false);
       if (fileRef.current) fileRef.current.value = "";
     }
+  }
+
+  function clearPreviews() {
+    setPreviews((current) => {
+      for (const item of current) URL.revokeObjectURL(item.url);
+      return [];
+    });
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function removePreview(id: string) {
+    setPreviews((current) =>
+      current.filter((item) => {
+        if (item.id !== id) return true;
+        URL.revokeObjectURL(item.url);
+        return false;
+      }),
+    );
+    if (fileRef.current) fileRef.current.value = "";
   }
 
   function insertEmoji(emoji: string) {
@@ -321,36 +364,44 @@ export function DirectMessagesApp({
 
   function send() {
     if (!activeId || blockedEitherWay) return;
-    if (!body.trim() && !preview) return;
-    const fd = new FormData();
-    fd.set("conversation_id", activeId);
-    fd.set("body", body.trim());
-    if (preview) {
-      fd.set(
-        "image",
-        new File([preview.blob], `photo.${preview.mime === "image/webp" ? "webp" : "jpg"}`, {
-          type: preview.mime,
-        }),
-      );
-      fd.set("image_width", String(preview.width));
-      fd.set("image_height", String(preview.height));
-    }
+    if (!body.trim() && !previews.length) return;
+    const caption = body.trim();
+    const photos = [...previews];
     startTransition(async () => {
-      const result = await sendDirectMessage(null, fd);
-      if (result?.error) {
-        setError(result.error);
-        return;
+      for (let i = 0; i < Math.max(photos.length, 1); i++) {
+        const photo = photos[i];
+        if (!photo && !caption) break;
+        const fd = new FormData();
+        fd.set("conversation_id", activeId);
+        fd.set("body", i === 0 ? caption : "");
+        if (photo) {
+          fd.set(
+            "image",
+            new File(
+              [photo.blob],
+              `photo.${photo.mime === "image/webp" ? "webp" : "jpg"}`,
+              { type: photo.mime },
+            ),
+          );
+          fd.set("image_width", String(photo.width));
+          fd.set("image_height", String(photo.height));
+        }
+        const result = await sendDirectMessage(null, fd);
+        if (result?.error) {
+          setError(result.error);
+          return;
+        }
+        if (result?.message) {
+          setMessages((prev) =>
+            prev.some((m) => m.id === result.message!.id)
+              ? prev
+              : [...prev, result.message!],
+          );
+        }
+        if (!photos.length) break;
       }
       setBody("");
-      if (preview) URL.revokeObjectURL(preview.url);
-      setPreview(null);
-      if (result?.message) {
-        setMessages((prev) =>
-          prev.some((m) => m.id === result.message!.id)
-            ? prev
-            : [...prev, result.message!],
-        );
-      }
+      clearPreviews();
       dispatchDmUnreadRefresh();
       router.refresh();
     });
@@ -360,7 +411,7 @@ export function DirectMessagesApp({
     !pending &&
     !preparingPhoto &&
     !blockedEitherWay &&
-    Boolean(body.trim() || preview);
+    Boolean(body.trim() || previews.length);
 
   return (
     <div className={`dm-shell${activeId ? " dm-shell--thread" : " dm-shell--list"}`}>
@@ -639,35 +690,40 @@ export function DirectMessagesApp({
                   send();
                 }}
               >
-                {preview && (
-                  <div className="chat-preview">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={preview.url} alt="Selected photo preview" />
-                    <button
-                      type="button"
-                      className="chat-x-btn chat-preview__remove"
-                      aria-label="Remove photo"
-                      onClick={() => {
-                        URL.revokeObjectURL(preview.url);
-                        setPreview(null);
-                      }}
-                    >
-                      <CloseX />
-                    </button>
+                {previews.length > 0 && (
+                  <div className="chat-preview-strip" aria-label="Selected photos">
+                    {previews.map((item, index) => (
+                      <div key={item.id} className="chat-preview">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={item.url}
+                          alt={`Selected photo ${index + 1}`}
+                        />
+                        <button
+                          type="button"
+                          className="chat-x-btn chat-preview__remove"
+                          aria-label={`Remove photo ${index + 1}`}
+                          onClick={() => removePreview(item.id)}
+                        >
+                          <CloseX />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
                 <input
                   ref={fileRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                  multiple
                   hidden
-                  onChange={(e) => void onPickPhoto(e.target.files?.[0])}
+                  onChange={(e) => void onPickPhotos(e.target.files)}
                 />
                 <div className="chat-compose__actions">
                   <button
                     type="button"
                     className="chat-photo-btn"
-                    aria-label="Add photo"
+                    aria-label="Add photos"
                     onClick={() => fileRef.current?.click()}
                     disabled={pending || preparingPhoto}
                   >

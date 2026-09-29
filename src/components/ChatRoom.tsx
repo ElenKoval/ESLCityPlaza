@@ -24,6 +24,18 @@ import {
   ChatOnlineSheet,
   ChatOnlineSidebar,
 } from "@/components/ChatOnlinePanel";
+
+const CHAT_MULTI_PHOTOS_MAX = 10;
+
+type ChatPhotoPreview = {
+  id: string;
+  url: string;
+  blob: Blob;
+  width: number;
+  height: number;
+  ext: "webp" | "jpg";
+  mime: "image/webp" | "image/jpeg";
+};
 import {
   collectOnlineUsers,
   displayChatName,
@@ -518,15 +530,7 @@ export function ChatRoom({
     null,
   );
   const [preview, setPreview] = useState<
-    | {
-        kind: "photo";
-        url: string;
-        blob: Blob;
-        width: number;
-        height: number;
-        ext: "webp" | "jpg";
-        mime: "image/webp" | "image/jpeg";
-      }
+    | { kind: "photos"; items: ChatPhotoPreview[] }
     | { kind: "file"; name: string; blob: Blob }
     | null
   >(null);
@@ -557,7 +561,9 @@ export function ChatRoom({
         setPresenceReady(false);
         setOnlineSheetOpen(false);
         setPreview((current) => {
-          if (current?.kind === "photo") URL.revokeObjectURL(current.url);
+          if (current?.kind === "photos") {
+            for (const item of current.items) URL.revokeObjectURL(item.url);
+          }
           return null;
         });
         setError(null);
@@ -662,7 +668,9 @@ export function ChatRoom({
 
   useEffect(() => {
     return () => {
-      if (preview?.kind === "photo") URL.revokeObjectURL(preview.url);
+      if (preview?.kind === "photos") {
+        for (const item of preview.items) URL.revokeObjectURL(item.url);
+      }
     };
   }, [preview]);
 
@@ -809,51 +817,103 @@ export function ChatRoom({
 
   function clearPreview() {
     setPreview((current) => {
-      if (current?.kind === "photo") URL.revokeObjectURL(current.url);
+      if (current?.kind === "photos") {
+        for (const item of current.items) URL.revokeObjectURL(item.url);
+      }
       return null;
     });
     if (fileRef.current) fileRef.current.value = "";
   }
 
-  async function onPickAttachment(file: File | undefined) {
-    if (!file) return;
+  function removePhotoPreview(id: string) {
+    setPreview((current) => {
+      if (current?.kind !== "photos") return current;
+      const nextItems = current.items.filter((item) => {
+        if (item.id !== id) return true;
+        URL.revokeObjectURL(item.url);
+        return false;
+      });
+      return nextItems.length ? { kind: "photos", items: nextItems } : null;
+    });
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  async function onPickAttachment(fileList: FileList | null) {
+    const files = fileList ? [...fileList] : [];
+    if (!files.length) return;
     setError(null);
     setPreparingPhoto(true);
     try {
-      if (isChatTextFile(file)) {
-        const prepared = await prepareChatFile(file);
+      const textFiles = files.filter((file) => isChatTextFile(file));
+      if (textFiles.length) {
+        if (files.length > 1) {
+          throw new Error("Choose either photos or one .txt file.");
+        }
+        const prepared = await prepareChatFile(textFiles[0]);
         setPreview((current) => {
-          if (current?.kind === "photo") URL.revokeObjectURL(current.url);
+          if (current?.kind === "photos") {
+            for (const item of current.items) URL.revokeObjectURL(item.url);
+          }
           return { kind: "file", name: prepared.name, blob: prepared.blob };
         });
         return;
       }
-      const looksImage =
-        isHeicType(file) ||
-        isAllowedChatImageType(file.type) ||
-        /\.(jpe?g|png|webp)$/i.test(file.name);
-      if (!looksImage) {
-        throw new Error("Please choose a photo or a .txt file.");
+
+      const imageFiles = files.filter(
+        (file) =>
+          isHeicType(file) ||
+          isAllowedChatImageType(file.type) ||
+          /\.(jpe?g|png|webp|heic|heif)$/i.test(file.name),
+      );
+      if (!imageFiles.length || imageFiles.length !== files.length) {
+        throw new Error("Please choose photos or a .txt file.");
       }
-      const prepared = await prepareChatImage(file);
-      const url = URL.createObjectURL(prepared.blob);
-      setPreview((current) => {
-        if (current?.kind === "photo") URL.revokeObjectURL(current.url);
-        return {
-          kind: "photo",
-          url,
+
+      const roomLeft =
+        CHAT_MULTI_PHOTOS_MAX -
+        (preview?.kind === "photos" ? preview.items.length : 0);
+      if (roomLeft <= 0) {
+        throw new Error(`You can attach up to ${CHAT_MULTI_PHOTOS_MAX} photos.`);
+      }
+      const toPrepare = imageFiles.slice(0, roomLeft);
+      const preparedItems: ChatPhotoPreview[] = [];
+      for (const file of toPrepare) {
+        const prepared = await prepareChatImage(file);
+        preparedItems.push({
+          id: crypto.randomUUID(),
+          url: URL.createObjectURL(prepared.blob),
           blob: prepared.blob,
           width: prepared.width,
           height: prepared.height,
           ext: prepared.ext,
           mime: prepared.mime,
-        };
+        });
+      }
+
+      setPreview((current) => {
+        if (current?.kind === "file") {
+          return { kind: "photos", items: preparedItems };
+        }
+        if (current?.kind === "photos") {
+          return {
+            kind: "photos",
+            items: [...current.items, ...preparedItems].slice(
+              0,
+              CHAT_MULTI_PHOTOS_MAX,
+            ),
+          };
+        }
+        return { kind: "photos", items: preparedItems };
       });
+
+      if (imageFiles.length > toPrepare.length) {
+        setError(`Only the first ${CHAT_MULTI_PHOTOS_MAX} photos were added.`);
+      }
     } catch (err) {
-      clearPreview();
       setError(err instanceof Error ? err.message : "Could not use that file.");
     } finally {
       setPreparingPhoto(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -864,13 +924,13 @@ export function ChatRoom({
 
   function send() {
     const text = body.trim();
-    if (!text && !preview) return;
+    const photos = preview?.kind === "photos" ? preview.items : [];
+    const textFile = preview?.kind === "file" ? preview : null;
+    if (!text && !photos.length && !textFile) return;
     if (sendingRef.current || pending) return;
     sendingRef.current = true;
     setError(null);
     const asAnnounce = canPin && announce;
-    const photo = preview?.kind === "photo" ? preview : null;
-    const textFile = preview?.kind === "file" ? preview : null;
     stickRef.current = true;
     startTransition(async () => {
       try {
@@ -883,60 +943,136 @@ export function ChatRoom({
             setError(result.error);
             return;
           }
-          const msg: ChatMessage = {
-            id: crypto.randomUUID(),
-            user_id: userId,
-            body: text,
-            created_at: new Date().toISOString(),
-            display_name: displayName,
-            role,
-            is_announcement: asAnnounce,
-            image_path: photo ? `demo/${crypto.randomUUID()}.${photo.ext}` : null,
-            image_width: photo?.width ?? null,
-            image_height: photo?.height ?? null,
-            imageUrl: photo?.url ?? null,
-            file_path: textFile ? `demo/${crypto.randomUUID()}.txt` : null,
-            file_name: textFile?.name ?? null,
-            fileUrl: textFile ? URL.createObjectURL(textFile.blob) : null,
-          };
-          const next = withNewChatMessage(readDemoMessages(), msg);
+          const baseTime = Date.now();
+          const nextMsgs: ChatMessage[] = [];
+          if (photos.length) {
+            photos.forEach((photo, index) => {
+              nextMsgs.push({
+                id: crypto.randomUUID(),
+                user_id: userId,
+                body: index === 0 ? text : "",
+                created_at: new Date(baseTime + index).toISOString(),
+                display_name: displayName,
+                role,
+                is_announcement: index === 0 ? asAnnounce : false,
+                image_path: `demo/${crypto.randomUUID()}.${photo.ext}`,
+                image_width: photo.width,
+                image_height: photo.height,
+                imageUrl: photo.url,
+              });
+            });
+          } else {
+            nextMsgs.push({
+              id: crypto.randomUUID(),
+              user_id: userId,
+              body: text,
+              created_at: new Date().toISOString(),
+              display_name: displayName,
+              role,
+              is_announcement: asAnnounce,
+              image_path: null,
+              image_width: null,
+              image_height: null,
+              imageUrl: null,
+              file_path: textFile ? `demo/${crypto.randomUUID()}.txt` : null,
+              file_name: textFile?.name ?? null,
+              fileUrl: textFile ? URL.createObjectURL(textFile.blob) : null,
+            });
+          }
+          let next = readDemoMessages();
+          for (const msg of nextMsgs) {
+            next = withNewChatMessage(next, msg);
+          }
           writeDemoMessages(next);
           setMessages(next);
           setBody("");
           setAnnounce(false);
-          if (photo) setPreview(null);
+          setPreview(null);
           inputRef.current?.focus();
           return;
         }
 
-        const form = new FormData();
-        form.set("body", text);
-        form.set("announce", asAnnounce ? "true" : "false");
-        if (photo) {
-          form.set(
-            "image",
-            new File([photo.blob], `photo.${photo.ext}`, { type: photo.mime }),
-          );
-          form.set("image_width", String(photo.width));
-          form.set("image_height", String(photo.height));
+        async function postOne(opts: {
+          body: string;
+          announce: boolean;
+          photo?: ChatPhotoPreview | null;
+          file?: { name: string; blob: Blob } | null;
+        }) {
+          const form = new FormData();
+          form.set("body", opts.body);
+          form.set("announce", opts.announce ? "true" : "false");
+          if (opts.photo) {
+            form.set(
+              "image",
+              new File([opts.photo.blob], `photo.${opts.photo.ext}`, {
+                type: opts.photo.mime,
+              }),
+            );
+            form.set("image_width", String(opts.photo.width));
+            form.set("image_height", String(opts.photo.height));
+          }
+          if (opts.file) {
+            form.set(
+              "text_file",
+              new File([opts.file.blob], opts.file.name, {
+                type: "text/plain",
+              }),
+            );
+            form.set("file_name", opts.file.name);
+          }
+          return postChatMessage(null, form);
         }
-        if (textFile) {
-          form.set(
-            "text_file",
-            new File([textFile.blob], textFile.name, { type: "text/plain" }),
-          );
-          form.set("file_name", textFile.name);
-        }
-        const result = await postChatMessage(null, form);
-        if (result?.error) {
-          setError(result.error);
-          return;
-        }
-        const sent = result?.message;
-        if (sent) {
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === sent.id)) return prev;
-            return withNewChatMessage(prev, {
+
+        if (photos.length) {
+          for (let i = 0; i < photos.length; i++) {
+            const photo = photos[i];
+            const result = await postOne({
+              body: i === 0 ? text : "",
+              announce: i === 0 ? asAnnounce : false,
+              photo,
+            });
+            if (result?.error) {
+              setError(result.error);
+              return;
+            }
+            const sent = result?.message;
+            if (sent) {
+              setMessages((prev) => {
+                if (prev.some((m) => m.id === sent.id)) return prev;
+                return withNewChatMessage(prev, {
+                  id: sent.id,
+                  user_id: sent.user_id,
+                  body: sent.body,
+                  created_at: sent.created_at,
+                  display_name: displayName,
+                  role,
+                  is_announcement: Boolean(sent.is_announcement),
+                  image_path: sent.image_path ?? null,
+                  image_width: sent.image_width ?? null,
+                  image_height: sent.image_height ?? null,
+                  imageUrl: sent.imageUrl ?? photo.url,
+                  file_path: sent.file_path ?? null,
+                  file_name: sent.file_name ?? null,
+                  fileUrl: sent.fileUrl ?? null,
+                });
+              });
+            }
+          }
+        } else {
+          const result = await postOne({
+            body: text,
+            announce: asAnnounce,
+            file: textFile,
+          });
+          if (result?.error) {
+            setError(result.error);
+            return;
+          }
+          const sent = result?.message;
+          if (sent) {
+            setMessages((prev) => {
+              if (prev.some((m) => m.id === sent.id)) return prev;
+              return withNewChatMessage(prev, {
                 id: sent.id,
                 user_id: sent.user_id,
                 body: sent.body,
@@ -947,12 +1083,13 @@ export function ChatRoom({
                 image_path: sent.image_path ?? null,
                 image_width: sent.image_width ?? null,
                 image_height: sent.image_height ?? null,
-                imageUrl: sent.imageUrl ?? photo?.url ?? null,
+                imageUrl: sent.imageUrl ?? null,
                 file_path: sent.file_path ?? null,
                 file_name: sent.file_name ?? null,
                 fileUrl: sent.fileUrl ?? null,
+              });
             });
-          });
+          }
         }
         setBody("");
         setAnnounce(false);
@@ -1043,7 +1180,14 @@ export function ChatRoom({
     .filter((m) => m.is_announcement)
     .sort((a, b) => b.created_at.localeCompare(a.created_at));
   let lastDay = "";
-  const canSend = !pending && !preparingPhoto && Boolean(body.trim() || preview);
+  const canSend =
+    !pending &&
+    !preparingPhoto &&
+    Boolean(
+      body.trim() ||
+        (preview?.kind === "photos" && preview.items.length > 0) ||
+        preview?.kind === "file",
+    );
 
   return (
     <div className="chat-layout">
@@ -1183,18 +1327,25 @@ export function ChatRoom({
           send();
         }}
       >
-        {preview?.kind === "photo" && (
-          <div className="chat-preview">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview.url} alt="Selected photo preview" />
-            <button
-              type="button"
-              className="chat-x-btn chat-preview__remove"
-              aria-label="Remove photo"
-              onClick={clearPreview}
-            >
-              <CloseX />
-            </button>
+        {preview?.kind === "photos" && (
+          <div className="chat-preview-strip" aria-label="Selected photos">
+            {preview.items.map((item, index) => (
+              <div key={item.id} className="chat-preview">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={item.url}
+                  alt={`Selected photo ${index + 1}`}
+                />
+                <button
+                  type="button"
+                  className="chat-x-btn chat-preview__remove"
+                  aria-label={`Remove photo ${index + 1}`}
+                  onClick={() => removePhotoPreview(item.id)}
+                >
+                  <CloseX />
+                </button>
+              </div>
+            ))}
           </div>
         )}
         {preview?.kind === "file" && (
@@ -1215,16 +1366,17 @@ export function ChatRoom({
           ref={fileRef}
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,.txt,text/plain"
+          multiple
           hidden
           onChange={(e) => {
-            void onPickAttachment(e.target.files?.[0]);
+            void onPickAttachment(e.target.files);
           }}
         />
         <div className="chat-compose__actions">
           <button
             type="button"
             className="chat-photo-btn"
-            aria-label="Add photo or text file"
+            aria-label="Add photos or a text file"
             onClick={() => fileRef.current?.click()}
             disabled={pending || preparingPhoto}
           >
