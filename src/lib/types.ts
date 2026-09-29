@@ -59,6 +59,8 @@ export type ClassRoster = {
   waitlist?: ClassRosterEntry[];
 };
 
+export type ClassTopicStatus = "draft" | "current" | "past";
+
 export type ClassTopicMeeting = {
   class_id: string;
   class_title?: string;
@@ -71,7 +73,7 @@ export type ClassTopicRow = {
   title: string;
   content: string;
   created_by: string;
-  is_published: boolean;
+  status: ClassTopicStatus;
   created_at: string;
   updated_at: string;
   /** Linked meetings, sorted by starts_at ascending */

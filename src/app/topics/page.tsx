@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { canManageClassTopics } from "@/lib/roles";
-import { splitClassTopics } from "@/lib/class-topics";
+import {
+  isTopicPublic,
+  splitClassTopicsByStatus,
+} from "@/lib/class-topics";
 import { stripTopicHtml } from "@/lib/topic-html";
 import { formatClassHours } from "@/lib/class-schedule";
 import { loadClassTopics } from "@/lib/load-class-topics";
@@ -33,6 +36,12 @@ function topicWeekday(startsAt: string) {
 function topicPreview(content: string) {
   const text = stripTopicHtml(content);
   return text || null;
+}
+
+function statusLabel(status: ClassTopicRow["status"]) {
+  if (status === "current") return "Current";
+  if (status === "past") return "Past";
+  return "Draft";
 }
 
 function meetingsLabel(topic: ClassTopicRow) {
@@ -70,9 +79,7 @@ function UpcomingCard({
         </p>
       )}
       {staff && (
-        <p className="topic-card__status">
-          {topic.is_published ? "Published" : "Draft"}
-        </p>
+        <p className="topic-card__status">{statusLabel(topic.status)}</p>
       )}
       <p className="topic-card__actions">
         <Link href={`/topics/${topic.id}`} prefetch>
@@ -111,7 +118,7 @@ function PastRow({
         ) : null}
         {staff && (
           <span className="topics-archive__status">
-            {topic.is_published ? "Published" : "Draft"}
+            {statusLabel(topic.status)}
           </span>
         )}
       </span>
@@ -134,10 +141,10 @@ export default async function ClassTopicsPage() {
   const staff =
     profile?.status === "approved" && canManageClassTopics(profile.role);
   const topics = await loadClassTopics({ includeDrafts: staff });
-  const visible = staff ? topics : topics.filter((row) => row.is_published);
-  const published = visible.filter((row) => row.is_published);
-  const drafts = staff ? visible.filter((row) => !row.is_published) : [];
-  const { upcoming, past } = splitClassTopics(published);
+  const visible = staff
+    ? topics
+    : topics.filter((row) => isTopicPublic(row.status));
+  const { current, past, drafts } = splitClassTopicsByStatus(visible);
 
   return (
     <div className="page topics-index">
@@ -156,13 +163,13 @@ export default async function ClassTopicsPage() {
 
         <section className="topics-upcoming" aria-labelledby="topics-current">
           <h2 id="topics-current" className="topics-index__heading">
-            Current Topics
+            Current Topic
           </h2>
-          {upcoming.length === 0 ? (
-            <p className="topics-index__empty">No current class topics.</p>
+          {current.length === 0 ? (
+            <p className="topics-index__empty">No current class topic.</p>
           ) : (
             <div className="topics-card-grid">
-              {upcoming.map((topic) => (
+              {current.map((topic) => (
                 <UpcomingCard key={topic.id} topic={topic} staff={staff} />
               ))}
             </div>

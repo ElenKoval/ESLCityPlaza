@@ -471,18 +471,24 @@ create policy "announcements_delete_staff"
   using (public.has_role(array['teacher', 'admin', 'tech']));
 
 -- class topics (discussion topics; meetings linked via class_topic_meetings)
+-- status: draft | current | past — meetings do not drive Current/Past
 create table if not exists public.class_topics (
   id uuid primary key default gen_random_uuid(),
   title text not null check (char_length(title) > 0 and char_length(title) <= 80),
   content text not null check (char_length(content) > 0 and char_length(content) <= 8000),
   created_by uuid not null references public.profiles (id) on delete cascade,
-  is_published boolean not null default false,
+  status text not null default 'draft'
+    check (status in ('draft', 'current', 'past')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
-create index if not exists class_topics_published_idx
-  on public.class_topics (is_published, created_at desc);
+create unique index if not exists class_topics_one_current_idx
+  on public.class_topics ((true))
+  where status = 'current';
+
+create index if not exists class_topics_status_idx
+  on public.class_topics (status, created_at desc);
 
 alter table public.class_topics enable row level security;
 
@@ -491,7 +497,7 @@ drop policy if exists "class_topics_select_published" on public.class_topics;
 drop policy if exists "class_topics_select_staff_drafts" on public.class_topics;
 create policy "class_topics_select_published"
   on public.class_topics for select to anon, authenticated
-  using (is_published = true);
+  using (status in ('current', 'past'));
 create policy "class_topics_select_staff_drafts"
   on public.class_topics for select to authenticated
   using (public.has_role(array['teacher', 'tech']));
@@ -544,7 +550,7 @@ create policy "class_topic_meetings_select_published"
     exists (
       select 1
       from public.class_topics t
-      where t.id = topic_id and t.is_published = true
+      where t.id = topic_id and t.status in ('current', 'past')
     )
   );
 create policy "class_topic_meetings_select_staff"

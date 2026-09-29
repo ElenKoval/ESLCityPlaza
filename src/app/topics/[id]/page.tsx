@@ -88,7 +88,11 @@ export default async function ClassTopicPage({
           {staff && (
             <>
               <span className="class-meta">
-                {topic.is_published ? "Published" : "Draft"}
+                {topic.status === "current"
+                  ? "Current"
+                  : topic.status === "past"
+                    ? "Past"
+                    : "Draft"}
               </span>
               <Link href={`/topics/${topic.id}/edit`} className="btn-primary">
                 Edit

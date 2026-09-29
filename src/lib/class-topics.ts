@@ -28,15 +28,12 @@ export function meetingCheckboxLabel(startsAt: string) {
   return `${day}, ${formatClassHours(startsAt)}`;
 }
 
-/** Compact home dates: "Aug 31 & Sep 4" */
-export function formatUpcomingMeetingDatesCompact(
+/** Compact dates for any linked meetings: "Aug 31 & Sep 4" */
+export function formatLinkedMeetingDatesCompact(
   meetings: ClassTopicMeeting[],
-  now = new Date(),
 ) {
-  const upcoming = sortMeetings(meetings).filter((m) =>
-    classIsUpcoming(m.class_starts_at, now),
-  );
-  if (!upcoming.length) return "";
+  const sorted = sortMeetings(meetings);
+  if (!sorted.length) return "";
 
   const short = (startsAt: string) =>
     new Intl.DateTimeFormat("en-US", {
@@ -45,14 +42,25 @@ export function formatUpcomingMeetingDatesCompact(
       day: "numeric",
     }).format(new Date(startsAt));
 
-  if (upcoming.length === 1) return short(upcoming[0].class_starts_at);
-  if (upcoming.length === 2) {
-    return `${short(upcoming[0].class_starts_at)} & ${short(upcoming[1].class_starts_at)}`;
+  if (sorted.length === 1) return short(sorted[0].class_starts_at);
+  if (sorted.length === 2) {
+    return `${short(sorted[0].class_starts_at)} & ${short(sorted[1].class_starts_at)}`;
   }
-  if (upcoming.length === 3) {
-    return `${short(upcoming[0].class_starts_at)}, ${short(upcoming[1].class_starts_at)} & ${short(upcoming[2].class_starts_at)}`;
+  if (sorted.length === 3) {
+    return `${short(sorted[0].class_starts_at)}, ${short(sorted[1].class_starts_at)} & ${short(sorted[2].class_starts_at)}`;
   }
-  return `${short(upcoming[0].class_starts_at)}, ${short(upcoming[1].class_starts_at)} & ${upcoming.length - 2} more`;
+  return `${short(sorted[0].class_starts_at)}, ${short(sorted[1].class_starts_at)} & ${sorted.length - 2} more`;
+}
+
+/** Compact home dates for still-upcoming meetings only: "Aug 31 & Sep 4" */
+export function formatUpcomingMeetingDatesCompact(
+  meetings: ClassTopicMeeting[],
+  now = new Date(),
+) {
+  const upcoming = sortMeetings(meetings).filter((m) =>
+    classIsUpcoming(m.class_starts_at, now),
+  );
+  return formatLinkedMeetingDatesCompact(upcoming);
 }
 
 export function classIsUpcoming(startsAt: string, now = new Date()) {
@@ -97,34 +105,24 @@ export function withPrimaryMeetingFields(
   };
 }
 
-export function topicHasCurrentMeeting(topic: ClassTopicRow, now = new Date()) {
-  return (topic.meetings ?? []).some((m) =>
-    classIsUpcoming(m.class_starts_at, now),
-  );
+export function isTopicPublic(status: ClassTopicRow["status"]) {
+  return status === "current" || status === "past";
 }
 
-export function splitClassTopics(topics: ClassTopicRow[], now = new Date()) {
-  const upcoming: ClassTopicRow[] = [];
-  const past: ClassTopicRow[] = [];
-  for (const topic of topics) {
-    if (topicHasCurrentMeeting(topic, now)) upcoming.push(topic);
-    else past.push(topic);
-  }
-  upcoming.sort((a, b) => {
-    const aStart =
-      primaryMeeting(a.meetings, now)?.class_starts_at ||
-      a.class_starts_at ||
-      "";
-    const bStart =
-      primaryMeeting(b.meetings, now)?.class_starts_at ||
-      b.class_starts_at ||
-      "";
-    return new Date(aStart).getTime() - new Date(bStart).getTime();
-  });
-  past.sort((a, b) => {
-    const aStart = a.class_starts_at || "";
-    const bStart = b.class_starts_at || "";
-    return new Date(bStart).getTime() - new Date(aStart).getTime();
-  });
-  return { upcoming, past };
+/** Manual lifecycle: meetings do not decide Current vs Past. */
+export function splitClassTopicsByStatus(topics: ClassTopicRow[]) {
+  const current = topics.filter((t) => t.status === "current");
+  const past = topics
+    .filter((t) => t.status === "past")
+    .sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+    );
+  const drafts = topics
+    .filter((t) => t.status === "draft")
+    .sort(
+      (a, b) =>
+        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+    );
+  return { current, past, drafts };
 }

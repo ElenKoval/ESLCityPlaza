@@ -8,10 +8,12 @@ import { canManageClassTopics } from "@/lib/roles";
 import {
   withPrimaryMeetingFields,
 } from "@/lib/class-topics";
+import { isTopicPublic } from "@/lib/class-topics";
 import type {
   ClassRow,
   ClassTopicMeeting,
   ClassTopicRow,
+  ClassTopicStatus,
   ClassTopicSummary,
   Role,
 } from "@/lib/types";
@@ -21,7 +23,7 @@ type TopicBase = {
   title: string;
   content: string;
   created_by: string;
-  is_published: boolean;
+  status: ClassTopicStatus;
   created_at: string;
   updated_at: string;
 };
@@ -176,7 +178,7 @@ export async function loadClassTopics(options?: {
 
   if (useLocalDemo() || (await hasDemoSession())) {
     let rows = await getDemoClassTopics();
-    if (!includeDrafts) rows = rows.filter((row) => row.is_published);
+    if (!includeDrafts) rows = rows.filter((row) => isTopicPublic(row.status));
     return rows.map((row) =>
       withPrimaryMeetingFields({
         ...row,
@@ -200,7 +202,7 @@ export async function loadClassTopics(options?: {
   try {
     const supabase = await topicsClient();
     let query = supabase.from("class_topics").select("*");
-    if (!includeDrafts) query = query.eq("is_published", true);
+    if (!includeDrafts) query = query.in("status", ["current", "past"]);
     const { data, error } = await query;
     if (error) {
       console.error("[class-topics] list", error.message);
@@ -229,7 +231,10 @@ export async function loadClassTopic(
   if (useLocalDemo() || (await hasDemoSession())) {
     const found = (await getDemoClassTopics()).find((item) => item.id === id);
     if (!found) return null;
-    if (!found.is_published && !canManageClassTopics(viewerRole || "student")) {
+    if (
+      !isTopicPublic(found.status) &&
+      !canManageClassTopics(viewerRole || "student")
+    ) {
       return null;
     }
     return withPrimaryMeetingFields({
@@ -268,7 +273,10 @@ export async function loadClassTopic(
   }
 
   if (!base) return null;
-  if (!base.is_published && !canManageClassTopics(viewerRole || "student")) {
+  if (
+    !isTopicPublic(base.status) &&
+    !canManageClassTopics(viewerRole || "student")
+  ) {
     return null;
   }
 
@@ -286,7 +294,7 @@ export async function loadTopicSummariesByClassIds(
 
   if (useLocalDemo() || (await hasDemoSession())) {
     for (const row of await getDemoClassTopics()) {
-      if (!row.is_published) continue;
+      if (!isTopicPublic(row.status)) continue;
       const ids =
         row.meetings?.map((m) => m.class_id) ||
         (row.class_id ? [row.class_id] : []);
@@ -303,7 +311,7 @@ export async function loadTopicSummariesByClassIds(
     const supabase = await topicsClient();
     const { data, error } = await supabase
       .from("class_topic_meetings")
-      .select("topic_id, class_id, class_topics!inner(id, title, is_published)")
+      .select("topic_id, class_id, class_topics!inner(id, title, status)")
       .in("class_id", classIds);
     if (error) {
       console.error("[class-topics] summaries", error.message);
@@ -314,14 +322,14 @@ export async function loadTopicSummariesByClassIds(
         topic_id: string;
         class_id: string;
         class_topics:
-          | { id: string; title: string; is_published: boolean }
-          | { id: string; title: string; is_published: boolean }[]
+          | { id: string; title: string; status: ClassTopicStatus }
+          | { id: string; title: string; status: ClassTopicStatus }[]
           | null;
       };
       const topic = Array.isArray(row.class_topics)
         ? row.class_topics[0]
         : row.class_topics;
-      if (!topic?.is_published) continue;
+      if (!topic || !isTopicPublic(topic.status)) continue;
       if (!map.has(row.class_id)) {
         map.set(row.class_id, {
           id: topic.id,
@@ -378,17 +386,49 @@ export async function loadTopicIdsByClassIds(
   return map;
 }
 
-/**
- * Home card: newest published topic (by created_at).
- * It stays on the home page until a newer published topic is created,
- * or until this one is unpublished/deleted — then the next newest shows.
- */
+/** Home card: the single Current topic, or null if none. */
 export async function loadUpcomingHomeTopic(): Promise<ClassTopicRow | null> {
-  const topics = await loadClassTopics({ includeDrafts: false });
-  if (topics.length === 0) return null;
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const rows = await getDemoClassTopics();
+    const current = rows.find((row) => row.status === "current");
+    if (!current) return null;
+    return withPrimaryMeetingFields({
+      ...current,
+      meetings:
+        current.meetings?.length
+          ? current.meetings
+          : current.class_id && current.class_starts_at
+            ? [
+                {
+                  class_id: current.class_id,
+                  class_title: current.class_title,
+                  class_starts_at: current.class_starts_at,
+                  class_location: current.class_location,
+                },
+              ]
+            : [],
+    });
+  }
 
-  return [...topics].sort(
-    (a, b) =>
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-  )[0];
+  try {
+    const supabase = await topicsClient();
+    const { data, error } = await supabase
+      .from("class_topics")
+      .select("*")
+      .eq("status", "current")
+      .maybeSingle();
+    if (error) {
+      console.error("[class-topics] home", error.message);
+      return null;
+    }
+    if (!data) return null;
+    const base = data as TopicBase;
+    const links = await loadMeetingLinksByTopicIds([base.id]);
+    const classIds = links.get(base.id) ?? [];
+    const classes = await loadClassesByIds(classIds);
+    return hydrateTopic(base, classIds, classes);
+  } catch (error) {
+    console.error("[class-topics] home", error);
+    return null;
+  }
 }

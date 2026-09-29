@@ -2984,16 +2984,27 @@ export async function saveClassTopic(
       })
       .filter((row): row is NonNullable<typeof row> => Boolean(row));
 
-    const rows = await getDemoClassTopics();
+    let rows = await getDemoClassTopics();
     const existing = rows.find((row) => row.id === id);
+    let nextStatus = existing?.status ?? "draft";
+    if (publishNow) {
+      nextStatus = "current";
+      rows = rows.map((row) =>
+        row.status === "current" && row.id !== existing?.id
+          ? { ...row, status: "past" as const, updated_at: now }
+          : row,
+      );
+    } else if (!existing) {
+      nextStatus = "draft";
+    }
+
     const row: ClassTopicRow = existing
       ? {
           ...existing,
           title,
           content,
           meetings,
-          is_published:
-            intent === "save" ? existing.is_published : publishNow,
+          status: nextStatus,
           updated_at: now,
         }
       : {
@@ -3002,7 +3013,7 @@ export async function saveClassTopic(
           content,
           meetings,
           created_by: me.id,
-          is_published: publishNow,
+          status: nextStatus,
           created_at: now,
           updated_at: now,
         };
@@ -3031,18 +3042,26 @@ export async function saveClassTopic(
   if (id) {
     const { data: existing } = await supabase
       .from("class_topics")
-      .select("id, is_published")
+      .select("id, status")
       .eq("id", id)
       .maybeSingle();
     if (!existing) return { error: "Topic not found" };
+
+    if (publishNow) {
+      const { error: demoteError } = await supabase
+        .from("class_topics")
+        .update({ status: "past", updated_at: now })
+        .eq("status", "current")
+        .neq("id", existing.id);
+      if (demoteError) return { error: demoteError.message };
+    }
 
     const { error } = await supabase
       .from("class_topics")
       .update({
         title,
         content,
-        is_published:
-          intent === "save" ? existing.is_published : publishNow,
+        status: publishNow ? "current" : existing.status,
         updated_at: now,
       })
       .eq("id", existing.id);
@@ -3059,13 +3078,21 @@ export async function saveClassTopic(
     redirect(`/topics/${existing.id}`);
   }
 
+  if (publishNow) {
+    const { error: demoteError } = await supabase
+      .from("class_topics")
+      .update({ status: "past", updated_at: now })
+      .eq("status", "current");
+    if (demoteError) return { error: demoteError.message };
+  }
+
   const { data: created, error } = await supabase
     .from("class_topics")
     .insert({
       title,
       content,
       created_by: user.id,
-      is_published: publishNow,
+      status: publishNow ? "current" : "draft",
       updated_at: now,
     })
     .select("id")
@@ -3082,12 +3109,11 @@ export async function saveClassTopic(
   redirect(`/topics/${created.id}`);
 }
 
-export async function setClassTopicPublished(
+export async function publishClassTopic(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   const id = String(formData.get("id") || "").trim();
-  const published = String(formData.get("published") || "") === "true";
   if (!id) return { error: "Missing topic" };
   const now = new Date().toISOString();
 
@@ -3100,14 +3126,18 @@ export async function setClassTopicPublished(
     const found = rows.find((row) => row.id === id);
     if (!found) return { error: "Topic not found" };
     await saveDemoClassTopics(
-      rows.map((row) =>
-        row.id === id
-          ? { ...row, is_published: published, updated_at: now }
-          : row,
-      ),
+      rows.map((row) => {
+        if (row.id === id) {
+          return { ...row, status: "current" as const, updated_at: now };
+        }
+        if (row.status === "current") {
+          return { ...row, status: "past" as const, updated_at: now };
+        }
+        return row;
+      }),
     );
     revalidateClassTopics(id);
-    return { success: published ? "Topic published" : "Topic unpublished" };
+    return { success: "Topic published as Current" };
   }
 
   const supabase = await createClient();
@@ -3124,13 +3154,92 @@ export async function setClassTopicPublished(
     return { error: "Only Coordinator or Tech can publish class topics" };
   }
 
+  const { error: demoteError } = await supabase
+    .from("class_topics")
+    .update({ status: "past", updated_at: now })
+    .eq("status", "current")
+    .neq("id", id);
+  if (demoteError) return { error: demoteError.message };
+
   const { error } = await supabase
     .from("class_topics")
-    .update({ is_published: published, updated_at: now })
+    .update({ status: "current", updated_at: now })
     .eq("id", id);
   if (error) return { error: error.message };
   revalidateClassTopics(id);
-  return { success: published ? "Topic published" : "Topic unpublished" };
+  return { success: "Topic published as Current" };
+}
+
+export async function moveClassTopicToPast(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const id = String(formData.get("id") || "").trim();
+  if (!id) return { error: "Missing topic" };
+  const now = new Date().toISOString();
+
+  if (useLocalDemo() || (await hasDemoSession())) {
+    const me = await getDemoSessionProfile();
+    if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+      return { error: "Only Coordinator or Tech can update class topics" };
+    }
+    const rows = await getDemoClassTopics();
+    const found = rows.find((row) => row.id === id);
+    if (!found) return { error: "Topic not found" };
+    if (found.status !== "current") {
+      return { error: "Only the Current topic can be moved to Past" };
+    }
+    await saveDemoClassTopics(
+      rows.map((row) =>
+        row.id === id ? { ...row, status: "past" as const, updated_at: now } : row,
+      ),
+    );
+    revalidateClassTopics(id);
+    return { success: "Topic moved to Past" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please log in" };
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, status")
+    .eq("id", user.id)
+    .single();
+  if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
+    return { error: "Only Coordinator or Tech can update class topics" };
+  }
+
+  const { data: existing } = await supabase
+    .from("class_topics")
+    .select("id, status")
+    .eq("id", id)
+    .maybeSingle();
+  if (!existing) return { error: "Topic not found" };
+  if (existing.status !== "current") {
+    return { error: "Only the Current topic can be moved to Past" };
+  }
+
+  const { error } = await supabase
+    .from("class_topics")
+    .update({ status: "past", updated_at: now })
+    .eq("id", id)
+    .eq("status", "current");
+  if (error) return { error: error.message };
+  revalidateClassTopics(id);
+  return { success: "Topic moved to Past" };
+}
+
+/** @deprecated Use publishClassTopic / moveClassTopicToPast */
+export async function setClassTopicPublished(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const published = String(formData.get("published") || "") === "true";
+  if (published) return publishClassTopic(_prev, formData);
+  return moveClassTopicToPast(_prev, formData);
 }
 
 export async function deleteClassTopic(

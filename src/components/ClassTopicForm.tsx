@@ -4,8 +4,9 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   deleteClassTopic,
+  moveClassTopicToPast,
+  publishClassTopic,
   saveClassTopic,
-  setClassTopicPublished,
   type ActionState,
 } from "@/app/actions";
 import {
@@ -53,18 +54,22 @@ export function ClassTopicForm({
   const [pubState, pubAction, publishing] = useActionState<
     ActionState,
     FormData
-  >(setClassTopicPublished, null);
+  >(publishClassTopic, null);
+  const [pastState, pastAction, movingPast] = useActionState<
+    ActionState,
+    FormData
+  >(moveClassTopicToPast, null);
   const [delState, delAction, deleting] = useActionState<ActionState, FormData>(
     deleteClassTopic,
     null,
   );
 
   useEffect(() => {
-    if (pubState?.success) router.refresh();
-  }, [pubState, router]);
+    if (pubState?.success || pastState?.success) router.refresh();
+  }, [pubState, pastState, router]);
 
   const editing = Boolean(topic);
-  const published = Boolean(topic?.is_published);
+  const status = topic?.status ?? "draft";
 
   const visibleMeetings = useMemo(() => {
     const selectedRows = classes.filter((cls) => selected.has(cls.id));
@@ -183,15 +188,32 @@ export function ClassTopicForm({
         {saveState?.error && <p className="error">{saveState.error}</p>}
         <div className="class-actions">
           {editing ? (
-            <button
-              className="btn-secondary"
-              type="submit"
-              name="intent"
-              value="save"
-              disabled={saving || selected.size === 0}
-            >
-              {saving ? "Saving…" : "Save changes"}
-            </button>
+            <>
+              <button
+                className="btn-secondary"
+                type="submit"
+                name="intent"
+                value="save"
+                disabled={saving || selected.size === 0}
+              >
+                {saving ? "Saving…" : "Save changes"}
+              </button>
+              {status !== "current" ? (
+                <button
+                  className="btn-primary"
+                  type="submit"
+                  name="intent"
+                  value="publish"
+                  disabled={saving || selected.size === 0}
+                >
+                  {saving
+                    ? "Saving…"
+                    : status === "past"
+                      ? "Make Current"
+                      : "Publish"}
+                </button>
+              ) : null}
+            </>
           ) : (
             <>
               <button
@@ -219,21 +241,34 @@ export function ClassTopicForm({
 
       {editing && topic && (
         <div className="class-actions">
-          <form action={pubAction}>
-            <input type="hidden" name="id" value={topic.id} />
-            <input
-              type="hidden"
-              name="published"
-              value={published ? "false" : "true"}
-            />
-            <button className="btn-secondary" type="submit" disabled={publishing}>
-              {publishing
-                ? "Saving…"
-                : published
-                  ? "Unpublish"
-                  : "Publish"}
-            </button>
-          </form>
+          {status === "draft" || status === "past" ? (
+            <form action={pubAction}>
+              <input type="hidden" name="id" value={topic.id} />
+              <button
+                className="btn-secondary"
+                type="submit"
+                disabled={publishing}
+              >
+                {publishing
+                  ? "Saving…"
+                  : status === "past"
+                    ? "Make Current"
+                    : "Publish"}
+              </button>
+            </form>
+          ) : null}
+          {status === "current" ? (
+            <form action={pastAction}>
+              <input type="hidden" name="id" value={topic.id} />
+              <button
+                className="btn-secondary"
+                type="submit"
+                disabled={movingPast}
+              >
+                {movingPast ? "Saving…" : "Move to Past"}
+              </button>
+            </form>
+          ) : null}
           <form
             action={delAction}
             onSubmit={(event) => {
@@ -251,6 +286,8 @@ export function ClassTopicForm({
       )}
       {pubState?.error && <p className="error">{pubState.error}</p>}
       {pubState?.success && <p className="success">{pubState.success}</p>}
+      {pastState?.error && <p className="error">{pastState.error}</p>}
+      {pastState?.success && <p className="success">{pastState.success}</p>}
       {delState?.error && <p className="error">{delState.error}</p>}
     </div>
   );
