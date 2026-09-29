@@ -3855,64 +3855,6 @@ button.chat-msg__name {
   color: var(--plaza-deep);
 }
 
-.topic-text-page {
-  background: #fff;
-}
-
-.topic-text {
-  max-width: 42rem;
-}
-
-.topic-text__nav {
-  margin: 0 0 1rem;
-}
-
-.topic-text__nav a {
-  color: var(--plaza-deep);
-  font-weight: 650;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.topic-text__title {
-  margin: 0 0 0.65rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.7rem, 5vw, 2.4rem);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
-}
-
-.topic-text__dates {
-  margin: 0 0 1rem;
-  padding: 0;
-  list-style: none;
-  display: grid;
-  gap: 0.25rem;
-  font-size: 1.05rem;
-  color: var(--ink-soft);
-}
-
-.topic-text__copy {
-  margin: 0 0 1rem;
-}
-
-.topic-text__copy-btn {
-  min-height: 2.85rem;
-  padding-inline: 1.25rem;
-  font-size: 1.05rem;
-}
-
-.topic-text__body {
-  margin: 0 0 1.25rem;
-  padding: 1rem 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: inherit;
-  font-size: clamp(1.15rem, 3.6vw, 1.35rem);
-  line-height: 1.55;
-  color: var(--ink);
-}
-
 .topic-editor-wrap {
   display: grid;
   gap: 0.45rem;
@@ -4011,9 +3953,7 @@ button.chat-msg__name {
   .topic-no-print,
   .topic-actions,
   .topic-page__toolbar,
-  .topic-back,
-  .topic-text__nav,
-  .topic-text__copy {
+  .topic-back {
     display: none !important;
   }
 
@@ -4029,9 +3969,7 @@ button.chat-msg__name {
   .page,
   .section,
   .topic-page,
-  .topic-print-root,
-  .topic-text-page,
-  .topic-text {
+  .topic-print-root {
     display: block !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -4049,16 +3987,14 @@ button.chat-msg__name {
   }
 
   .topic-page h1,
-  .topic-print-root h1,
-  .topic-text__title {
+  .topic-print-root h1 {
     font-family: var(--font-display);
     font-size: 1.65rem;
     margin: 0 0 0.35rem;
     color: #000;
   }
 
-  .topic-print__when,
-  .topic-text__dates {
+  .topic-print__when {
     margin: 0 0 1rem;
     font-size: 0.95rem;
     color: #333;
@@ -4069,8 +4005,7 @@ button.chat-msg__name {
     padding: 0;
   }
 
-  .topic-body,
-  .topic-text__body {
+  .topic-body {
     font-size: 11.5pt;
     line-height: 1.45;
     color: #000;

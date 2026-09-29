@@ -9,7 +9,10 @@ import {
 } from "@/lib/class-topics";
 import { loadClassTopic } from "@/lib/load-class-topics";
 import { sitePageTitle } from "@/lib/site-name";
-import { topicContentToDisplayHtml } from "@/lib/topic-html";
+import {
+  topicContentToDisplayHtml,
+  topicContentToPlainText,
+} from "@/lib/topic-html";
 import { TopicActions } from "@/components/TopicPrintButton";
 
 export async function generateMetadata({
@@ -40,6 +43,10 @@ export default async function ClassTopicPage({
   if (!topic) notFound();
 
   const bodyHtml = topicContentToDisplayHtml(topic.content);
+  const bodyPlain = topicContentToPlainText(topic.content);
+  const copyText = bodyPlain
+    ? `${topic.title}\n\n${bodyPlain}`
+    : topic.title;
   const meetings = topic.meetings ?? [];
   const upcomingMeetings = meetings.filter((m) =>
     classIsUpcoming(m.class_starts_at),
@@ -77,7 +84,7 @@ export default async function ClassTopicPage({
           </div>
         </article>
         <div className="topic-page__toolbar topic-no-print">
-          <TopicActions topicId={topic.id} />
+          <TopicActions copyText={copyText} />
           {staff && (
             <>
               <span className="class-meta">

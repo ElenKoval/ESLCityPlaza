@@ -28,12 +28,11 @@ function isPublicPath(path: string) {
   );
 }
 
-/** Published topic list + detail (+ text view) are public; new/edit stay protected. */
+/** Published topic list + detail are public; new/edit stay protected. */
 function isPublicTopicsPath(path: string) {
   if (path === "/topics") return true;
   if (path === "/topics/new") return false;
   if (/^\/topics\/[^/]+\/edit$/.test(path)) return false;
-  if (/^\/topics\/[^/]+\/text$/.test(path)) return true;
   return /^\/topics\/[^/]+$/.test(path);
 }
 
