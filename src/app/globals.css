@@ -1237,12 +1237,27 @@ textarea {
 }
 
 @media (max-width: 899px) {
-  .hero-stage__aside > .home-chat {
+  /* Flatten aside so Topic can sit above the calendar on mobile only. */
+  .hero-stage__aside {
+    display: contents;
+  }
+
+  .hero-stage__copy {
+    order: 1;
+  }
+
+  .hero-stage > .home-topic,
+  .hero-stage__aside > .home-topic {
     order: 2;
   }
 
-  .hero-stage__aside > .home-topic {
-    order: 1;
+  .hero-stage > .home-cal {
+    order: 3;
+  }
+
+  .hero-stage > .home-chat,
+  .hero-stage__aside > .home-chat {
+    order: 4;
   }
 }
 
