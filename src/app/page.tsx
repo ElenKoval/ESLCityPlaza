@@ -5,6 +5,7 @@ import { MeetSpot } from "@/components/MeetSpot";
 import { getProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
+import { ensureUpcomingClasses } from "@/lib/ensure-classes";
 import {
   attachWaitlistToClasses,
   loadWaitlistRows,
@@ -42,6 +43,7 @@ async function loadClasses(userId: string | null, canEnroll: boolean) {
   }
 
   try {
+    await ensureUpcomingClasses();
     const supabase = await createClient();
     const { data: classes } = await withTimeout(
       Promise.resolve(

@@ -9,7 +9,7 @@ export const DEFAULT_CLASS_LOCATION = "on the Plaza";
 export const DEFAULT_CLASS_HOURS = "1:00–3:00 PM";
 export const PLAZA_TIME_ZONE = "America/Los_Angeles";
 
-const HORIZON_DAYS = 56;
+const HORIZON_DAYS = 365;
 
 export function classLocation(location?: string | null) {
   const trimmed = location?.trim();

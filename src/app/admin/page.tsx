@@ -1,12 +1,14 @@
 import { requireStaff } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { AdminClasses } from "@/components/AdminClasses";
+import { ensureUpcomingClasses } from "@/lib/ensure-classes";
 import { loadClassRostersFor } from "@/lib/load-class-rosters";
 import type { Role } from "@/lib/roles";
 import type { ClassRow } from "@/lib/types";
 
 export default async function AdminPage() {
   const { profile } = await requireStaff();
+  await ensureUpcomingClasses();
   const supabase = await createClient();
 
   const { data: classes } = await supabase

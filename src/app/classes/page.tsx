@@ -2,6 +2,7 @@ import { requireApproved } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { ClassList } from "@/components/ClassList";
 import { CLASS_DURATION_MS } from "@/lib/enrollment";
+import { ensureUpcomingClasses } from "@/lib/ensure-classes";
 import {
   attachWaitlistToClasses,
   loadWaitlistRows,
@@ -11,6 +12,7 @@ import type { ClassRow } from "@/lib/types";
 
 export default async function ClassesPage() {
   const { userId } = await requireApproved();
+  await ensureUpcomingClasses();
   const supabase = await createClient();
 
   const { data: classes } = await supabase

@@ -50,7 +50,8 @@ function CreateClassForm() {
         <input name="starts_at" type="datetime-local" required />
       </label>
       <p className="sub" style={{ margin: 0, fontSize: "0.85rem" }}>
-        Classes are only on Monday or Friday.
+        Monday or Friday only. Enter the start time (usually 1:00 PM) — class
+        length is always 2 hours.
       </p>
       <label>
         Capacity

@@ -75,7 +75,7 @@ import {
   CHAT_FILE_PATH_RE,
   sanitizeChatFileName,
 } from "@/lib/chat-file";
-import { DEFAULT_CLASS_LOCATION, fromLosAngelesDatetimeLocal, laWeekdayNumber, classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
+import { DEFAULT_CLASS_LOCATION, fromLosAngelesDatetimeLocal, laWeekdayNumber, sameLaCalendarDay, classLocation, formatClassHours, formatClassWhen } from "@/lib/class-schedule";
 import { authConfirmUrl, authResetUrl } from "@/lib/site-url";
 import { SITE_NAME } from "@/lib/site-name";
 import type { AnnouncementRow, ClassTopicRow, Profile, Role } from "@/lib/types";
@@ -1908,6 +1908,25 @@ export async function createClass(
     .single();
   if (!me || me.status !== "approved" || !canManageClasses(me.role)) {
     return { error: "Only Coordinator or Tech can manage classes" };
+  }
+
+  const { data: existingRows } = await supabase
+    .from("classes")
+    .select("id, starts_at")
+    .gte(
+      "starts_at",
+      new Date(when.getTime() - 18 * 60 * 60 * 1000).toISOString(),
+    )
+    .lt(
+      "starts_at",
+      new Date(when.getTime() + 18 * 60 * 60 * 1000).toISOString(),
+    );
+  if (
+    (existingRows ?? []).some((row) =>
+      sameLaCalendarDay(row.starts_at, when.toISOString()),
+    )
+  ) {
+    return { error: "A class is already scheduled on that day" };
   }
 
   const { error } = await supabase.from("classes").insert({
