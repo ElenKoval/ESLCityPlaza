@@ -109,7 +109,7 @@ export function ClassList({
                 </button>
               ) : status === "too_early" ? (
                 <button className="btn-primary" type="button" disabled>
-                  Opens 2 weeks before
+                  Opens 6 weeks before
                 </button>
               ) : status === "past" ? (
                 <button className="btn-primary" type="button" disabled>

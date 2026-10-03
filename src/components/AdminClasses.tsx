@@ -64,7 +64,7 @@ function CreateClassForm() {
         />
       </label>
       <p className="sub" style={{ margin: 0, fontSize: "0.85rem" }}>
-        Max 15 people. Sign-up opens 2 weeks before the class.
+        Max 15 people. Sign-up opens 6 weeks before the class.
       </p>
       {state?.error && <p className="error">{state.error}</p>}
       {state?.success && <p className="success">{state.success}</p>}

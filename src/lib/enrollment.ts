@@ -5,7 +5,7 @@ export const CLASS_FULL_MESSAGE =
   "Class full, please check again later for an available spot.";
 
 /** Sign-up opens this many days before the class (not earlier) */
-export const ENROLL_OPEN_DAYS = 14;
+export const ENROLL_OPEN_DAYS = 42;
 
 /** Class runs 1:00–3:00 PM, so keep it visible until it ends */
 export const CLASS_DURATION_MS = 2 * 60 * 60 * 1000;

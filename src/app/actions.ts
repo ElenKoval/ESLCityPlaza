@@ -2063,7 +2063,7 @@ export async function enrollClass(
     }
     if (!canEnrollNow(classRow.starts_at) && !useLocalDemo()) {
       return {
-        error: "Sign-up opens only within 2 weeks before the class",
+        error: "Sign-up opens only within 6 weeks before the class",
       };
     }
     const ids = await getDemoEnrollmentIds();
@@ -2104,7 +2104,7 @@ export async function enrollClass(
 
   if (!canEnrollNow(classRow.starts_at)) {
     return {
-      error: "Sign-up opens only within 2 weeks before the class",
+      error: "Sign-up opens only within 6 weeks before the class",
     };
   }
 
@@ -2231,7 +2231,7 @@ export async function joinWaitlist(
   }
   if (!canEnrollNow(classRow.starts_at)) {
     return {
-      error: "Sign-up opens only within 2 weeks before the class",
+      error: "Sign-up opens only within 6 weeks before the class",
     };
   }
 
