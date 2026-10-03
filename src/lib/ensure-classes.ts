@@ -3,11 +3,12 @@ import { CLASS_DURATION_MS } from "@/lib/enrollment";
 import {
   sameLaCalendarDay,
   scheduleClassPayload,
+  scheduleHorizonCutoff,
   sessionStartsAtIso,
   upcomingSessionStarts,
 } from "@/lib/class-schedule";
 
-const ENSURE_TIMEOUT_MS = 8_000;
+const ENSURE_TIMEOUT_MS = 12_000;
 
 let ensureInFlight: Promise<void> | null = null;
 
@@ -38,9 +39,51 @@ function withTimeout<T>(promise: Promise<T>, ms: number, label: string) {
   });
 }
 
+async function pruneClassesBeyondHorizon(
+  admin: NonNullable<ReturnType<typeof adminClient>>,
+) {
+  const cutoffIso = scheduleHorizonCutoff().toISOString();
+  const { data: far, error } = await admin
+    .from("classes")
+    .select("id")
+    .gt("starts_at", cutoffIso);
+  if (error) {
+    console.error("[ensure-classes] prune list", error.message);
+    return;
+  }
+  const ids = (far ?? []).map((row) => row.id as string);
+  if (!ids.length) return;
+
+  const [{ data: enrolled }, { data: waiting }] = await Promise.all([
+    admin.from("enrollments").select("class_id").in("class_id", ids),
+    admin.from("class_waitlist").select("class_id").in("class_id", ids),
+  ]);
+
+  const keep = new Set<string>();
+  for (const row of enrolled ?? []) keep.add(row.class_id as string);
+  for (const row of waiting ?? []) keep.add(row.class_id as string);
+
+  const removable = ids.filter((id) => !keep.has(id));
+  if (!removable.length) return;
+
+  for (let i = 0; i < removable.length; i += 50) {
+    const chunk = removable.slice(i, i + 50);
+    const { error: delError } = await admin
+      .from("classes")
+      .delete()
+      .in("id", chunk);
+    if (delError) {
+      console.error("[ensure-classes] prune delete", delError.message);
+      return;
+    }
+  }
+}
+
 async function ensureUpcomingClassesOnce() {
   const admin = adminClient();
   if (!admin) return;
+
+  await pruneClassesBeyondHorizon(admin);
 
   const wanted = upcomingSessionStarts();
   const { data: existing, error: listError } = await admin
@@ -69,7 +112,7 @@ async function ensureUpcomingClassesOnce() {
   }
 }
 
-/** Creates missing Mon/Fri class rows. Safe to call often; never throw to callers. */
+/** Creates missing Mon/Fri class rows and removes empty ones beyond ~2 months. */
 export async function ensureUpcomingClasses() {
   if (ensureInFlight) return ensureInFlight;
 

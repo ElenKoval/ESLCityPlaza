@@ -11,6 +11,13 @@ export const PLAZA_TIME_ZONE = "America/Los_Angeles";
 
 const HORIZON_DAYS = 62;
 
+/** Days ahead that auto-schedule keeps Mon/Fri class rows. */
+export const SCHEDULE_HORIZON_DAYS = HORIZON_DAYS;
+
+export function scheduleHorizonCutoff(now = new Date()) {
+  return new Date(now.getTime() + HORIZON_DAYS * 24 * 60 * 60 * 1000);
+}
+
 export function classLocation(location?: string | null) {
   const trimmed = location?.trim();
   return trimmed || DEFAULT_CLASS_LOCATION;
