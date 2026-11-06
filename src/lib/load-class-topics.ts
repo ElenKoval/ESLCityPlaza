@@ -8,7 +8,7 @@ import { canManageClassTopics } from "@/lib/roles";
 import {
   withPrimaryMeetingFields,
 } from "@/lib/class-topics";
-import { isTopicPublic } from "@/lib/class-topics";
+import { isTopicPublic, pickHomeTopic } from "@/lib/class-topics";
 import type {
   ClassRow,
   ClassTopicMeeting,
@@ -386,28 +386,31 @@ export async function loadTopicIdsByClassIds(
   return map;
 }
 
-/** Home card: the single Current topic, or null if none. */
+/** Home card: the Current topic with the nearest upcoming meeting, or null. */
 export async function loadUpcomingHomeTopic(): Promise<ClassTopicRow | null> {
   if (useLocalDemo() || (await hasDemoSession())) {
     const rows = await getDemoClassTopics();
-    const current = rows.find((row) => row.status === "current");
-    if (!current) return null;
-    return withPrimaryMeetingFields({
-      ...current,
-      meetings:
-        current.meetings?.length
-          ? current.meetings
-          : current.class_id && current.class_starts_at
-            ? [
-                {
-                  class_id: current.class_id,
-                  class_title: current.class_title,
-                  class_starts_at: current.class_starts_at,
-                  class_location: current.class_location,
-                },
-              ]
-            : [],
-    });
+    const currents = rows
+      .filter((row) => row.status === "current")
+      .map((current) =>
+        withPrimaryMeetingFields({
+          ...current,
+          meetings:
+            current.meetings?.length
+              ? current.meetings
+              : current.class_id && current.class_starts_at
+                ? [
+                    {
+                      class_id: current.class_id,
+                      class_title: current.class_title,
+                      class_starts_at: current.class_starts_at,
+                      class_location: current.class_location,
+                    },
+                  ]
+                : [],
+        }),
+      );
+    return pickHomeTopic(currents);
   }
 
   try {
@@ -415,18 +418,20 @@ export async function loadUpcomingHomeTopic(): Promise<ClassTopicRow | null> {
     const { data, error } = await supabase
       .from("class_topics")
       .select("*")
-      .eq("status", "current")
-      .maybeSingle();
+      .eq("status", "current");
     if (error) {
       console.error("[class-topics] home", error.message);
       return null;
     }
-    if (!data) return null;
-    const base = data as TopicBase;
-    const links = await loadMeetingLinksByTopicIds([base.id]);
-    const classIds = links.get(base.id) ?? [];
-    const classes = await loadClassesByIds(classIds);
-    return hydrateTopic(base, classIds, classes);
+    if (!data?.length) return null;
+    const bases = data as TopicBase[];
+    const links = await loadMeetingLinksByTopicIds(bases.map((b) => b.id));
+    const allIds = [...new Set(bases.flatMap((b) => links.get(b.id) ?? []))];
+    const classes = await loadClassesByIds(allIds);
+    const topics = bases.map((base) =>
+      hydrateTopic(base, links.get(base.id) ?? [], classes),
+    );
+    return pickHomeTopic(topics);
   } catch (error) {
     console.error("[class-topics] home", error);
     return null;

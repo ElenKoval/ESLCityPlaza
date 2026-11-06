@@ -3003,16 +3003,11 @@ export async function saveClassTopic(
       })
       .filter((row): row is NonNullable<typeof row> => Boolean(row));
 
-    let rows = await getDemoClassTopics();
+    const rows = await getDemoClassTopics();
     const existing = rows.find((row) => row.id === id);
     let nextStatus = existing?.status ?? "draft";
     if (publishNow) {
       nextStatus = "current";
-      rows = rows.map((row) =>
-        row.status === "current" && row.id !== existing?.id
-          ? { ...row, status: "past" as const, updated_at: now }
-          : row,
-      );
     } else if (!existing) {
       nextStatus = "draft";
     }
@@ -3066,15 +3061,6 @@ export async function saveClassTopic(
       .maybeSingle();
     if (!existing) return { error: "Topic not found" };
 
-    if (publishNow) {
-      const { error: demoteError } = await supabase
-        .from("class_topics")
-        .update({ status: "past", updated_at: now })
-        .eq("status", "current")
-        .neq("id", existing.id);
-      if (demoteError) return { error: demoteError.message };
-    }
-
     const { error } = await supabase
       .from("class_topics")
       .update({
@@ -3095,14 +3081,6 @@ export async function saveClassTopic(
 
     revalidateClassTopics(existing.id);
     redirect(`/topics/${existing.id}`);
-  }
-
-  if (publishNow) {
-    const { error: demoteError } = await supabase
-      .from("class_topics")
-      .update({ status: "past", updated_at: now })
-      .eq("status", "current");
-    if (demoteError) return { error: demoteError.message };
   }
 
   const { data: created, error } = await supabase
@@ -3149,9 +3127,6 @@ export async function publishClassTopic(
         if (row.id === id) {
           return { ...row, status: "current" as const, updated_at: now };
         }
-        if (row.status === "current") {
-          return { ...row, status: "past" as const, updated_at: now };
-        }
         return row;
       }),
     );
@@ -3172,13 +3147,6 @@ export async function publishClassTopic(
   if (!me || me.status !== "approved" || !canManageClassTopics(me.role)) {
     return { error: "Only Coordinator or Tech can publish class topics" };
   }
-
-  const { error: demoteError } = await supabase
-    .from("class_topics")
-    .update({ status: "past", updated_at: now })
-    .eq("status", "current")
-    .neq("id", id);
-  if (demoteError) return { error: demoteError.message };
 
   const { error } = await supabase
     .from("class_topics")

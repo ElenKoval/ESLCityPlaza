@@ -26,18 +26,7 @@ export async function getDemoClassTopics(): Promise<ClassTopicRow[]> {
     >;
     if (!Array.isArray(parsed)) return [];
     const rows = parsed.map(normalizeDemoTopic);
-    const currents = rows.filter((r) => r.status === "current");
-    if (currents.length <= 1) return rows;
-    // Keep newest as current if cookie has multiple
-    const newest = [...currents].sort(
-      (a, b) =>
-        new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-    )[0];
-    return rows.map((row) =>
-      row.status === "current" && row.id !== newest.id
-        ? { ...row, status: "past" }
-        : row,
-    );
+    return rows;
   } catch {
     return [];
   }

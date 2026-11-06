@@ -109,9 +109,35 @@ export function isTopicPublic(status: ClassTopicRow["status"]) {
   return status === "current" || status === "past";
 }
 
-/** Manual lifecycle: meetings do not decide Current vs Past. */
+function topicMeetingTime(topic: ClassTopicRow) {
+  return topic.class_starts_at
+    ? new Date(topic.class_starts_at).getTime()
+    : Number.POSITIVE_INFINITY;
+}
+
+/** Home card: the Current topic with the nearest upcoming meeting. */
+export function pickHomeTopic(
+  topics: ClassTopicRow[],
+  now = new Date(),
+): ClassTopicRow | null {
+  if (!topics.length) return null;
+  const upcoming = topics
+    .filter(
+      (t) => t.class_starts_at && classIsUpcoming(t.class_starts_at, now),
+    )
+    .sort((a, b) => topicMeetingTime(a) - topicMeetingTime(b));
+  if (upcoming.length) return upcoming[0];
+  return [...topics].sort(
+    (a, b) =>
+      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
+  )[0];
+}
+
+/** Manual lifecycle: meetings do not decide Current vs Past. Several topics can be Current. */
 export function splitClassTopicsByStatus(topics: ClassTopicRow[]) {
-  const current = topics.filter((t) => t.status === "current");
+  const current = topics
+    .filter((t) => t.status === "current")
+    .sort((a, b) => topicMeetingTime(a) - topicMeetingTime(b));
   const past = topics
     .filter((t) => t.status === "past")
     .sort(
