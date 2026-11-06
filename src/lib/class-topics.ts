@@ -95,8 +95,14 @@ export function withPrimaryMeetingFields(
 ): ClassTopicRow {
   const meetings = sortMeetings(topic.meetings ?? []);
   const primary = primaryMeeting(meetings, now);
+  // A Current topic whose meetings have all finished counts as Past.
+  const finished =
+    topic.status === "current" &&
+    meetings.length > 0 &&
+    !meetings.some((m) => classIsUpcoming(m.class_starts_at, now));
   return {
     ...topic,
+    status: finished ? "past" : topic.status,
     meetings,
     class_id: primary?.class_id,
     class_title: primary?.class_title,
@@ -120,30 +126,33 @@ export function pickHomeTopic(
   topics: ClassTopicRow[],
   now = new Date(),
 ): ClassTopicRow | null {
-  if (!topics.length) return null;
   const upcoming = topics
     .filter(
-      (t) => t.class_starts_at && classIsUpcoming(t.class_starts_at, now),
+      (t) =>
+        t.status === "current" &&
+        t.class_starts_at &&
+        classIsUpcoming(t.class_starts_at, now),
     )
     .sort((a, b) => topicMeetingTime(a) - topicMeetingTime(b));
-  if (upcoming.length) return upcoming[0];
-  return [...topics].sort(
-    (a, b) =>
-      new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
-  )[0];
+  return upcoming[0] ?? null;
 }
 
-/** Manual lifecycle: meetings do not decide Current vs Past. Several topics can be Current. */
+/**
+ * Several topics can be Current. A Current topic becomes Past on its own
+ * once all its meetings are over (see withPrimaryMeetingFields); staff can
+ * also move it to Past early.
+ */
 export function splitClassTopicsByStatus(topics: ClassTopicRow[]) {
   const current = topics
     .filter((t) => t.status === "current")
     .sort((a, b) => topicMeetingTime(a) - topicMeetingTime(b));
+  const pastTime = (t: ClassTopicRow) =>
+    t.class_starts_at
+      ? new Date(t.class_starts_at).getTime()
+      : new Date(t.updated_at).getTime();
   const past = topics
     .filter((t) => t.status === "past")
-    .sort(
-      (a, b) =>
-        new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime(),
-    );
+    .sort((a, b) => pastTime(b) - pastTime(a));
   const drafts = topics
     .filter((t) => t.status === "draft")
     .sort(
